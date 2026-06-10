@@ -3,6 +3,12 @@
 export let STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"];
 export let TRACK_NAMES = ["original", ...STEM_NAMES];
 
+const FOUR_STEM_NAMES = ["vocals", "drums", "bass", "other"];
+
+export function supportedStemNamesForQuality(qualityPreset = "standard") {
+  return qualityPreset === "high" || qualityPreset === "max" ? FOUR_STEM_NAMES : STEM_NAMES;
+}
+
 export async function syncStemNamesFromAPI() {
   try {
     const res = await fetch("/api/config");

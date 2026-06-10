@@ -3,7 +3,7 @@ import {
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
   qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
 } from "./state.js";
-import { STEM_NAMES, syncStemNamesFromAPI } from "./constants.js";
+import { supportedStemNamesForQuality, syncStemNamesFromAPI } from "./constants.js";
 import { renderEmptyShell, buildStripStems, downloadCurrentMix, downloadAllStemsZip, downloadRegionMix, drawFooterPlaceholder } from "./player.js";
 import { wireJobForm, showError } from "./job.js";
 import { wireTransportButtons } from "./transport.js";
@@ -32,25 +32,39 @@ import { runStoreMigrationIfNeeded } from "./utils.js";
 // Persisted across reloads so the next song honors the user's last
 // chosen subset, but a 0-selection state is normalized to all 6.
 function refreshStemChoiceVisuals() {
+  const allowed = supportedStemNamesForQuality(qualityPreset);
+  const selectedAllowed = [...selectedStems].filter((name) => allowed.includes(name));
+  const fallbackToAll = selectedAllowed.length === 0;
   for (const btn of document.querySelectorAll(".stem-choice[data-stem]")) {
+    const enabled = allowed.includes(btn.dataset.stem);
+    btn.disabled = !enabled;
+    btn.setAttribute("aria-disabled", String(!enabled));
     btn.setAttribute(
       "aria-pressed",
-      String(selectedStems.has(btn.dataset.stem)),
+      String(enabled && (fallbackToAll || selectedStems.has(btn.dataset.stem))),
     );
+    if (!enabled) {
+      btn.title = `${btn.textContent.trim()} is only available in Standard 6-stem mode`;
+    } else {
+      btn.removeAttribute("title");
+    }
   }
 }
 
 function handleStemChoiceClick(stem) {
-  const allSelected = selectedStems.size === STEM_NAMES.length;
+  const allowed = supportedStemNamesForQuality(qualityPreset);
+  if (!allowed.includes(stem)) return;
+  const selectedAllowed = [...selectedStems].filter((name) => allowed.includes(name));
+  const allSelected = selectedAllowed.length === allowed.length;
   if (allSelected) {
     // Default state -> switch to "only this stem".
-    selectedStems.clear();
+    for (const name of allowed) selectedStems.delete(name);
     selectedStems.add(stem);
   } else if (selectedStems.has(stem)) {
     selectedStems.delete(stem);
-    if (selectedStems.size === 0) {
+    if (!allowed.some((name) => selectedStems.has(name))) {
       // Empty out wraps back to "all" so the user is never stuck.
-      for (const n of STEM_NAMES) selectedStems.add(n);
+      for (const n of allowed) selectedStems.add(n);
     }
   } else {
     selectedStems.add(stem);
@@ -72,15 +86,19 @@ function wireAllButton() {
   if (!allBtn) return;
 
   function syncAllBtn() {
-    allBtn.setAttribute("aria-pressed", String(selectedStems.size === STEM_NAMES.length));
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const selectedAllowed = allowed.filter((name) => selectedStems.has(name));
+    const allSelected = selectedAllowed.length === 0 || selectedAllowed.length === allowed.length;
+    allBtn.setAttribute("aria-pressed", String(allSelected));
   }
 
   allBtn.addEventListener("click", () => {
-    const allSelected = selectedStems.size === STEM_NAMES.length;
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const allSelected = allowed.every((name) => selectedStems.has(name));
     if (allSelected) {
-      selectedStems.clear();
+      for (const name of allowed) selectedStems.delete(name);
     } else {
-      for (const n of STEM_NAMES) selectedStems.add(n);
+      for (const n of allowed) selectedStems.add(n);
     }
     saveSelectedStems();
     refreshStemChoiceVisuals();
@@ -98,7 +116,19 @@ function wireAllButton() {
 
 function wireQualitySelect() {
   if (!qualitySelect) return;
-  qualitySelect.addEventListener("change", () => setQualityPreset(qualitySelect.value));
+  qualitySelect.addEventListener("change", () => {
+    setQualityPreset(qualitySelect.value);
+    refreshStemChoiceVisuals();
+    buildStripStems();
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const selectedAllowed = allowed.filter((name) => selectedStems.has(name));
+    document
+      .getElementById("stemAllBtn")
+      ?.setAttribute(
+        "aria-pressed",
+        String(selectedAllowed.length === 0 || selectedAllowed.length === allowed.length),
+      );
+  });
 }
 
 // ─── Wire everything up ───

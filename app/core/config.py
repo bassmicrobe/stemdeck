@@ -90,6 +90,13 @@ def normalize_quality_preset(value: str | None) -> str:
     return preset if preset in SUPPORTED_QUALITY_PRESETS else "standard"
 
 
+def stem_names_for_quality_preset(preset: str | None) -> tuple[str, ...]:
+    quality_preset = normalize_quality_preset(preset)
+    if quality_preset in ("high", "max"):
+        return ("vocals", "drums", "bass", "other")
+    return STEM_NAMES
+
+
 QUALITY_PRESET = _env_choice(
     "STEMDECK_QUALITY_PRESET", "standard", set(SUPPORTED_QUALITY_PRESETS)
 ) or "standard"

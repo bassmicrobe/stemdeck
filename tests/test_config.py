@@ -124,3 +124,18 @@ def test_explicit_demucs_options_win_over_quality_preset(monkeypatch):
         monkeypatch.delenv("STEMDECK_DEMUCS_SHIFTS", raising=False)
         monkeypatch.delenv("STEMDECK_DEMUCS_PRE_GAIN_DB", raising=False)
         importlib.reload(original)
+
+
+def test_high_quality_preset_supports_four_stems():
+    from app.core.config import stem_names_for_quality_preset
+
+    assert stem_names_for_quality_preset("standard") == (
+        "vocals",
+        "drums",
+        "bass",
+        "guitar",
+        "piano",
+        "other",
+    )
+    assert stem_names_for_quality_preset("high") == ("vocals", "drums", "bass", "other")
+    assert stem_names_for_quality_preset("max") == ("vocals", "drums", "bass", "other")

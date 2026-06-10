@@ -82,6 +82,19 @@ def test_post_accepts_quality_preset(client):
     assert _jobs[r.json()["job_id"]].quality_preset == "max"
 
 
+def test_quality_preset_filters_unsupported_stems(client):
+    r = client.post(
+        "/api/jobs",
+        json={
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "quality_preset": "high",
+            "stems": ["guitar", "piano"],
+        },
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].selected_stems == ["vocals", "drums", "bass", "other"]
+
+
 def test_get_unknown_job_returns_404(client):
     r = client.get("/api/jobs/000000000000")
     assert r.status_code == 404

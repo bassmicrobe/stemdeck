@@ -2,12 +2,13 @@ import {
   form, urlInput, submitBtn, errorEl, jobBox, jobTitleEl, jobStageEl,
   jobDetailEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
   eventSource, setEventSource, setCurrentJobId, currentJobId,
-  qualityPreset, selectedStems,
+  effectiveSelectedStems, qualityPreset, selectedStems,
 } from "./state.js";
 import { destroyPlayer, wireUpAudio, setWaveformLoading, updateFooterTrack } from "./player.js";
 import { stagePhrases } from "./phrases.js";
 import { addTrackToLibrary, setCurrentTrack, updateTrackStatus, applyStemPresenceCards } from "./catalog.js";
 import { initSections } from "./sections.js";
+import { supportedStemNamesForQuality } from "./constants.js";
 
 // Playful stage label rotation (Claude-Code-style flair). The backend
 // emits truthful stage strings; we surface them in the small #job-detail
@@ -20,6 +21,14 @@ const renderedJobs = new Set();
 const jobSources = new Map();
 
 const TERMINAL_STATUSES = new Set(["done", "error", "cancelled"]);
+
+function normalizeStemsForQuality(stems, preset) {
+  const allowed = supportedStemNamesForQuality(preset);
+  const selected = (stems?.length ? stems : [...selectedStems]).filter((name) =>
+    allowed.includes(name)
+  );
+  return selected.length > 0 ? selected : [...allowed];
+}
 
 function setSubmitProcessing(processing) {
   submitBtn.disabled = processing;
@@ -369,8 +378,8 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
   reset();
   setSubmitProcessing(true);
   setWaveformLoading(true, "");
-  const stemSel = stems?.length ? stems : [...selectedStems];
   const preset = quality || qualityPreset;
+  const stemSel = normalizeStemsForQuality(stems, preset);
 
   let jobId;
   try {
@@ -436,6 +445,7 @@ export function wireJobForm() {
     const sourceUrl = file ? `local:${sanitized}` : urlInput.value;
     const displayTitle = sanitized ?? (urlInput.value || "Processing track");
     const preset = qualityPreset;
+    const stemSel = effectiveSelectedStems(preset);
 
     const postUrlText = document.getElementById("post-url-text");
     if (postUrlText) postUrlText.textContent = displayTitle;
@@ -451,7 +461,7 @@ export function wireJobForm() {
     if (file) {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("stems", JSON.stringify([...selectedStems]));
+      fd.append("stems", JSON.stringify(stemSel));
       fd.append("quality_preset", preset);
       fetchInit = { method: "POST", body: fd };
     } else {
@@ -462,7 +472,7 @@ export function wireJobForm() {
           url: urlInput.value,
           // Backend uses this to decide whether to ffmpeg-amix a
           // "selected stems" track (mix.wav) at the end of the pipeline.
-          stems: [...selectedStems],
+          stems: stemSel,
           quality_preset: preset,
         }),
       };
@@ -488,8 +498,8 @@ export function wireJobForm() {
       title: displayTitle,
       channel: "Processing",
       thumb: "",
-      stems: [...selectedStems],
-      selectedStems: [...selectedStems],
+      stems: stemSel,
+      selectedStems: stemSel,
       qualityPreset: preset,
       audioStems: [],
       status: "processing",

@@ -1,5 +1,5 @@
 import { $, storeGet, storeSet } from "./utils.js";
-import { STEM_NAMES } from "./constants.js";
+import { STEM_NAMES, supportedStemNamesForQuality } from "./constants.js";
 
 // ─── DOM refs ───
 
@@ -117,6 +117,12 @@ export function setQualityPreset(value) {
   storeSet(_QUALITY_PRESET_KEY, qualityPreset).catch((e) =>
     console.warn("[state] failed to save quality preset:", e)
   );
+}
+
+export function effectiveSelectedStems(preset = qualityPreset) {
+  const allowed = supportedStemNamesForQuality(preset);
+  const selected = [...selectedStems].filter((name) => allowed.includes(name));
+  return selected.length > 0 ? selected : [...allowed];
 }
 
 export function saveSelectedStems() {

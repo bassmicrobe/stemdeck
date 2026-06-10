@@ -251,6 +251,14 @@ input, textarea { font-family: inherit; }
   background: color-mix(in srgb, var(--color) 14%, transparent);
   color: var(--color);
 }
+
+.stem-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  background: transparent;
+  color: var(--muted);
+}
+
 .stem-dot {
   width: 5px; height: 5px;
   border-radius: 50%;

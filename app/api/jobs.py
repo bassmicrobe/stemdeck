@@ -18,9 +18,9 @@ from app.core.config import (
     MAX_DURATION_SEC,
     MAX_PENDING_JOBS,
     QUALITY_PRESET,
-    STEM_NAMES,
     ffprobe_executable,
     normalize_quality_preset,
+    stem_names_for_quality_preset,
 )
 from app.core.models import Job
 from app.core.registry import all_jobs as registry_all_jobs
@@ -104,6 +104,12 @@ def _task_error_cb(task: asyncio.Task) -> None:
         logger.error("pipeline task raised unhandled exception", exc_info=exc)
 
 
+def _selected_stems_for_quality(stems: list[str] | None, quality_preset: str) -> list[str]:
+    allowed = stem_names_for_quality_preset(quality_preset)
+    selected = [s for s in stems if s in allowed] if stems else list(allowed)
+    return selected or list(allowed)
+
+
 class JobRequest(BaseModel):
     url: str
     # Subset of stems to include in the post-processing "selected mix"
@@ -140,14 +146,13 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
     except InvalidYouTubeURL as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    selected = [s for s in payload.stems if s in STEM_NAMES] if payload.stems else list(STEM_NAMES)
-    if not selected:
-        selected = list(STEM_NAMES)
+    quality_preset = normalize_quality_preset(payload.quality_preset or QUALITY_PRESET)
+    selected = _selected_stems_for_quality(payload.stems, quality_preset)
 
     job = Job(
         id=uuid.uuid4().hex[:12],
         selected_stems=selected,
-        quality_preset=normalize_quality_preset(payload.quality_preset or QUALITY_PRESET),
+        quality_preset=quality_preset,
         source_url=url,
     )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
@@ -196,7 +201,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
             raise ValueError
     except (json.JSONDecodeError, ValueError):
         stems_list = []
-    selected = [s for s in stems_list if s in STEM_NAMES] or list(STEM_NAMES)
+    selected = _selected_stems_for_quality(stems_list, quality_preset)
 
     # Check actual file size (SpooledTemporaryFile is already buffered at this
     # point; seek/tell are fast and don't re-read the body).
