@@ -6,6 +6,7 @@ import { STEM_NAMES } from "./constants.js";
 export const form = $("job-form");
 export const urlInput = $("url");
 export const submitBtn = $("submit");
+export const qualitySelect = $("qualityPreset");
 
 export const playBtn = $("t-play");
 export const playMiniBtn = $("t-play-mini");
@@ -75,6 +76,8 @@ export let loopEnd = 0;
 // so a user who turns off "Vocals" stays set up that way for the
 // next song.
 const _STEM_SEL_KEY = "stemdeck:selected-stems";
+const _QUALITY_PRESET_KEY = "stemdeck:quality-preset";
+const QUALITY_PRESETS = new Set(["standard", "high", "max"]);
 
 // Start with all stems selected (safe default). The async store load below
 // updates this binding once the store is available; ES module live bindings
@@ -97,6 +100,24 @@ export const stemSelectionReady = (async () => {
   } catch (e) { console.warn("[state] failed to load stem selection:", e); }
   // Keep the all-stems default.
 })();
+
+export let qualityPreset = "standard";
+
+export const qualityPresetReady = (async () => {
+  try {
+    const stored = await storeGet(_QUALITY_PRESET_KEY, null);
+    if (typeof stored === "string" && QUALITY_PRESETS.has(stored)) {
+      qualityPreset = stored;
+    }
+  } catch (e) { console.warn("[state] failed to load quality preset:", e); }
+})();
+
+export function setQualityPreset(value) {
+  qualityPreset = QUALITY_PRESETS.has(value) ? value : "standard";
+  storeSet(_QUALITY_PRESET_KEY, qualityPreset).catch((e) =>
+    console.warn("[state] failed to save quality preset:", e)
+  );
+}
 
 export function saveSelectedStems() {
   storeSet(_STEM_SEL_KEY, [...selectedStems]).catch((e) =>

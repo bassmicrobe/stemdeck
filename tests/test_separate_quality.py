@@ -2,20 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import app.pipeline.separate as separate
+from app.core.config import DemucsSettings
+
 
 def test_build_demucs_command_includes_quality_flags(monkeypatch, tmp_path: Path):
-    import app.pipeline.separate as separate
-
-    monkeypatch.setattr(separate, "DEMUCS_MODEL", "htdemucs_ft")
     monkeypatch.setattr(separate, "DEMUCS_DEVICE", "cpu")
-    monkeypatch.setattr(separate, "DEMUCS_SHIFTS", 4)
-    monkeypatch.setattr(separate, "DEMUCS_OVERLAP", 0.25)
-    monkeypatch.setattr(separate, "DEMUCS_SEGMENT", 7.8)
-    monkeypatch.setattr(separate, "DEMUCS_FLOAT32", True)
-    monkeypatch.setattr(separate, "DEMUCS_CLIP_MODE", "rescale")
+    settings = DemucsSettings(
+        quality_preset="high",
+        model="htdemucs_ft",
+        shifts=4,
+        pre_gain_db=-6.0,
+        float32=True,
+        clip_mode="rescale",
+        overlap=0.25,
+        segment=7.8,
+    )
 
     source = tmp_path / "source.demucs.wav"
-    cmd = separate.build_demucs_command(source, tmp_path)
+    cmd = separate.build_demucs_command(source, tmp_path, settings)
 
     assert cmd[:6] == [separate.sys.executable, "-m", "demucs", "-n", "htdemucs_ft", "-d"]
     assert "cpu" in cmd
@@ -31,15 +36,18 @@ def test_build_demucs_command_includes_quality_flags(monkeypatch, tmp_path: Path
 
 
 def test_build_demucs_command_omits_standard_quality_flags(monkeypatch, tmp_path: Path):
-    import app.pipeline.separate as separate
+    settings = DemucsSettings(
+        quality_preset="standard",
+        model="htdemucs_6s",
+        shifts=0,
+        pre_gain_db=0.0,
+        float32=False,
+        clip_mode=None,
+        overlap=0.0,
+        segment=0.0,
+    )
 
-    monkeypatch.setattr(separate, "DEMUCS_SHIFTS", 0)
-    monkeypatch.setattr(separate, "DEMUCS_OVERLAP", 0.0)
-    monkeypatch.setattr(separate, "DEMUCS_SEGMENT", 0.0)
-    monkeypatch.setattr(separate, "DEMUCS_FLOAT32", False)
-    monkeypatch.setattr(separate, "DEMUCS_CLIP_MODE", None)
-
-    cmd = separate.build_demucs_command(tmp_path / "source.wav", tmp_path)
+    cmd = separate.build_demucs_command(tmp_path / "source.wav", tmp_path, settings)
 
     assert "--shifts" not in cmd
     assert "--overlap" not in cmd

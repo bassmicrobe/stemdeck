@@ -1,6 +1,7 @@
 import {
   playBtn, loopBtn, multitrack, totalDuration, loopEnabled, loopStart, loopEnd,
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
+  qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
 } from "./state.js";
 import { STEM_NAMES, syncStemNamesFromAPI } from "./constants.js";
 import { renderEmptyShell, buildStripStems, downloadCurrentMix, downloadAllStemsZip, downloadRegionMix, drawFooterPlaceholder } from "./player.js";
@@ -95,6 +96,11 @@ function wireAllButton() {
   syncAllBtn();
 }
 
+function wireQualitySelect() {
+  if (!qualitySelect) return;
+  qualitySelect.addEventListener("change", () => setQualityPreset(qualitySelect.value));
+}
+
 // ─── Wire everything up ───
 
 syncStemNamesFromAPI().then(() => buildStripStems());
@@ -106,12 +112,15 @@ wireStemListControls();
 wireMixerToolbar();
 wireStemChoiceButtons();
 wireAllButton();
+wireQualitySelect();
 wireFileDrop();
 wireAppShellControls();
 
 (async () => {
   await runStoreMigrationIfNeeded();
   await stemSelectionReady;
+  await qualityPresetReady;
+  if (qualitySelect) qualitySelect.value = qualityPreset;
   refreshStemChoiceVisuals();
   await initCatalog();
 })().catch(console.error);

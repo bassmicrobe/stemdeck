@@ -11,10 +11,10 @@ import numpy as np
 import soundfile as sf
 
 from app.core.config import (
-    DEMUCS_MODEL,
     JOB_TTL_SECONDS,
     STEM_NAMES,
     TIMEOUT_FFMPEG,
+    demucs_settings_for_preset,
     ffmpeg_executable,
 )
 from app.core.models import Job
@@ -85,7 +85,7 @@ def collect(job: Job, stems_root: Path, job_dir: Path) -> list[str]:
         if src.exists():
             shutil.move(str(src), target_dir / f"{name}.wav")
             found.append(name)
-    _rmtree(job_dir / DEMUCS_MODEL)
+    _rmtree(job_dir / demucs_settings_for_preset(job.quality_preset).model)
     if not found:
         raise RuntimeError("no stems produced by demucs")
     return found

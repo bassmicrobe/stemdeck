@@ -50,6 +50,7 @@ class Job:
     # mix down only the selected ones into mix.wav so the user can
     # download a single track containing just their chosen stems.
     selected_stems: list[str] = field(default_factory=list)
+    quality_preset: str = "standard"
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
     error: str | None = None
@@ -82,6 +83,7 @@ class Job:
             "tags": self.tags,
             "stems": self.stems,
             "selected_stems": self.selected_stems,
+            "quality_preset": self.quality_preset,
             "mix_url": self.mix_url,
             "source_url": self.source_url,
             "error": self.error,

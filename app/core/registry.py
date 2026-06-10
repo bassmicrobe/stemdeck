@@ -151,6 +151,7 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         stage_message="Done",
         stems=stems,
         selected_stems=selected,
+        quality_preset=str(meta.get("quality_preset") or "standard"),
         mix_url=mix_url,
         created_at=job_dir.stat().st_mtime,
         title=meta.get("title"),

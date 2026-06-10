@@ -201,6 +201,33 @@ input, textarea { font-family: inherit; }
 }
 .daw-stem-chips { display: flex; gap: 4px; }
 
+.daw-quality-section {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.daw-quality-select {
+  height: 30px;
+  min-width: 132px;
+  padding: 0 28px 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.daw-quality-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
 /* Stem choice buttons */
 .stem-choice {
   height: 30px;

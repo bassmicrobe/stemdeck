@@ -73,6 +73,15 @@ def test_post_accepts_youtube_url(client):
     assert len(r.json()["job_id"]) == 12
 
 
+def test_post_accepts_quality_preset(client):
+    r = client.post(
+        "/api/jobs",
+        json={"url": "https://youtu.be/dQw4w9WgXcQ", "quality_preset": "max"},
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].quality_preset == "max"
+
+
 def test_get_unknown_job_returns_404(client):
     r = client.get("/api/jobs/000000000000")
     assert r.status_code == 404
@@ -161,6 +170,17 @@ def test_upload_mp3_returns_job_id(upload_client):
     assert r.status_code == 200
     assert "job_id" in r.json()
     assert len(r.json()["job_id"]) == 12
+
+
+def test_upload_accepts_quality_preset(upload_client):
+    data = io.BytesIO(b"ID3" + b"\x00" * 128)
+    r = upload_client.post(
+        "/api/jobs",
+        data={"quality_preset": "high"},
+        files={"file": ("my_track.mp3", data, "audio/mpeg")},
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].quality_preset == "high"
 
 
 def test_upload_wav_returns_job_id(upload_client):

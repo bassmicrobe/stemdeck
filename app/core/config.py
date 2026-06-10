@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -69,8 +70,28 @@ STATIC_DIR = ROOT / "static"
 STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "other")
 JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 
+SUPPORTED_QUALITY_PRESETS = frozenset(("standard", "high", "max"))
+
+
+@dataclass(frozen=True)
+class DemucsSettings:
+    quality_preset: str
+    model: str
+    shifts: int
+    pre_gain_db: float
+    float32: bool
+    clip_mode: str | None
+    overlap: float
+    segment: float
+
+
+def normalize_quality_preset(value: str | None) -> str:
+    preset = (value or "").strip().lower()
+    return preset if preset in SUPPORTED_QUALITY_PRESETS else "standard"
+
+
 QUALITY_PRESET = _env_choice(
-    "STEMDECK_QUALITY_PRESET", "standard", {"standard", "high", "max"}
+    "STEMDECK_QUALITY_PRESET", "standard", set(SUPPORTED_QUALITY_PRESETS)
 ) or "standard"
 _QUALITY_DEFAULTS = {
     "standard": {
@@ -97,7 +118,29 @@ _QUALITY_DEFAULTS = {
         "clip_mode": "rescale",
     },
 }
-_quality = _QUALITY_DEFAULTS[QUALITY_PRESET]
+
+
+def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
+    quality_preset = normalize_quality_preset(preset)
+    quality = _QUALITY_DEFAULTS[quality_preset]
+    model = os.environ.get("STEMDECK_DEMUCS_MODEL", str(quality["model"])).strip() or str(
+        quality["model"]
+    )
+    return DemucsSettings(
+        quality_preset=quality_preset,
+        model=model,
+        shifts=max(0, _env_int("STEMDECK_DEMUCS_SHIFTS", int(quality["shifts"]))),
+        pre_gain_db=_env_float("STEMDECK_DEMUCS_PRE_GAIN_DB", float(quality["pre_gain_db"])),
+        float32=_env_bool("STEMDECK_DEMUCS_FLOAT32", bool(quality["float32"])),
+        clip_mode=_env_choice(
+            "STEMDECK_DEMUCS_CLIP_MODE", quality["clip_mode"], {"rescale", "clamp", "none"}
+        ),
+        overlap=max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", 0.0)),
+        segment=max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", 0.0)),
+    )
+
+
+_demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
 # tune without a code edit. STEMDECK_DATA_DIR is the portable app root for
@@ -122,18 +165,14 @@ FFPROBE_BIN = _env_path(
     "STEMDECK_FFPROBE",
     FFMPEG_DIR / ("ffprobe.exe" if sys.platform.startswith("win") else "ffprobe"),
 )
-DEMUCS_MODEL = os.environ.get("STEMDECK_DEMUCS_MODEL", str(_quality["model"])).strip() or str(
-    _quality["model"]
-)
+DEMUCS_MODEL = _demucs_settings.model
 DEMUCS_DEVICE = _detect_device()
-DEMUCS_SHIFTS = max(0, _env_int("STEMDECK_DEMUCS_SHIFTS", int(_quality["shifts"])))
-DEMUCS_PRE_GAIN_DB = _env_float("STEMDECK_DEMUCS_PRE_GAIN_DB", float(_quality["pre_gain_db"]))
-DEMUCS_FLOAT32 = _env_bool("STEMDECK_DEMUCS_FLOAT32", bool(_quality["float32"]))
-DEMUCS_CLIP_MODE = _env_choice(
-    "STEMDECK_DEMUCS_CLIP_MODE", _quality["clip_mode"], {"rescale", "clamp", "none"}
-)
-DEMUCS_OVERLAP = max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", 0.0))
-DEMUCS_SEGMENT = max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", 0.0))
+DEMUCS_SHIFTS = _demucs_settings.shifts
+DEMUCS_PRE_GAIN_DB = _demucs_settings.pre_gain_db
+DEMUCS_FLOAT32 = _demucs_settings.float32
+DEMUCS_CLIP_MODE = _demucs_settings.clip_mode
+DEMUCS_OVERLAP = _demucs_settings.overlap
+DEMUCS_SEGMENT = _demucs_settings.segment
 MAX_DURATION_SEC = max(60, _env_int("STEMDECK_MAX_DURATION_SEC", 1200))  # 20 min default
 JOB_TTL_SECONDS = max(300, _env_int("STEMDECK_JOB_TTL_SECONDS", 24 * 3600))  # 24 h default
 MAX_PENDING_JOBS = max(1, min(50, _env_int("STEMDECK_MAX_PENDING_JOBS", 3)))

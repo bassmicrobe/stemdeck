@@ -2,7 +2,7 @@ import {
   form, urlInput, submitBtn, errorEl, jobBox, jobTitleEl, jobStageEl,
   jobDetailEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
   eventSource, setEventSource, setCurrentJobId, currentJobId,
-  selectedStems,
+  qualityPreset, selectedStems,
 } from "./state.js";
 import { destroyPlayer, wireUpAudio, setWaveformLoading, updateFooterTrack } from "./player.js";
 import { stagePhrases } from "./phrases.js";
@@ -364,19 +364,20 @@ function sanitizeFilename(name) {
 // import form's URL path). Used by the library "Sync again" auto-restore to
 // re-download + re-separate a track whose backend audio was swept. Takes over
 // the studio like a normal import. Returns the new job id, or null on failure.
-export async function importFromUrl(url, { title, stems } = {}) {
+export async function importFromUrl(url, { title, stems, quality } = {}) {
   if (!url || url.startsWith("local:")) return null; // local files can't auto-restore
   reset();
   setSubmitProcessing(true);
   setWaveformLoading(true, "");
   const stemSel = stems?.length ? stems : [...selectedStems];
+  const preset = quality || qualityPreset;
 
   let jobId;
   try {
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, stems: stemSel }),
+      body: JSON.stringify({ url, stems: stemSel, quality_preset: preset }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
@@ -398,6 +399,7 @@ export async function importFromUrl(url, { title, stems } = {}) {
     thumb: "",
     stems: stemSel,
     selectedStems: stemSel,
+    qualityPreset: preset,
     audioStems: [],
     status: "processing",
     bpm: null,
@@ -433,6 +435,7 @@ export function wireJobForm() {
     const sanitized = file ? sanitizeFilename(file.name) : null;
     const sourceUrl = file ? `local:${sanitized}` : urlInput.value;
     const displayTitle = sanitized ?? (urlInput.value || "Processing track");
+    const preset = qualityPreset;
 
     const postUrlText = document.getElementById("post-url-text");
     if (postUrlText) postUrlText.textContent = displayTitle;
@@ -449,6 +452,7 @@ export function wireJobForm() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("stems", JSON.stringify([...selectedStems]));
+      fd.append("quality_preset", preset);
       fetchInit = { method: "POST", body: fd };
     } else {
       fetchInit = {
@@ -459,6 +463,7 @@ export function wireJobForm() {
           // Backend uses this to decide whether to ffmpeg-amix a
           // "selected stems" track (mix.wav) at the end of the pipeline.
           stems: [...selectedStems],
+          quality_preset: preset,
         }),
       };
     }
@@ -485,6 +490,7 @@ export function wireJobForm() {
       thumb: "",
       stems: [...selectedStems],
       selectedStems: [...selectedStems],
+      qualityPreset: preset,
       audioStems: [],
       status: "processing",
       bpm: null,

@@ -10,14 +10,10 @@ import time
 from pathlib import Path
 
 from app.core.config import (
-    DEMUCS_CLIP_MODE,
     DEMUCS_DEVICE,
-    DEMUCS_FLOAT32,
-    DEMUCS_MODEL,
-    DEMUCS_OVERLAP,
-    DEMUCS_SEGMENT,
-    DEMUCS_SHIFTS,
     TIMEOUT_DEMUCS_STALL,
+    DemucsSettings,
+    demucs_settings_for_preset,
 )
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import set_proc
@@ -30,26 +26,26 @@ _PCT_RE = re.compile(r"(\d{1,3})%")
 # while still catching genuine hangs (GPU deadlock, OOM stall, etc.).
 
 
-def build_demucs_command(source: Path, job_dir: Path) -> list[str]:
+def build_demucs_command(source: Path, job_dir: Path, settings: DemucsSettings) -> list[str]:
     cmd = [
         sys.executable,
         "-m",
         "demucs",
         "-n",
-        DEMUCS_MODEL,
+        settings.model,
         "-d",
         DEMUCS_DEVICE,
     ]
-    if DEMUCS_SHIFTS > 0:
-        cmd += ["--shifts", str(DEMUCS_SHIFTS)]
-    if DEMUCS_OVERLAP > 0:
-        cmd += ["--overlap", f"{DEMUCS_OVERLAP:g}"]
-    if DEMUCS_SEGMENT > 0:
-        cmd += ["--segment", f"{DEMUCS_SEGMENT:g}"]
-    if DEMUCS_FLOAT32:
+    if settings.shifts > 0:
+        cmd += ["--shifts", str(settings.shifts)]
+    if settings.overlap > 0:
+        cmd += ["--overlap", f"{settings.overlap:g}"]
+    if settings.segment > 0:
+        cmd += ["--segment", f"{settings.segment:g}"]
+    if settings.float32:
         cmd.append("--float32")
-    if DEMUCS_CLIP_MODE:
-        cmd += ["--clip-mode", DEMUCS_CLIP_MODE]
+    if settings.clip_mode:
+        cmd += ["--clip-mode", settings.clip_mode]
     cmd += ["-o", str(job_dir), str(source)]
     return cmd
 
@@ -57,7 +53,8 @@ def build_demucs_command(source: Path, job_dir: Path) -> list[str]:
 def separate(job: Job, source: Path, job_dir: Path) -> Path:
     _set(job, status="separating", progress=0.0, stage="Separating stems...")
 
-    cmd = build_demucs_command(source, job_dir)
+    settings = demucs_settings_for_preset(job.quality_preset)
+    cmd = build_demucs_command(source, job_dir, settings)
     env = os.environ.copy()
     try:
         import certifi
@@ -143,7 +140,7 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
         last = tail[-1] if tail else f"exit status {proc.returncode}"
         raise RuntimeError(f"demucs failed: {last}")
 
-    stems_root = job_dir / DEMUCS_MODEL / source.stem
+    stems_root = job_dir / settings.model / source.stem
     if not stems_root.is_dir():
         raise RuntimeError(f"demucs output not found at {stems_root}")
     return stems_root

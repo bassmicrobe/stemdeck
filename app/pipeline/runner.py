@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.core.config import DEMUCS_PRE_GAIN_DB, TIMEOUT_FFMPEG, ffmpeg_executable
+from app.core.config import TIMEOUT_FFMPEG, demucs_settings_for_preset, ffmpeg_executable
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
@@ -86,7 +86,8 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
     slightly quieter float WAV costs extra ffmpeg time but preserves the source
     file for analysis and keeps the quality tweak reversible.
     """
-    if abs(DEMUCS_PRE_GAIN_DB) < 0.001:
+    settings = demucs_settings_for_preset(job.quality_preset)
+    if abs(settings.pre_gain_db) < 0.001:
         return source
 
     dest = job_dir / "source.demucs.wav"
@@ -99,7 +100,7 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         "-i",
         str(source),
         "-filter:a",
-        f"volume={DEMUCS_PRE_GAIN_DB:g}dB",
+        f"volume={settings.pre_gain_db:g}dB",
         "-ar",
         "44100",
         "-ac",
@@ -183,6 +184,7 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "dynamic_range": job.dynamic_range,
         "tempo_stability": job.tempo_stability,
         "stem_presence": job.stem_presence,
+        "quality_preset": job.quality_preset,
         "tags": job.tags,
     }
     try:

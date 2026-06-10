@@ -297,6 +297,7 @@ function stateMetadataToTrack(state, fallbackTrack) {
     stems: state.selected_stems || fallbackTrack.stems,
     selectedStems: state.selected_stems || fallbackTrack.selectedStems,
     audioStems: state.stems || fallbackTrack.audioStems || [],
+    qualityPreset: state.quality_preset || fallbackTrack.qualityPreset || "standard",
     duration: state.duration || fallbackTrack.duration,
     status: state.status || fallbackTrack.status,
     bpm: state.bpm ?? fallbackTrack.bpm,
@@ -1889,6 +1890,7 @@ async function resyncLibrary() {
         const jobId = await importFromUrl(t.sourceUrl, {
           title: t.title,
           stems: t.selectedStems,
+          quality: t.qualityPreset,
         });
         if (jobId) await waitForJobTerminal(jobId);
       }

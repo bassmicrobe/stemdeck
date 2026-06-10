@@ -142,6 +142,7 @@ def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monk
     import app.pipeline.runner as runner
 
     job = Job(id="abcdefabcde6")
+    job.quality_preset = "high"
     source = tmp_path / "source.wav"
     source.write_bytes(b"wav")
     calls = []
@@ -155,7 +156,6 @@ def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monk
         Path(cmd[-1]).write_bytes(b"processed")
         return Result()
 
-    monkeypatch.setattr(runner, "DEMUCS_PRE_GAIN_DB", -6.0)
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
 
     dest = _prepare_demucs_source(job, source, tmp_path)

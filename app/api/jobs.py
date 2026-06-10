@@ -17,8 +17,10 @@ from app.core.config import (
     JOBS_DIR,
     MAX_DURATION_SEC,
     MAX_PENDING_JOBS,
+    QUALITY_PRESET,
     STEM_NAMES,
     ffprobe_executable,
+    normalize_quality_preset,
 )
 from app.core.models import Job
 from app.core.registry import all_jobs as registry_all_jobs
@@ -110,6 +112,7 @@ class JobRequest(BaseModel):
     # rejected, so a future model with extra stems doesn't break older
     # clients pinning the old set.
     stems: list[str] | None = None
+    quality_preset: str | None = None
 
 
 @router.post("")
@@ -141,7 +144,12 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
     if not selected:
         selected = list(STEM_NAMES)
 
-    job = Job(id=uuid.uuid4().hex[:12], selected_stems=selected, source_url=url)
+    job = Job(
+        id=uuid.uuid4().hex[:12],
+        selected_stems=selected,
+        quality_preset=normalize_quality_preset(payload.quality_preset or QUALITY_PRESET),
+        source_url=url,
+    )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
     task = asyncio.create_task(run_pipeline(job, url, JOBS_DIR))
@@ -168,6 +176,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     form = await request.form()
     upload = form.get("file")
     stems_raw = form.get("stems", "[]")
+    quality_preset = normalize_quality_preset(str(form.get("quality_preset", QUALITY_PRESET)))
 
     if upload is None or not hasattr(upload, "filename"):
         raise HTTPException(status_code=422, detail="No file provided")
@@ -229,6 +238,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     job = Job(
         id=job_id,
         selected_stems=selected,
+        quality_preset=quality_preset,
         title=title,
         duration_sec=duration,
         source_url=local_source_url,

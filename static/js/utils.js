@@ -46,6 +46,7 @@ const _MIGRATE_KEYS = [
   "stemdeck.folders",
   "stemdeck.deleted_jobs",
   "stemdeck:selected-stems",
+  "stemdeck:quality-preset",
 ];
 
 // One-time bootstrap: copy localStorage → store for existing users.
