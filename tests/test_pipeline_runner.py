@@ -7,7 +7,7 @@ import pytest
 
 from app.core.models import Job, JobCancelled
 from app.core.registry import _jobs
-from app.pipeline.runner import run_local_pipeline, run_pipeline
+from app.pipeline.runner import _prepare_demucs_source, run_local_pipeline, run_pipeline
 
 
 @pytest.mark.asyncio
@@ -136,3 +136,35 @@ async def test_local_pipeline_error_cleans_up_job_dir(tmp_path: Path):
 
     assert job.status == "error"
     assert not (tmp_path / job.id).exists(), "job dir should be removed on local error"
+
+
+def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    job = Job(id="abcdefabcde6")
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    calls = []
+
+    class Result:
+        returncode = 0
+        stderr = b""
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        Path(cmd[-1]).write_bytes(b"processed")
+        return Result()
+
+    monkeypatch.setattr(runner, "DEMUCS_PRE_GAIN_DB", -6.0)
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    dest = _prepare_demucs_source(job, source, tmp_path)
+
+    assert dest == tmp_path / "source.demucs.wav"
+    assert dest.read_bytes() == b"processed"
+    cmd, kwargs = calls[0]
+    assert cmd[cmd.index("-filter:a") : cmd.index("-filter:a") + 2] == [
+        "-filter:a",
+        "volume=-6dB",
+    ]
+    assert kwargs["timeout"] == runner.TIMEOUT_FFMPEG

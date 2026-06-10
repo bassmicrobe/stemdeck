@@ -12,6 +12,32 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    try:
+        return float(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _env_choice(name: str, default: str | None, choices: set[str]) -> str | None:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw if raw in choices else default
+
+
 def _env_path(name: str, default: Path) -> Path:
     raw = os.environ.get(name, "").strip()
     return Path(raw).expanduser().resolve() if raw else default
@@ -43,6 +69,36 @@ STATIC_DIR = ROOT / "static"
 STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "other")
 JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 
+QUALITY_PRESET = _env_choice(
+    "STEMDECK_QUALITY_PRESET", "standard", {"standard", "high", "max"}
+) or "standard"
+_QUALITY_DEFAULTS = {
+    "standard": {
+        "model": "htdemucs_6s",
+        "shifts": 0,
+        "pre_gain_db": 0.0,
+        "float32": False,
+        "clip_mode": None,
+    },
+    # Slower, cleaner 4-stem separation. htdemucs_ft is Demucs' fine-tuned
+    # model; shifts averages repeated runs and helps reduce random artifacts.
+    "high": {
+        "model": "htdemucs_ft",
+        "shifts": 4,
+        "pre_gain_db": -6.0,
+        "float32": True,
+        "clip_mode": "rescale",
+    },
+    "max": {
+        "model": "htdemucs_ft",
+        "shifts": 10,
+        "pre_gain_db": -6.0,
+        "float32": True,
+        "clip_mode": "rescale",
+    },
+}
+_quality = _QUALITY_DEFAULTS[QUALITY_PRESET]
+
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
 # tune without a code edit. STEMDECK_DATA_DIR is the portable app root for
 # mutable runtime data; when unset, dev behavior remains the repo-local jobs/
@@ -66,8 +122,18 @@ FFPROBE_BIN = _env_path(
     "STEMDECK_FFPROBE",
     FFMPEG_DIR / ("ffprobe.exe" if sys.platform.startswith("win") else "ffprobe"),
 )
-DEMUCS_MODEL = os.environ.get("STEMDECK_DEMUCS_MODEL", "htdemucs_6s").strip() or "htdemucs_6s"
+DEMUCS_MODEL = os.environ.get("STEMDECK_DEMUCS_MODEL", str(_quality["model"])).strip() or str(
+    _quality["model"]
+)
 DEMUCS_DEVICE = _detect_device()
+DEMUCS_SHIFTS = max(0, _env_int("STEMDECK_DEMUCS_SHIFTS", int(_quality["shifts"])))
+DEMUCS_PRE_GAIN_DB = _env_float("STEMDECK_DEMUCS_PRE_GAIN_DB", float(_quality["pre_gain_db"]))
+DEMUCS_FLOAT32 = _env_bool("STEMDECK_DEMUCS_FLOAT32", bool(_quality["float32"]))
+DEMUCS_CLIP_MODE = _env_choice(
+    "STEMDECK_DEMUCS_CLIP_MODE", _quality["clip_mode"], {"rescale", "clamp", "none"}
+)
+DEMUCS_OVERLAP = max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", 0.0))
+DEMUCS_SEGMENT = max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", 0.0))
 MAX_DURATION_SEC = max(60, _env_int("STEMDECK_MAX_DURATION_SEC", 1200))  # 20 min default
 JOB_TTL_SECONDS = max(300, _env_int("STEMDECK_JOB_TTL_SECONDS", 24 * 3600))  # 24 h default
 MAX_PENDING_JOBS = max(1, min(50, _env_int("STEMDECK_MAX_PENDING_JOBS", 3)))

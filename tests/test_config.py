@@ -82,3 +82,45 @@ def test_configure_portable_environment_leaves_dev_cache_env_alone(monkeypatch):
         monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
         monkeypatch.delenv("TORCH_HOME", raising=False)
         importlib.reload(original)
+
+
+def test_high_quality_preset_sets_slower_demucs_defaults(monkeypatch):
+    import app.core.config as config
+
+    original = config
+    monkeypatch.setenv("STEMDECK_QUALITY_PRESET", "high")
+    monkeypatch.delenv("STEMDECK_DEMUCS_MODEL", raising=False)
+    monkeypatch.delenv("STEMDECK_DEMUCS_SHIFTS", raising=False)
+    monkeypatch.delenv("STEMDECK_DEMUCS_PRE_GAIN_DB", raising=False)
+    try:
+        reloaded = importlib.reload(config)
+        assert reloaded.QUALITY_PRESET == "high"
+        assert reloaded.DEMUCS_MODEL == "htdemucs_ft"
+        assert reloaded.DEMUCS_SHIFTS == 4
+        assert reloaded.DEMUCS_PRE_GAIN_DB == -6.0
+        assert reloaded.DEMUCS_FLOAT32 is True
+    finally:
+        monkeypatch.delenv("STEMDECK_QUALITY_PRESET", raising=False)
+        importlib.reload(original)
+
+
+def test_explicit_demucs_options_win_over_quality_preset(monkeypatch):
+    import app.core.config as config
+
+    original = config
+    monkeypatch.setenv("STEMDECK_QUALITY_PRESET", "max")
+    monkeypatch.setenv("STEMDECK_DEMUCS_MODEL", "htdemucs_6s")
+    monkeypatch.setenv("STEMDECK_DEMUCS_SHIFTS", "2")
+    monkeypatch.setenv("STEMDECK_DEMUCS_PRE_GAIN_DB", "-3")
+    try:
+        reloaded = importlib.reload(config)
+        assert reloaded.QUALITY_PRESET == "max"
+        assert reloaded.DEMUCS_MODEL == "htdemucs_6s"
+        assert reloaded.DEMUCS_SHIFTS == 2
+        assert reloaded.DEMUCS_PRE_GAIN_DB == -3.0
+    finally:
+        monkeypatch.delenv("STEMDECK_QUALITY_PRESET", raising=False)
+        monkeypatch.delenv("STEMDECK_DEMUCS_MODEL", raising=False)
+        monkeypatch.delenv("STEMDECK_DEMUCS_SHIFTS", raising=False)
+        monkeypatch.delenv("STEMDECK_DEMUCS_PRE_GAIN_DB", raising=False)
+        importlib.reload(original)

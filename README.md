@@ -274,8 +274,15 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, or `max`. `high` / `max` use slower Demucs settings for cleaner output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
-| `STEMDECK_DEMUCS_MODEL` | `htdemucs_6s` | Demucs model name. |
+| `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` use `htdemucs_ft` unless overridden. |
+| `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages. Higher is slower and can reduce artifacts. |
+| `STEMDECK_DEMUCS_PRE_GAIN_DB` | preset-dependent | Optional input gain before Demucs. Negative values such as `-6` can help very loud masters separate more cleanly. |
+| `STEMDECK_DEMUCS_FLOAT32` | preset-dependent | Write Demucs stems as 32-bit float WAVs when truthy. |
+| `STEMDECK_DEMUCS_CLIP_MODE` | preset-dependent | Demucs output clipping mode: `rescale`, `clamp`, or `none`. |
+| `STEMDECK_DEMUCS_OVERLAP` | `0` | Optional Demucs segment overlap override. `0` leaves the Demucs default untouched. |
+| `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
 | `STEMDECK_JOBS_DIR` | `./jobs` | Where job directories land. |
 | `STEMDECK_DATA_DIR` | (none) | Portable mode root; sets all sub-dirs below to live inside it. |
 | `STEMDECK_CACHE_DIR` | `<data>/cache` | Torch model cache directory. |

@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.core.config import TIMEOUT_FFMPEG
+from app.core.config import DEMUCS_PRE_GAIN_DB, TIMEOUT_FFMPEG, ffmpeg_executable
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
@@ -49,8 +49,6 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
     would otherwise process silently and output as silence.
 
     Deletes the original source file after a successful transcode."""
-    from app.core.config import ffmpeg_executable
-
     dest = job_dir / "source.wav"
     if source.resolve() == dest.resolve():
         return source
@@ -81,13 +79,53 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
     return dest
 
 
+def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
+    """Optionally create a lower-gain working copy for Demucs.
+
+    Hot masters can provoke clipped or ragged stem edges. Feeding Demucs a
+    slightly quieter float WAV costs extra ffmpeg time but preserves the source
+    file for analysis and keeps the quality tweak reversible.
+    """
+    if abs(DEMUCS_PRE_GAIN_DB) < 0.001:
+        return source
+
+    dest = job_dir / "source.demucs.wav"
+    _set(job, stage="Preparing high-quality separation...")
+    cmd = [
+        ffmpeg_executable(),
+        "-nostdin",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-filter:a",
+        f"volume={DEMUCS_PRE_GAIN_DB:g}dB",
+        "-ar",
+        "44100",
+        "-ac",
+        "2",
+        "-sample_fmt",
+        "flt",
+        "-y",
+        str(dest),
+    ]
+    result = subprocess.run(cmd, capture_output=True, timeout=TIMEOUT_FFMPEG)
+    if result.returncode != 0:
+        raise RuntimeError(
+            "ffmpeg pre-gain failed: " + result.stderr.decode("utf-8", errors="replace").strip()
+        )
+    return dest
+
+
 def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     """Analyze → separate → collect → mix. Shared by both YouTube and local
     upload pipelines after their respective source acquisition steps."""
     _check_cancel(job)
     analyze(job, source)
     _check_cancel(job)
-    stems_root = separate(job, source, job_dir)
+    demucs_source = _prepare_demucs_source(job, source, job_dir)
+    _check_cancel(job)
+    stems_root = separate(job, demucs_source, job_dir)
     found = collect(job, stems_root, job_dir)
     stems_dir = job_dir / "stems"
     job.stem_presence = compute_stem_presence(stems_dir, found)

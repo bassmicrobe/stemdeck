@@ -16,9 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from app.api.router import router
 from app.core.config import (
     DEMUCS_DEVICE,
+    DEMUCS_FLOAT32,
     DEMUCS_MODEL,
+    DEMUCS_PRE_GAIN_DB,
+    DEMUCS_SHIFTS,
     FFMPEG_BIN,
     JOBS_DIR,
+    QUALITY_PRESET,
     STATIC_DIR,
     configure_portable_environment,
     ensure_runtime_dirs,
@@ -31,7 +35,15 @@ from app.pipeline.collect import sweep_old_jobs
 # logger.info(...) call across the app, including the analyze
 # diagnostics ("chroma:", "key candidates:").
 logging.getLogger("stemdeck").setLevel(logging.INFO)
-logging.getLogger("stemdeck").info("demucs config: model=%s device=%s", DEMUCS_MODEL, DEMUCS_DEVICE)
+logging.getLogger("stemdeck").info(
+    "demucs config: preset=%s model=%s device=%s shifts=%s pre_gain_db=%s float32=%s",
+    QUALITY_PRESET,
+    DEMUCS_MODEL,
+    DEMUCS_DEVICE,
+    DEMUCS_SHIFTS,
+    DEMUCS_PRE_GAIN_DB,
+    DEMUCS_FLOAT32,
+)
 
 configure_portable_environment()
 
@@ -144,8 +156,11 @@ def health() -> dict[str, object]:
         "status": "ok",
         "version": app_version(),
         "ffmpeg_configured": FFMPEG_BIN.is_file(),
+        "quality_preset": QUALITY_PRESET,
         "demucs_model": DEMUCS_MODEL,
         "demucs_device": DEMUCS_DEVICE,
+        "demucs_shifts": DEMUCS_SHIFTS,
+        "demucs_pre_gain_db": DEMUCS_PRE_GAIN_DB,
     }
 
 

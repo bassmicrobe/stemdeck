@@ -9,7 +9,16 @@ import threading
 import time
 from pathlib import Path
 
-from app.core.config import DEMUCS_DEVICE, DEMUCS_MODEL, TIMEOUT_DEMUCS_STALL
+from app.core.config import (
+    DEMUCS_CLIP_MODE,
+    DEMUCS_DEVICE,
+    DEMUCS_FLOAT32,
+    DEMUCS_MODEL,
+    DEMUCS_OVERLAP,
+    DEMUCS_SEGMENT,
+    DEMUCS_SHIFTS,
+    TIMEOUT_DEMUCS_STALL,
+)
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import set_proc
 
@@ -21,9 +30,7 @@ _PCT_RE = re.compile(r"(\d{1,3})%")
 # while still catching genuine hangs (GPU deadlock, OOM stall, etc.).
 
 
-def separate(job: Job, source: Path, job_dir: Path) -> Path:
-    _set(job, status="separating", progress=0.0, stage="Separating stems...")
-
+def build_demucs_command(source: Path, job_dir: Path) -> list[str]:
     cmd = [
         sys.executable,
         "-m",
@@ -32,10 +39,25 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
         DEMUCS_MODEL,
         "-d",
         DEMUCS_DEVICE,
-        "-o",
-        str(job_dir),
-        str(source),
     ]
+    if DEMUCS_SHIFTS > 0:
+        cmd += ["--shifts", str(DEMUCS_SHIFTS)]
+    if DEMUCS_OVERLAP > 0:
+        cmd += ["--overlap", f"{DEMUCS_OVERLAP:g}"]
+    if DEMUCS_SEGMENT > 0:
+        cmd += ["--segment", f"{DEMUCS_SEGMENT:g}"]
+    if DEMUCS_FLOAT32:
+        cmd.append("--float32")
+    if DEMUCS_CLIP_MODE:
+        cmd += ["--clip-mode", DEMUCS_CLIP_MODE]
+    cmd += ["-o", str(job_dir), str(source)]
+    return cmd
+
+
+def separate(job: Job, source: Path, job_dir: Path) -> Path:
+    _set(job, status="separating", progress=0.0, stage="Separating stems...")
+
+    cmd = build_demucs_command(source, job_dir)
     env = os.environ.copy()
     try:
         import certifi
