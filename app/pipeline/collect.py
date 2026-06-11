@@ -17,7 +17,7 @@ from app.core.config import (
     demucs_settings_for_preset,
     ffmpeg_executable,
 )
-from app.core.models import Job
+from app.core.models import Job, _set
 from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
@@ -89,6 +89,47 @@ def collect(job: Job, stems_root: Path, job_dir: Path) -> list[str]:
     if not found:
         raise RuntimeError("no stems produced by demucs")
     return found
+
+
+def restore_demucs_gain(job: Job, stems_dir: Path, stem_names: list[str]) -> None:
+    """Undo any pre-Demucs gain applied to the working copy.
+
+    Quality presets may feed Demucs a quieter file to reduce clipping-like
+    artifacts on hot masters. The model output follows that lower level, so
+    restore the inverse gain before downstream waveform, mix, and download
+    artifacts are generated.
+    """
+    settings = demucs_settings_for_preset(job.quality_preset)
+    if abs(settings.pre_gain_db) < 0.001:
+        return
+
+    restore_db = -settings.pre_gain_db
+    old_stage = job.stage_message
+    _set(job, stage="Restoring stem levels...")
+    for name in stem_names:
+        path = stems_dir / f"{name}.wav"
+        if not path.is_file():
+            continue
+        tmp = path.with_suffix(".gain.wav")
+        cmd = [
+            ffmpeg_executable(),
+            "-y",
+            "-nostdin",
+            "-loglevel",
+            "error",
+            "-i",
+            str(path),
+            "-filter:a",
+            f"volume={restore_db:g}dB",
+            "-c:a",
+            "pcm_f32le",
+            str(tmp),
+        ]
+        if not _run_ffmpeg(job, cmd):
+            tmp.unlink(missing_ok=True)
+            raise RuntimeError(f"ffmpeg gain restore failed for {name}")
+        tmp.replace(path)
+    _set(job, stage=old_stage)
 
 
 def cleanup_source(job_dir: Path) -> None:

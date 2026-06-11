@@ -7,7 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from app.pipeline.collect import _PEAK_POINTS, compute_stem_peaks
+from app.core.models import Job
+from app.pipeline.collect import _PEAK_POINTS, compute_stem_peaks, restore_demucs_gain
 
 
 def _write_wav(path: Path, samples: list[float], sample_rate: int = 44100) -> None:
@@ -104,3 +105,47 @@ def test_non_fatal_on_corrupt_wav(tmp_path):
     data = json.loads((stems_dir / "peaks.json").read_text())
     assert "drums" in data
     assert "vocals" not in data
+
+
+def test_restore_demucs_gain_applies_inverse_pregain(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    stem = stems_dir / "vocals.wav"
+    stem.write_bytes(b"wav")
+    calls = []
+
+    def fake_run_ffmpeg(job, cmd):
+        calls.append((job, cmd))
+        Path(cmd[-1]).write_bytes(b"boosted")
+        return True
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
+    restore_demucs_gain(job, stems_dir, ["vocals"])
+
+    assert stem.read_bytes() == b"boosted"
+    _, cmd = calls[0]
+    assert cmd[cmd.index("-filter:a") : cmd.index("-filter:a") + 2] == [
+        "-filter:a",
+        "volume=6dB",
+    ]
+    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+
+
+def test_restore_demucs_gain_noops_without_pregain(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    (stems_dir / "vocals.wav").write_bytes(b"wav")
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(
+        collect_mod,
+        "_run_ffmpeg",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected ffmpeg")),
+    )
+
+    restore_demucs_gain(Job(id="abcdefabcdef"), stems_dir, ["vocals"])
