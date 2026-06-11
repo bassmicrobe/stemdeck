@@ -274,7 +274,7 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, or `max`. `high` / `max` use slower Demucs settings for cleaner output. |
+| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, or `max`. `high` / `max` use slower Demucs settings and preserve 32-bit float WAV output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
 | `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` use `htdemucs_ft` unless overridden. |
 | `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages. Higher is slower and can reduce artifacts. |

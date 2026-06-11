@@ -8,7 +8,12 @@ from pathlib import Path
 import numpy as np
 
 from app.core.models import Job
-from app.pipeline.collect import _PEAK_POINTS, compute_stem_peaks, restore_demucs_gain
+from app.pipeline.collect import (
+    _PEAK_POINTS,
+    compute_stem_peaks,
+    make_selected_mix,
+    restore_demucs_gain,
+)
 
 
 def _write_wav(path: Path, samples: list[float], sample_rate: int = 44100) -> None:
@@ -149,3 +154,27 @@ def test_restore_demucs_gain_noops_without_pregain(tmp_path, monkeypatch):
     )
 
     restore_demucs_gain(Job(id="abcdefabcdef"), stems_dir, ["vocals"])
+
+
+def test_high_quality_mix_uses_float32_wav_codec(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    for name in ("vocals", "drums"):
+        (stems_dir / f"{name}.wav").write_bytes(b"wav")
+    calls = []
+
+    def fake_run_ffmpeg(job, cmd):
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"mix")
+        return True
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    job = Job(id="abcdefabcdef", quality_preset="high", selected_stems=["vocals", "drums"])
+
+    out = make_selected_mix(job, stems_dir, ["vocals", "drums"])
+
+    assert out == stems_dir / "mix.wav"
+    cmd = calls[0]
+    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]

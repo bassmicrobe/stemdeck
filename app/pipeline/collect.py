@@ -16,6 +16,7 @@ from app.core.config import (
     TIMEOUT_FFMPEG,
     demucs_settings_for_preset,
     ffmpeg_executable,
+    wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
 from app.core.registry import all_jobs as registry_all
@@ -157,6 +158,7 @@ def make_original_track(job: Job, job_dir: Path, stems_dir: Path) -> Path | None
     if not inputs:
         return None
     out = stems_dir / "original.wav"
+    wav_codec = wav_codec_for_quality_preset(job.quality_preset)
     cmd: list[str] = [
         ffmpeg_executable(),
         "-y",
@@ -170,14 +172,14 @@ def make_original_track(job: Job, job_dir: Path, stems_dir: Path) -> Path | None
         # Single complement stem -- copy as-is so we still produce a
         # canonical mix.wav-shaped output without invoking amix on a
         # 1-input graph (which is a no-op anyway).
-        cmd += ["-c:a", "pcm_s16le", str(out)]
+        cmd += ["-c:a", wav_codec, str(out)]
     else:
         filter_inputs = "".join(f"[{i}:a]" for i in range(len(inputs)))
         cmd += [
             "-filter_complex",
             f"{filter_inputs}amix=inputs={len(inputs)}:normalize=0",
             "-c:a",
-            "pcm_s16le",
+            wav_codec,
             str(out),
         ]
     return out if _run_ffmpeg(job, cmd) else None
@@ -204,6 +206,7 @@ def make_selected_mix(job: Job, stems_dir: Path, found: list[str]) -> Path | Non
         return stems_dir / f"{selected[0]}.wav"
     inputs = [stems_dir / f"{name}.wav" for name in selected]
     out = stems_dir / "mix.wav"
+    wav_codec = wav_codec_for_quality_preset(job.quality_preset)
     cmd: list[str] = [
         ffmpeg_executable(),
         "-y",
@@ -218,7 +221,7 @@ def make_selected_mix(job: Job, stems_dir: Path, found: list[str]) -> Path | Non
         "-filter_complex",
         f"{filter_inputs}amix=inputs={len(inputs)}:normalize=0",
         "-c:a",
-        "pcm_s16le",
+        wav_codec,
         str(out),
     ]
     return out if _run_ffmpeg(job, cmd) else None

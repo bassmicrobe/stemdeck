@@ -13,7 +13,14 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from starlette.background import BackgroundTask
 
-from app.core.config import JOB_ID_RE, JOBS_DIR, STEM_NAMES, TIMEOUT_FFMPEG, ffmpeg_executable
+from app.core.config import (
+    JOB_ID_RE,
+    JOBS_DIR,
+    STEM_NAMES,
+    TIMEOUT_FFMPEG,
+    ffmpeg_executable,
+    wav_codec_for_quality_preset,
+)
 from app.core.registry import get as registry_get
 
 logger = logging.getLogger("stemdeck.api")
@@ -40,8 +47,13 @@ _ENCODE_ARGS = {
     "mp3": ["-q:a", "2"],
     "flac": ["-c:a", "flac"],
 }
-MIXDOWN_CODECS = {ext: [*args, "-f", ext] for ext, args in _ENCODE_ARGS.items()}
 MIXDOWN_MEDIA_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg", "flac": "audio/flac"}
+
+
+def _mixdown_codec_args(ext: str, job_quality_preset: str | None) -> list[str]:
+    if ext == "wav":
+        return ["-c:a", wav_codec_for_quality_preset(job_quality_preset), "-f", "wav"]
+    return [*_ENCODE_ARGS[ext], "-f", ext]
 
 
 def _validate_stem_path(job_id: str, name: str):
@@ -115,6 +127,10 @@ async def get_stem(
             detail="start and end are both required and start must be less than end",
         )
 
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
+
     cmd = [
         ffmpeg_executable(),
         "-nostdin",
@@ -127,7 +143,7 @@ async def get_stem(
         "-t",
         str(end - start),
         "-c:a",
-        "pcm_s16le",
+        wav_codec_for_quality_preset(job.quality_preset),
         "-f",
         "wav",
         "pipe:1",
@@ -218,6 +234,10 @@ async def get_mixdown(
             detail="start and end are both required and start must be less than end",
         )
 
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
+
     # Validates job_id (404), job done (404), and path traversal (404) per stem.
     paths = [_validate_stem_path(job_id, name) for name in names]
 
@@ -237,7 +257,7 @@ async def get_mixdown(
         out_label = "[mix]"
     else:
         out_label = "[a0]"
-    codec = MIXDOWN_CODECS[ext]
+    codec = _mixdown_codec_args(ext, job.quality_preset)
     cmd += ["-filter_complex", ";".join(filters), "-map", out_label, *post_seek, *codec, "pipe:1"]
 
     media_type = MIXDOWN_MEDIA_TYPES[ext]

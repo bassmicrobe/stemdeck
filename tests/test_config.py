@@ -127,7 +127,7 @@ def test_explicit_demucs_options_win_over_quality_preset(monkeypatch):
 
 
 def test_high_quality_preset_supports_four_stems():
-    from app.core.config import stem_names_for_quality_preset
+    from app.core.config import stem_names_for_quality_preset, wav_codec_for_quality_preset
 
     assert stem_names_for_quality_preset("standard") == (
         "vocals",
@@ -139,3 +139,6 @@ def test_high_quality_preset_supports_four_stems():
     )
     assert stem_names_for_quality_preset("high") == ("vocals", "drums", "bass", "other")
     assert stem_names_for_quality_preset("max") == ("vocals", "drums", "bass", "other")
+    assert wav_codec_for_quality_preset("standard") == "pcm_s16le"
+    assert wav_codec_for_quality_preset("high") == "pcm_f32le"
+    assert wav_codec_for_quality_preset("max") == "pcm_f32le"

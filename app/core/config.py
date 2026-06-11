@@ -147,6 +147,11 @@ def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
     )
 
 
+def wav_codec_for_quality_preset(preset: str | None) -> str:
+    settings = demucs_settings_for_preset(preset)
+    return "pcm_f32le" if settings.float32 else "pcm_s16le"
+
+
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can

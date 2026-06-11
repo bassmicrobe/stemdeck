@@ -5,6 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.stems import _mixdown_codec_args
 from app.core.models import Job
 from app.core.registry import _jobs
 
@@ -370,6 +371,12 @@ def test_mixdown_rejects_unknown_ext_still(client):
     # ogg remains unsupported even after adding flac.
     r = client.get("/api/jobs/abcdef000001/mixdown.ogg?stems=vocals&gains=1")
     assert r.status_code == 404
+
+
+def test_mixdown_wav_codec_follows_quality_preset():
+    assert _mixdown_codec_args("wav", "standard") == ["-c:a", "pcm_s16le", "-f", "wav"]
+    assert _mixdown_codec_args("wav", "max") == ["-c:a", "pcm_f32le", "-f", "wav"]
+    assert _mixdown_codec_args("flac", "max") == ["-c:a", "flac", "-f", "flac"]
 
 
 def test_all_stems_zip_flac(client, tmp_path):
