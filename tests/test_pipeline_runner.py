@@ -167,4 +167,5 @@ def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monk
         "-filter:a",
         "volume=-6dB",
     ]
+    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
     assert kwargs["timeout"] == runner.TIMEOUT_FFMPEG

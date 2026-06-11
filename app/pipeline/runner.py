@@ -107,8 +107,8 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         "44100",
         "-ac",
         "2",
-        "-sample_fmt",
-        "flt",
+        "-c:a",
+        "pcm_f32le",
         "-y",
         str(dest),
     ]
