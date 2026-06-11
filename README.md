@@ -306,7 +306,7 @@ uv-managed `imageio-ffmpeg` binary automatically.
 | `STEMDECK_TIMEOUT_ANALYZE` | `120` | Audio analysis timeout (seconds). |
 | `STEMDECK_TIMEOUT_DEMUCS_STALL` | `1800` | Kill Demucs if no output for this many seconds. |
 
-`run.sh` also reads: `HOST` (default `127.0.0.1`), `PORT` (default `8000`), `RELOAD=1` (enable uvicorn auto-reload for development), `FOREGROUND=1` (run in foreground instead of backgrounding).
+`run.sh` also reads: `HOST` (default `127.0.0.1`), `PORT` (default `8765`), `RELOAD=1` (enable uvicorn auto-reload for development), `FOREGROUND=1` (run in foreground instead of backgrounding).
 
 ---
 
