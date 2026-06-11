@@ -283,6 +283,10 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 | `STEMDECK_DEMUCS_CLIP_MODE` | preset-dependent | Demucs output clipping mode: `rescale`, `clamp`, or `none`. |
 | `STEMDECK_DEMUCS_OVERLAP` | `0` | Optional Demucs segment overlap override. `0` leaves the Demucs default untouched. |
 | `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
+| `STEMDECK_BASS_REPAIR` | `high`/`max`: on, `standard`: off | Repair short bass dropouts after separation by blending a low-frequency residual from the original mix. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_BASS_REPAIR_LOW_PASS_HZ` | `180` | Low-pass cutoff used for the bass residual candidate. |
+| `STEMDECK_BASS_REPAIR_TRIGGER_RATIO` | `1.9` | How much stronger the residual must be than the bass stem before repair blends in. Higher is more conservative. |
+| `STEMDECK_BASS_REPAIR_MAX_BLEND` | `0.65` | Maximum amount of residual blended into detected bass dropouts. |
 | `STEMDECK_JOBS_DIR` | `./jobs` | Where job directories land. |
 | `STEMDECK_DATA_DIR` | (none) | Portable mode root; sets all sub-dirs below to live inside it. |
 | `STEMDECK_CACHE_DIR` | `<data>/cache` | Torch model cache directory. |

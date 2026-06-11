@@ -152,6 +152,16 @@ def wav_codec_for_quality_preset(preset: str | None) -> str:
     return "pcm_f32le" if settings.float32 else "pcm_s16le"
 
 
+def bass_repair_enabled_for_preset(preset: str | None) -> bool:
+    """Enable conservative bass dropout repair for quality-first presets.
+
+    The env var is intentionally global so packaged builds can force the
+    behavior without changing per-job API shape.
+    """
+    default = normalize_quality_preset(preset) in ("high", "max")
+    return _env_bool("STEMDECK_BASS_REPAIR", default)
+
+
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
@@ -185,6 +195,9 @@ DEMUCS_FLOAT32 = _demucs_settings.float32
 DEMUCS_CLIP_MODE = _demucs_settings.clip_mode
 DEMUCS_OVERLAP = _demucs_settings.overlap
 DEMUCS_SEGMENT = _demucs_settings.segment
+BASS_REPAIR_LOW_PASS_HZ = max(40.0, _env_float("STEMDECK_BASS_REPAIR_LOW_PASS_HZ", 180.0))
+BASS_REPAIR_TRIGGER_RATIO = max(1.05, _env_float("STEMDECK_BASS_REPAIR_TRIGGER_RATIO", 1.9))
+BASS_REPAIR_MAX_BLEND = min(1.0, max(0.0, _env_float("STEMDECK_BASS_REPAIR_MAX_BLEND", 0.65)))
 MAX_DURATION_SEC = max(60, _env_int("STEMDECK_MAX_DURATION_SEC", 1200))  # 20 min default
 JOB_TTL_SECONDS = max(300, _env_int("STEMDECK_JOB_TTL_SECONDS", 24 * 3600))  # 24 h default
 MAX_PENDING_JOBS = max(1, min(50, _env_int("STEMDECK_MAX_PENDING_JOBS", 3)))

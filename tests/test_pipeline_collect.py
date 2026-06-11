@@ -6,12 +6,16 @@ import wave
 from pathlib import Path
 
 import numpy as np
+import soundfile as sf
 
 from app.core.models import Job
 from app.pipeline.collect import (
     _PEAK_POINTS,
+    _blend_bass_dropout_repair,
+    _write_bass_residual_candidate,
     compute_stem_peaks,
     make_selected_mix,
+    repair_bass_dropouts,
     restore_demucs_gain,
 )
 
@@ -178,3 +182,91 @@ def test_high_quality_mix_uses_float32_wav_codec(tmp_path, monkeypatch):
     assert out == stems_dir / "mix.wav"
     cmd = calls[0]
     assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+
+
+def test_bass_residual_candidate_subtracts_non_bass_stems(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"source")
+    for name in ("bass", "drums", "vocals"):
+        (stems_dir / f"{name}.wav").write_bytes(b"wav")
+    calls = []
+
+    def fake_run_ffmpeg(job, cmd):
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"residual")
+        return True
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    out = stems_dir / "bass.residual.wav"
+
+    assert _write_bass_residual_candidate(
+        Job(id="abcdefabcdef", quality_preset="high"),
+        source,
+        stems_dir,
+        ["bass", "drums", "vocals"],
+        out,
+    )
+
+    cmd = calls[0]
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert "[1:a]volume=-1.0[neg1]" in graph
+    assert "[2:a]volume=-1.0[neg2]" in graph
+    assert "amix=inputs=3:normalize=0" in graph
+    assert "lowpass=f=" in graph
+    assert str(stems_dir / "bass.wav") not in cmd
+    assert out.read_bytes() == b"residual"
+
+
+def test_blend_bass_dropout_repair_fills_only_missing_section(tmp_path):
+    sr = 8000
+    t = np.arange(sr, dtype=np.float32) / sr
+    residual = (np.sin(2 * np.pi * 90 * t) * 0.34).astype(np.float32)
+    bass = residual.copy()
+    bass[int(0.4 * sr) : int(0.55 * sr)] = 0.0
+
+    bass_path = tmp_path / "bass.wav"
+    residual_path = tmp_path / "residual.wav"
+    repaired_path = tmp_path / "bass.repaired.wav"
+    sf.write(bass_path, bass, sr, subtype="FLOAT")
+    sf.write(residual_path, residual, sr, subtype="FLOAT")
+
+    changed = _blend_bass_dropout_repair(
+        bass_path,
+        residual_path,
+        repaired_path,
+        max_blend=0.8,
+        trigger_ratio=1.2,
+        subtype="FLOAT",
+    )
+
+    assert changed
+    repaired, _ = sf.read(repaired_path, dtype="float32")
+    dropout = slice(int(0.43 * sr), int(0.52 * sr))
+    stable = slice(int(0.1 * sr), int(0.25 * sr))
+    assert float(np.mean(np.abs(repaired[dropout]))) > float(np.mean(np.abs(bass[dropout]))) + 0.05
+    assert float(np.max(np.abs(repaired[stable] - bass[stable]))) < 0.01
+
+
+def test_repair_bass_dropouts_noops_for_standard_preset(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    (stems_dir / "bass.wav").write_bytes(b"wav")
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(
+        collect_mod,
+        "_write_bass_residual_candidate",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected repair")),
+    )
+
+    assert not repair_bass_dropouts(
+        Job(id="abcdefabcdef", quality_preset="standard"),
+        tmp_path / "source.wav",
+        stems_dir,
+        ["bass", "drums"],
+    )

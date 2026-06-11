@@ -11,9 +11,13 @@ import numpy as np
 import soundfile as sf
 
 from app.core.config import (
+    BASS_REPAIR_LOW_PASS_HZ,
+    BASS_REPAIR_MAX_BLEND,
+    BASS_REPAIR_TRIGGER_RATIO,
     JOB_TTL_SECONDS,
     STEM_NAMES,
     TIMEOUT_FFMPEG,
+    bass_repair_enabled_for_preset,
     demucs_settings_for_preset,
     ffmpeg_executable,
     wav_codec_for_quality_preset,
@@ -131,6 +135,186 @@ def restore_demucs_gain(job: Job, stems_dir: Path, stem_names: list[str]) -> Non
             raise RuntimeError(f"ffmpeg gain restore failed for {name}")
         tmp.replace(path)
     _set(job, stage=old_stage)
+
+
+def _write_bass_residual_candidate(
+    job: Job, source: Path, stems_dir: Path, stem_names: list[str], out: Path
+) -> bool:
+    """Render a low-passed residual candidate: source minus non-bass stems."""
+    non_bass = [
+        name for name in stem_names if name != "bass" and (stems_dir / f"{name}.wav").is_file()
+    ]
+    if not non_bass:
+        return False
+
+    cmd: list[str] = [
+        ffmpeg_executable(),
+        "-y",
+        "-nostdin",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+    ]
+    for name in non_bass:
+        cmd += ["-i", str(stems_dir / f"{name}.wav")]
+
+    filter_parts = [f"[{idx}:a]volume=-1.0[neg{idx}]" for idx in range(1, len(non_bass) + 1)]
+    mix_inputs = "[0:a]" + "".join(f"[neg{idx}]" for idx in range(1, len(non_bass) + 1))
+    filter_parts.append(
+        f"{mix_inputs}amix=inputs={len(non_bass) + 1}:normalize=0,"
+        f"lowpass=f={BASS_REPAIR_LOW_PASS_HZ:g}[repair]"
+    )
+    cmd += [
+        "-filter_complex",
+        ";".join(filter_parts),
+        "-map",
+        "[repair]",
+        "-ar",
+        "44100",
+        "-ac",
+        "2",
+        "-c:a",
+        "pcm_f32le",
+        str(out),
+    ]
+    return _run_ffmpeg(job, cmd)
+
+
+def _moving_average(values: np.ndarray, window: int) -> np.ndarray:
+    if values.size == 0:
+        return values
+    window = max(1, min(window, values.size))
+    left = window // 2
+    right = window - 1 - left
+    padded = np.pad(values, (left, right), mode="edge")
+    cumsum = np.cumsum(np.insert(padded, 0, 0.0, axis=0), dtype=np.float64)
+    return ((cumsum[window:] - cumsum[:-window]) / window).astype(np.float32)
+
+
+def _rms_envelope(block: np.ndarray, window: int) -> np.ndarray:
+    mono_power = np.mean(block * block, axis=1, dtype=np.float32)
+    return np.sqrt(_moving_average(mono_power, window) + 1e-12)
+
+
+def _match_channels(block: np.ndarray, channels: int) -> np.ndarray:
+    if block.shape[1] == channels:
+        return block
+    if block.shape[1] == 1:
+        return np.repeat(block, channels, axis=1)
+    return block[:, :channels]
+
+
+def _blend_bass_dropout_repair(
+    bass_path: Path,
+    residual_path: Path,
+    out_path: Path,
+    *,
+    max_blend: float = BASS_REPAIR_MAX_BLEND,
+    trigger_ratio: float = BASS_REPAIR_TRIGGER_RATIO,
+    subtype: str = "FLOAT",
+) -> bool:
+    """Blend low-passed residual into bass only where the bass stem drops out.
+
+    This is deliberately conservative: the residual candidate is derived from
+    the original mix, then low-passed by ffmpeg. A smoothed energy comparison
+    gates the blend so normal bass passages are left untouched.
+    """
+    changed = False
+    blocksize = 262_144
+    floor = 10 ** (-54 / 20)
+
+    with (
+        sf.SoundFile(bass_path) as bass_file,
+        sf.SoundFile(residual_path) as residual_file,
+    ):
+        if bass_file.samplerate != residual_file.samplerate:
+            logger.warning(
+                "skip bass repair for %s: sample-rate mismatch %s != %s",
+                bass_path,
+                bass_file.samplerate,
+                residual_file.samplerate,
+            )
+            return False
+
+        channels = bass_file.channels
+        window = max(128, int(bass_file.samplerate * 0.028))
+        smooth = max(64, int(bass_file.samplerate * 0.012))
+
+        with sf.SoundFile(
+            out_path,
+            mode="w",
+            samplerate=bass_file.samplerate,
+            channels=channels,
+            subtype=subtype,
+        ) as out_file:
+            while True:
+                bass_block = bass_file.read(blocksize, dtype="float32", always_2d=True)
+                if bass_block.size == 0:
+                    break
+                residual_block = residual_file.read(
+                    len(bass_block), dtype="float32", always_2d=True
+                )
+                if len(residual_block) < len(bass_block):
+                    pad = np.zeros(
+                        (len(bass_block) - len(residual_block), residual_block.shape[1]),
+                        dtype=np.float32,
+                    )
+                    residual_block = np.vstack((residual_block, pad))
+                residual_block = _match_channels(residual_block, channels)
+
+                bass_env = _rms_envelope(bass_block, window)
+                residual_env = _rms_envelope(residual_block, window)
+                deficit = residual_env - (bass_env * trigger_ratio)
+                weight = np.clip(deficit / (residual_env + 1e-8), 0.0, max_blend)
+                weight = np.where(residual_env > floor, weight, 0.0).astype(np.float32)
+                weight = _moving_average(weight, smooth)
+
+                if float(np.max(weight, initial=0.0)) > 0.001:
+                    changed = True
+                repaired = bass_block + (residual_block * weight[:, None])
+                out_file.write(repaired)
+
+    return changed
+
+
+def repair_bass_dropouts(job: Job, source: Path, stems_dir: Path, stem_names: list[str]) -> bool:
+    """Repair short bass dropouts using a low-frequency residual candidate.
+
+    Demucs can occasionally under-estimate bass on dense, hot masters. For
+    high-quality jobs, derive a low-passed residual from the original mix minus
+    the other stems and blend it only into sections where bass energy is
+    suspiciously absent.
+    """
+    if not bass_repair_enabled_for_preset(job.quality_preset):
+        return False
+    if "bass" not in stem_names or not (stems_dir / "bass.wav").is_file():
+        return False
+
+    old_stage = job.stage_message
+    residual_path = stems_dir / "bass.residual.wav"
+    repaired_path = stems_dir / "bass.repaired.wav"
+    _set(job, stage="Repairing bass dropouts...")
+    try:
+        if not _write_bass_residual_candidate(job, source, stems_dir, stem_names, residual_path):
+            return False
+        subtype = (
+            "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
+        )
+        if not _blend_bass_dropout_repair(
+            stems_dir / "bass.wav", residual_path, repaired_path, subtype=subtype
+        ):
+            return False
+        repaired_path.replace(stems_dir / "bass.wav")
+        logger.info("bass dropout repair applied for job %s", job.id)
+        return True
+    except Exception:
+        logger.warning("bass dropout repair skipped for job %s", job.id, exc_info=True)
+        return False
+    finally:
+        residual_path.unlink(missing_ok=True)
+        repaired_path.unlink(missing_ok=True)
+        _set(job, stage=old_stage)
 
 
 def cleanup_source(job_dir: Path) -> None:

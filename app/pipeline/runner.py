@@ -17,6 +17,7 @@ from app.pipeline.collect import (
     compute_stem_peaks,
     make_original_track,
     make_selected_mix,
+    repair_bass_dropouts,
     restore_demucs_gain,
 )
 from app.pipeline.download import download
@@ -131,6 +132,8 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     found = collect(job, stems_root, job_dir)
     stems_dir = job_dir / "stems"
     restore_demucs_gain(job, stems_dir, found)
+    repair_bass_dropouts(job, source, stems_dir, found)
+    _check_cancel(job)
     job.stem_presence = compute_stem_presence(stems_dir, found)
     # Source (100-300 MB or the local upload) is no longer needed after
     # collect; delete it before the ffmpeg amix steps in case scratch space
