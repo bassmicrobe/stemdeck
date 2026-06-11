@@ -19,6 +19,23 @@ is_running() {
     [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
+configure_ffmpeg() {
+    if [[ -n "${STEMDECK_FFMPEG:-}" ]]; then
+        return 0
+    fi
+    if command -v ffmpeg >/dev/null 2>&1; then
+        return 0
+    fi
+    if command -v uv >/dev/null 2>&1; then
+        echo "ffmpeg not found on PATH; using uv-managed imageio-ffmpeg binary"
+        STEMDECK_FFMPEG="$(uv run --with imageio-ffmpeg python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
+        export STEMDECK_FFMPEG
+        return 0
+    fi
+    echo "ffmpeg not found. Run './run.sh setup' or set STEMDECK_FFMPEG=/path/to/ffmpeg" >&2
+    exit 1
+}
+
 start() {
     if is_running; then
         echo "already running (pid $(cat "$PID_FILE"))"
@@ -28,6 +45,7 @@ start() {
         echo "uvicorn not found at $UVICORN — run: uv sync" >&2
         exit 1
     fi
+    configure_ffmpeg
     echo "starting on http://$HOST:$PORT"
     local args=(app.main:app --host "$HOST" --port "$PORT")
     if [[ "$RELOAD" == "1" ]]; then
