@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -93,6 +94,33 @@ def test_quality_preset_filters_unsupported_stems(client):
     )
     assert r.status_code == 200
     assert _jobs[r.json()["job_id"]].selected_stems == ["vocals", "drums", "bass", "other"]
+
+
+def test_probe_duration_falls_back_to_ffmpeg_when_ffprobe_missing(monkeypatch, tmp_path):
+    import app.api.jobs as jobs
+
+    audio = tmp_path / "audio.wav"
+    audio.write_bytes(b"wav")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        if cmd[0] == "ffprobe":
+            raise FileNotFoundError("ffprobe")
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="Duration: 00:01:02.50, start: 0.000000, bitrate: 1411 kb/s\n",
+        )
+
+    monkeypatch.setattr(jobs, "ffprobe_executable", lambda: "ffprobe")
+    monkeypatch.setattr(jobs, "ffmpeg_executable", lambda: "ffmpeg")
+    monkeypatch.setattr(jobs.subprocess, "run", fake_run)
+
+    assert jobs._probe_duration(audio) == 62.5
+    assert calls[0][0][0] == "ffprobe"
+    assert calls[1][0][:3] == ["ffmpeg", "-hide_banner", "-i"]
 
 
 def test_get_unknown_job_returns_404(client):

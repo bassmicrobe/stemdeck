@@ -18,6 +18,7 @@ from app.core.config import (
     MAX_DURATION_SEC,
     MAX_PENDING_JOBS,
     QUALITY_PRESET,
+    ffmpeg_executable,
     ffprobe_executable,
     normalize_quality_preset,
     stem_names_for_quality_preset,
@@ -38,6 +39,7 @@ logger = logging.getLogger("stemdeck.api")
 _ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac"))
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 _WS_RE = re.compile(r"\s+")
+_FFMPEG_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)")
 
 
 def _sanitize_title(filename: str) -> str:
@@ -46,25 +48,46 @@ def _sanitize_title(filename: str) -> str:
     return _WS_RE.sub(" ", stem).strip()[:120]
 
 
-def _probe_duration(path: Path) -> float:
-    """Run ffprobe to get file duration in seconds."""
+def _probe_duration_with_ffmpeg(path: Path) -> float:
+    """Fallback duration probe for local setups that have ffmpeg but not ffprobe."""
     result = subprocess.run(
-        [
-            ffprobe_executable(),
-            "-v",
-            "quiet",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            str(path),
-        ],
+        [ffmpeg_executable(), "-hide_banner", "-i", str(path)],
         capture_output=True,
         text=True,
         timeout=30,
     )
+    output = f"{result.stderr}\n{result.stdout}"
+    if match := _FFMPEG_DURATION_RE.search(output):
+        hours, minutes, seconds = match.groups()
+        return (int(hours) * 3600) + (int(minutes) * 60) + float(seconds)
+    raise RuntimeError("ffmpeg could not determine duration")
+
+
+def _probe_duration(path: Path) -> float:
+    """Run ffprobe to get file duration in seconds, falling back to ffmpeg."""
+    try:
+        result = subprocess.run(
+            [
+                ffprobe_executable(),
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        return _probe_duration_with_ffmpeg(path)
     if result.returncode != 0:
-        raise RuntimeError(f"ffprobe failed: {result.stderr.strip()}")
+        try:
+            return _probe_duration_with_ffmpeg(path)
+        except Exception as e:
+            raise RuntimeError(f"ffprobe failed: {result.stderr.strip()}") from e
     try:
         return float(result.stdout.strip())
     except ValueError as e:
