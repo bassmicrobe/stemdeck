@@ -1,15 +1,15 @@
-NeonSplice for macOS
+STEMDECK for macOS
 ====================
 
 Install:
 
-1. Open the NeonSplice DMG.
-2. Drag NeonSplice.app to Applications.
-3. Open NeonSplice from Applications.
+1. Open the STEMDECK DMG.
+2. Drag STEMDECK.app to Applications.
+3. Open STEMDECK from Applications.
 
 First launch:
 
-- NeonSplice is a thin native app. It downloads a pinned, checksummed NeonSplice
+- STEMDECK is a thin native app. It downloads a pinned, checksummed STEMDECK
   runtime pack on first launch.
 - The runtime currently installs to the legacy compatibility path:
   ~/Library/Application Support/StemDeck/runtime
@@ -20,7 +20,7 @@ First launch:
 
 Uninstall:
 
-1. Delete /Applications/NeonSplice.app.
+1. Delete /Applications/STEMDECK.app.
 2. To remove runtime files, jobs, caches, models, and logs, delete the legacy compatibility path:
    ~/Library/Application Support/StemDeck
 
@@ -29,5 +29,5 @@ Notes:
 - Internet access is required for first-run setup.
 - Public releases should be signed and notarized.
 - Unsigned local builds are for development and internal testing only.
-- NeonSplice is a modified derivative of StemDeck and is distributed under the
+- STEMDECK is based on the original StemDeck project and is distributed under the
   Apache License 2.0. See LICENSE and NOTICE in the DMG for attribution.

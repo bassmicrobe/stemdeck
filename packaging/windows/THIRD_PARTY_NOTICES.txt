@@ -1,16 +1,16 @@
 THIRD-PARTY NOTICES
 ===================
 
-NeonSplice includes third-party open-source software. Each component is
+STEMDECK includes third-party open-source software. Each component is
 copyrighted by its respective authors and distributed under its own license.
 
 Project License and Upstream Attribution
 ----------------------------------------
 
-NeonSplice is a modified derivative of StemDeck:
+STEMDECK is based on the original StemDeck project:
 https://github.com/stemdeckapp/stemdeck
 
-StemDeck and NeonSplice are licensed under the Apache License, Version 2.0.
+The original StemDeck project and this fork are licensed under the Apache License, Version 2.0.
 See LICENSE and NOTICE in this distribution for the full license text,
 upstream attribution, and modification notice.
 
@@ -68,13 +68,13 @@ Website: https://github.com/bastibe/python-soundfile
 Downloaded During First-Run Setup
 ---------------------------------
 
-FFmpeg binaries are not bundled in the NeonSplice alpha zip. They are downloaded
+FFmpeg binaries are not bundled in the STEMDECK alpha zip. They are downloaded
 during first-run setup. FFmpeg builds may be distributed under LGPL or GPL
-terms depending on how they are compiled. NeonSplice should display the selected
+terms depending on how they are compiled. STEMDECK should display the selected
 FFmpeg build source and license before or during download.
 
-Demucs model weights are not bundled in the NeonSplice alpha zip. They are
-downloaded during first use. NeonSplice should display the model source and
+Demucs model weights are not bundled in the STEMDECK alpha zip. They are
+downloaded during first use. STEMDECK should display the model source and
 license/usage terms before or during download.
 
 Disclaimer

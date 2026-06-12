@@ -252,7 +252,7 @@ fn main() {
             mark_store_migration_done,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build NeonSplice desktop app")
+        .expect("failed to build STEMDECK desktop app")
         .run(|app_handle, event| match event {
             tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { .. },
@@ -637,7 +637,7 @@ fn start_backend(
         let backend_dir = backend_dir(&root)?;
         let data_dir = local_data_dir()?;
         let python = python_path(&root).filter(|p| p.is_file()).ok_or_else(|| {
-            "Python runtime not found. Expected python/ or .venv/ under the NeonSplice app root."
+            "Python runtime not found. Expected python/ or .venv/ under the STEMDECK app root."
                 .to_string()
         })?;
         patch_pyvenv_cfg(&python);
@@ -1126,7 +1126,7 @@ fn classify_cuda_install_error(stderr: &str) -> String {
     }
     if lower.contains("access is denied") || lower.contains("permissionerror") {
         return "CUDA install failed: permission denied — antivirus software may be blocking \
-                the install. Try adding NeonSplice to your AV exclusions and click Retry."
+                the install. Try adding STEMDECK to your AV exclusions and click Retry."
             .to_string();
     }
     if lower.contains("could not connect") || lower.contains("connection timed out") {
@@ -1827,7 +1827,7 @@ fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf 
         .clone()
         .or_else(|| manifest.runtime_url.rsplit('/').next().map(str::to_string))
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("NeonSplice-runtime-macOS-{}.tar.zst", manifest.arch));
+        .unwrap_or_else(|| format!("STEMDECK-runtime-macOS-{}.tar.zst", manifest.arch));
     data_dir.join("downloads").join(name)
 }
 

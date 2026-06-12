@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>NeonSplice</h1>
+<h1>STEMDECK</h1>
 
 **Free, local stem separation. No account. No upload. No subscription.**
 
@@ -28,17 +28,17 @@
 
 <br>
 
-Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and NeonSplice splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
+Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
 
-> **What is this?** NeonSplice is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. NeonSplice does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
+> **What is this?** STEMDECK is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. STEMDECK does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
 
-> NeonSplice is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, NeonSplice has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
+> STEMDECK is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, STEMDECK has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
 
-![NeonSplice screenshot](imgs/screenshot/stemdeck.png)
+![STEMDECK screenshot](imgs/screenshot/stemdeck.png)
 
 ## We Recommend
 
-NeonSplice is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
+STEMDECK is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
 
 | Supporter | What they do | Link |
 |---|---|---|
@@ -78,9 +78,9 @@ NeonSplice is free and **does not accept any money, sponsorship, or funding** - 
 
 ## Honest Comparison
 
-NeonSplice is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
+STEMDECK is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
 
-| | NeonSplice | Moises / LALAL.AI / similar |
+| | STEMDECK | Moises / LALAL.AI / similar |
 |---|---|---|
 | **Price** | Free, forever | Freemium; credits or subscription required for regular use |
 | **Hosting** | Runs entirely on your machine | Cloud; audio must be uploaded to their servers |
@@ -98,7 +98,7 @@ NeonSplice is not trying to compete with commercial stem-separation products. It
 | **Polish** | Functional, hobby-grade UI | Polished, production-grade apps |
 | **Source code** | Open source, forkable, self-hostable | Closed source |
 
-If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, NeonSplice is enough.
+If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, STEMDECK is enough.
 
 ---
 
@@ -110,10 +110,10 @@ Pre-built installers and zips are attached to each [GitHub Release](https://gith
 
 | DMG | GPU | Chip |
 |---|---|---|
-| `NeonSplice-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
-| `NeonSplice-macOS-x64.dmg` | CPU only | Intel |
+| `STEMDECK-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
+| `STEMDECK-macOS-x64.dmg` | CPU only | Intel |
 
-Open the DMG, drag NeonSplice to Applications, and launch it. On first launch the setup screen downloads the Python runtime (~500 MB), FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
+Open the DMG, drag STEMDECK to Applications, and launch it. On first launch the setup screen downloads the Python runtime (~500 MB), FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
 
 macOS may show a Gatekeeper prompt on first open — right-click the app and choose Open to bypass it.
 
@@ -121,10 +121,10 @@ macOS may show a Gatekeeper prompt on first open — right-click the app and cho
 
 | Zip | GPU | Approx. size |
 |---|---|---|
-| `NeonSplice-Windows-x64.zip` | CPU only | ~700 MB |
-| `NeonSplice-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
+| `STEMDECK-Windows-x64.zip` | CPU only | ~700 MB |
+| `STEMDECK-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
 
-Extract the zip anywhere, run `NeonSplice.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
+Extract the zip anywhere, run `STEMDECK.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
 
 ---
 
@@ -138,9 +138,9 @@ Extract the zip anywhere, run `NeonSplice.exe`. On first launch the app verifies
 
 <br>
 
-NeonSplice is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+STEMDECK is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
-*Thanks to the creators and maintainers of all the open-source libraries that make NeonSplice possible.*
+*Thanks to the creators and maintainers of all the open-source libraries that make STEMDECK possible.*
 
 ---
 
@@ -166,18 +166,18 @@ ARCH=x64 scripts/macos/make-app.sh
 ARCH=x64 scripts/macos/make-dmg.sh
 ```
 
-The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/NeonSplice.app`. The DMG lands at `.build/macos-dist/NeonSplice-macOS-<arch>.dmg`.
+The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/STEMDECK.app`. The DMG lands at `.build/macos-dist/STEMDECK-macOS-<arch>.dmg`.
 
 To run a fresh build directly without the DMG:
 
 ```sh
-open desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/NeonSplice.app
+open desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app
 ```
 
 If macOS blocks the app with a Gatekeeper prompt, run:
 
 ```sh
-xattr -dr com.apple.quarantine desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/NeonSplice.app
+xattr -dr com.apple.quarantine desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app
 ```
 
 > **Note:** To test a clean first-launch during development, you can wipe previous app data first: `rm -rf ~/Library/Application\ Support/StemDeck`. This is the legacy compatibility data path; don't do this on a real install.
@@ -364,19 +364,19 @@ Job state is in-memory. Restart the server and the job list resets, but files pe
 
 ## Disclaimer
 
-NeonSplice is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
+STEMDECK is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
 
 YouTube URL support is provided via [yt-dlp](https://github.com/yt-dlp/yt-dlp) as a convenience. Automated downloading may violate YouTube's Terms of Service. You, the user, are solely responsible for ensuring you have the right to process any audio you submit, complying with the terms of service of any site you download from, and respecting the copyright of the material you work with.
 
 You are also responsible for following the licenses of the underlying tools this project depends on (yt-dlp, Demucs, FFmpeg, PyTorch, and others listed in `pyproject.toml`).
 
-The author(s) of NeonSplice provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
+The author(s) of STEMDECK provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
 
 ---
 
 ## License and Attribution
 
-NeonSplice is a modified derivative of [StemDeck](https://github.com/stemdeckapp/stemdeck). The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
+STEMDECK is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
 
 See [NOTICE](NOTICE) for the upstream attribution and modification notice. Third-party runtime dependencies are licensed by their respective authors; packaged builds include `THIRD_PARTY_NOTICES.txt` and generated dependency inventories where available.
 

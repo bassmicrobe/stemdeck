@@ -1,11 +1,11 @@
-NeonSplice Windows Portable Alpha
+STEMDECK Windows Portable Alpha
 =================================
 
 Run
 ---
 
 1. Extract the zip folder.
-2. Double-click NeonSplice.exe.
+2. Double-click STEMDECK.exe.
 3. Let first-run setup prepare local runtime assets.
 
 Notes
@@ -16,7 +16,7 @@ Notes
 - Generated files stay under data/.
 - FFmpeg is downloaded during first-run setup into data/ffmpeg/.
 - Demucs model weights are downloaded by the backend on first use into data/models/.
-- NeonSplice is a modified derivative of StemDeck and is distributed under the
+- STEMDECK is based on the original StemDeck project and is distributed under the
   Apache License 2.0. See LICENSE and NOTICE in this folder for attribution.
 
 Troubleshooting

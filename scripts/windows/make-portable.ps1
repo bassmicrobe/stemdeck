@@ -1,7 +1,7 @@
 param(
   [string]$Configuration = "release",
   [string]$OutputRoot    = "dist",
-  [string]$PackageName   = "NeonSplice-Windows-x64",
+  [string]$PackageName   = "STEMDECK-Windows-x64",
   [string]$PackageVersion,
   [switch]$SkipTauriBuild,
   [switch]$CpuOnly,
@@ -134,7 +134,7 @@ function Assert-Fresh-TauriBuild {
   if ($newerSources.Count -gt 0) {
     $list = ($newerSources | Select-Object -First 8 | ForEach-Object { "  - $($_.FullName)" }) -join "`n"
     throw @"
--SkipTauriBuild would package a stale NeonSplice.exe.
+-SkipTauriBuild would package a stale STEMDECK.exe.
 
 The existing executable is older than desktop UI/Tauri source files:
 $list
@@ -255,7 +255,7 @@ if (-not (Test-Path $TargetExe)) {
   throw "Tauri executable not found at $TargetExe"
 }
 
-Copy-Item -Force $TargetExe (Join-Path $Stage "NeonSplice.exe")
+Copy-Item -Force $TargetExe (Join-Path $Stage "STEMDECK.exe")
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 $Hash = Get-FileHash -Algorithm SHA256 $ZipPath

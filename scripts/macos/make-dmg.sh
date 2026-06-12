@@ -8,10 +8,10 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/.build"
 DIST_DIR="${BUILD_DIR}/macos-dist"
 DMG_STAGING="${BUILD_DIR}/dmg-staging-${ARCH}"
-DMG_NAME="NeonSplice-macOS-${ARCH}.dmg"
+DMG_NAME="STEMDECK-macOS-${ARCH}.dmg"
 DMG_PATH="${DIST_DIR}/${DMG_NAME}"
-DMG_RW_PATH="${DIST_DIR}/NeonSplice-macOS-${ARCH}.rw.dmg"
-RUNTIME_NAME="NeonSplice-runtime-macOS-${ARCH}.tar.zst"
+DMG_RW_PATH="${DIST_DIR}/STEMDECK-macOS-${ARCH}.rw.dmg"
+RUNTIME_NAME="STEMDECK-runtime-macOS-${ARCH}.tar.zst"
 RUNTIME_PATH="${BUILD_DIR}/${RUNTIME_NAME}"
 BACKGROUND_SRC="${REPO_ROOT}/packaging/macos/dmg-background.svg"
 BACKGROUND_DIR_NAME=".background"
@@ -35,9 +35,9 @@ for cmd in ditto hdiutil qlmanage shasum; do
 done
 
 if [[ "$ARCH" == "arm64" ]]; then
-  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/NeonSplice.app"
+  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app"
 else
-  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/NeonSplice.app"
+  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/STEMDECK.app"
 fi
 
 if [[ ! -d "$APP_DIR" ]]; then
@@ -56,7 +56,7 @@ rm -rf "$DMG_STAGING"
 mkdir -p "$DMG_STAGING" "$DIST_DIR"
 mkdir -p "$DMG_STAGING/$BACKGROUND_DIR_NAME"
 
-ditto "$APP_DIR" "$DMG_STAGING/NeonSplice.app"
+ditto "$APP_DIR" "$DMG_STAGING/STEMDECK.app"
 ln -s /Applications "$DMG_STAGING/Applications"
 
 if [[ -f "$BACKGROUND_SRC" ]]; then
@@ -82,7 +82,7 @@ fi
 
 rm -f "$DMG_PATH" "$DMG_RW_PATH"
 hdiutil create \
-  -volname "NeonSplice" \
+  -volname "STEMDECK" \
   -srcfolder "$DMG_STAGING" \
   -ov \
   -format UDRW \
@@ -119,7 +119,7 @@ tell application "Finder"
   set icon size of viewOptions to 104
   set text size of viewOptions to 13
   set background picture of viewOptions to POSIX file "$MOUNT_DIR/$BACKGROUND_DIR_NAME/$BACKGROUND_PNG_NAME"
-  set position of item "NeonSplice.app" of dmgFolder to {205, 205}
+  set position of item "STEMDECK.app" of dmgFolder to {205, 205}
   set position of item "Applications" of dmgFolder to {455, 205}
   close container window of dmgFolder
   open dmgFolder
