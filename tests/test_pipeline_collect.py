@@ -17,6 +17,7 @@ from app.pipeline.collect import (
     make_selected_mix,
     repair_bass_dropouts,
     restore_demucs_gain,
+    stabilize_stem_outputs,
 )
 
 
@@ -142,6 +143,33 @@ def test_restore_demucs_gain_applies_inverse_pregain(tmp_path, monkeypatch):
         "volume=6dB",
     ]
     assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+
+
+def test_restore_demucs_gain_uses_actual_adaptive_gain(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    stem = stems_dir / "bass.wav"
+    stem.write_bytes(b"wav")
+    calls = []
+
+    def fake_run_ffmpeg(job, cmd):
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"boosted")
+        return True
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    job = Job(id="abcdefabcdef", quality_preset="high", demucs_gain_db=-11.0)
+
+    restore_demucs_gain(job, stems_dir, ["bass"])
+
+    assert stem.read_bytes() == b"boosted"
+    cmd = calls[0]
+    assert cmd[cmd.index("-filter:a") : cmd.index("-filter:a") + 2] == [
+        "-filter:a",
+        "volume=11dB",
+    ]
 
 
 def test_restore_demucs_gain_noops_without_pregain(tmp_path, monkeypatch):
@@ -270,3 +298,30 @@ def test_repair_bass_dropouts_noops_for_standard_preset(tmp_path, monkeypatch):
         stems_dir,
         ["bass", "drums"],
     )
+
+
+def test_stabilize_stem_outputs_removes_dc_and_limits_float_peak(tmp_path):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    sr = 44100
+    t = np.linspace(0, 0.1, int(sr * 0.1), endpoint=False, dtype=np.float32)
+    hot = (np.sin(2 * np.pi * 90 * t) * 1.2 + 0.04).astype(np.float32)
+    sf.write(stems_dir / "bass.wav", hot, sr, subtype="FLOAT")
+
+    stabilize_stem_outputs(Job(id="abcdefabcdef", quality_preset="high"), stems_dir, ["bass"])
+
+    data, _ = sf.read(stems_dir / "bass.wav", dtype="float32", always_2d=True)
+    assert abs(float(np.mean(data[:, 0]))) < 1e-3
+    assert float(np.max(np.abs(data))) <= 0.981
+
+
+def test_stabilize_stem_outputs_noops_for_standard_preset(tmp_path):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    path = stems_dir / "bass.wav"
+    sf.write(path, np.array([0.25, -0.25], dtype=np.float32), 44100, subtype="FLOAT")
+    before = path.read_bytes()
+
+    stabilize_stem_outputs(Job(id="abcdefabcdef", quality_preset="standard"), stems_dir, ["bass"])
+
+    assert path.read_bytes() == before

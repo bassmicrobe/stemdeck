@@ -56,6 +56,7 @@ class Job:
     quality_preset: str = "standard"
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
+    demucs_gain_db: float | None = None  # reversible gain applied to the Demucs working copy
     error: str | None = None
     # Set by POST /api/jobs/{id}/cancel; consumed by pipeline stages.
     # Not surfaced via to_state() -- it's internal control state.

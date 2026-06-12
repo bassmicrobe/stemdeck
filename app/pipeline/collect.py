@@ -13,9 +13,12 @@ import soundfile as sf
 from app.core.config import (
     BASS_REPAIR_LOW_PASS_HZ,
     BASS_REPAIR_MAX_BLEND,
+    BASS_REPAIR_SHORT_GAP_MS,
+    BASS_REPAIR_SHORT_GAP_RATIO,
     BASS_REPAIR_TRIGGER_RATIO,
     JOB_TTL_SECONDS,
     STEM_NAMES,
+    STEM_POST_LIMITER_PEAK,
     TIMEOUT_FFMPEG,
     bass_repair_enabled_for_preset,
     demucs_settings_for_preset,
@@ -105,10 +108,13 @@ def restore_demucs_gain(job: Job, stems_dir: Path, stem_names: list[str]) -> Non
     artifacts are generated.
     """
     settings = demucs_settings_for_preset(job.quality_preset)
-    if abs(settings.pre_gain_db) < 0.001:
+    applied_gain_db = (
+        float(job.demucs_gain_db) if job.demucs_gain_db is not None else settings.pre_gain_db
+    )
+    if abs(applied_gain_db) < 0.001:
         return
 
-    restore_db = -settings.pre_gain_db
+    restore_db = -applied_gain_db
     old_stage = job.stage_message
     _set(job, stage="Restoring stem levels...")
     for name in stem_names:
@@ -197,6 +203,13 @@ def _rms_envelope(block: np.ndarray, window: int) -> np.ndarray:
     return np.sqrt(_moving_average(mono_power, window) + 1e-12)
 
 
+def _boolean_moving_fill(mask: np.ndarray, window: int) -> np.ndarray:
+    if mask.size == 0:
+        return mask
+    smoothed = _moving_average(mask.astype(np.float32), window)
+    return smoothed > 0.08
+
+
 def _match_channels(block: np.ndarray, channels: int) -> np.ndarray:
     if block.shape[1] == channels:
         return block
@@ -240,6 +253,7 @@ def _blend_bass_dropout_repair(
         channels = bass_file.channels
         window = max(128, int(bass_file.samplerate * 0.028))
         smooth = max(64, int(bass_file.samplerate * 0.012))
+        short_gap = max(16, int(bass_file.samplerate * (BASS_REPAIR_SHORT_GAP_MS / 1000)))
 
         with sf.SoundFile(
             out_path,
@@ -267,15 +281,101 @@ def _blend_bass_dropout_repair(
                 residual_env = _rms_envelope(residual_block, window)
                 deficit = residual_env - (bass_env * trigger_ratio)
                 weight = np.clip(deficit / (residual_env + 1e-8), 0.0, max_blend)
+                short_gap_mask = _boolean_moving_fill(
+                    (residual_env > floor) & (bass_env * BASS_REPAIR_SHORT_GAP_RATIO < residual_env),
+                    short_gap,
+                )
+                short_gap_weight = np.where(short_gap_mask, max_blend * 0.72, 0.0)
+                weight = np.maximum(weight, short_gap_weight)
                 weight = np.where(residual_env > floor, weight, 0.0).astype(np.float32)
                 weight = _moving_average(weight, smooth)
 
                 if float(np.max(weight, initial=0.0)) > 0.001:
                     changed = True
                 repaired = bass_block + (residual_block * weight[:, None])
+                repaired = _soft_limit_block(repaired)
                 out_file.write(repaired)
 
     return changed
+
+
+def _soft_limit_block(block: np.ndarray, peak: float = STEM_POST_LIMITER_PEAK) -> np.ndarray:
+    """Clamp only unsafe overs after repair/mix math while preserving float32 output."""
+    if block.size == 0:
+        return block
+    current = float(np.max(np.abs(block), initial=0.0))
+    if current <= peak:
+        return block.astype(np.float32, copy=False)
+    return np.clip(block * (peak / current), -peak, peak).astype(np.float32, copy=False)
+
+
+def stabilize_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> None:
+    """Remove DC offset and prevent accidental clipping in generated stems.
+
+    Demucs + residual repair are intentionally float-heavy. This pass keeps the
+    files as float for high-quality presets, but subtracts tiny DC offsets and
+    rescales only files that exceed the configured safety peak.
+    """
+    if not demucs_settings_for_preset(job.quality_preset).float32:
+        return
+    old_stage = job.stage_message
+    _set(job, stage="Stabilizing stems...")
+    try:
+        for name in stem_names:
+            path = stems_dir / f"{name}.wav"
+            if not path.is_file():
+                continue
+            tmp = path.with_suffix(".stable.wav")
+            should_replace = False
+            with sf.SoundFile(path) as src:
+                subtype = "FLOAT"
+                channels = src.channels
+                samplerate = src.samplerate
+                blocksize = 262_144
+                sums = np.zeros(channels, dtype=np.float64)
+                frames = 0
+                peak = 0.0
+                while True:
+                    block = src.read(blocksize, dtype="float32", always_2d=True)
+                    if block.size == 0:
+                        break
+                    sums += np.sum(block, axis=0, dtype=np.float64)
+                    frames += len(block)
+                    peak = max(peak, float(np.max(np.abs(block), initial=0.0)))
+                if frames == 0:
+                    continue
+                dc = (sums / frames).astype(np.float32)
+                needs_dc = float(np.max(np.abs(dc), initial=0.0)) > 1e-5
+                gain = min(1.0, STEM_POST_LIMITER_PEAK / peak) if peak > 0 else 1.0
+                needs_gain = gain < 0.9999
+                if not needs_dc and not needs_gain:
+                    continue
+
+                src.seek(0)
+                with sf.SoundFile(
+                    tmp,
+                    mode="w",
+                    samplerate=samplerate,
+                    channels=channels,
+                    subtype=subtype,
+                ) as out:
+                    while True:
+                        block = src.read(blocksize, dtype="float32", always_2d=True)
+                        if block.size == 0:
+                            break
+                        if needs_dc:
+                            block = block - dc[None, :]
+                        if needs_gain:
+                            block = block * gain
+                        out.write(block.astype(np.float32, copy=False))
+                should_replace = True
+            if should_replace:
+                tmp.replace(path)
+                logger.info("stabilized stem %s for job %s", name, job.id)
+    finally:
+        for tmp in stems_dir.glob("*.stable.wav"):
+            tmp.unlink(missing_ok=True)
+        _set(job, stage=old_stage)
 
 
 def repair_bass_dropouts(job: Job, source: Path, stems_dir: Path, stem_names: list[str]) -> bool:

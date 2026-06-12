@@ -7,7 +7,12 @@ import pytest
 
 from app.core.models import Job, JobCancelled
 from app.core.registry import _jobs
-from app.pipeline.runner import _prepare_demucs_source, run_local_pipeline, run_pipeline
+from app.pipeline.runner import (
+    _prepare_demucs_source,
+    _prepare_local_source,
+    run_local_pipeline,
+    run_pipeline,
+)
 
 
 @pytest.mark.asyncio
@@ -163,9 +168,65 @@ def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monk
     assert dest == tmp_path / "source.demucs.wav"
     assert dest.read_bytes() == b"processed"
     cmd, kwargs = calls[0]
-    assert cmd[cmd.index("-filter:a") : cmd.index("-filter:a") + 2] == [
-        "-filter:a",
-        "volume=-6dB",
-    ]
+    filter_chain = cmd[cmd.index("-filter:a") + 1]
+    assert "aresample=44100" in filter_chain
+    assert "highpass=f=12" in filter_chain
+    assert "volume=-6dB" in filter_chain
+    assert job.demucs_gain_db == -6.0
     assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
     assert kwargs["timeout"] == runner.TIMEOUT_FFMPEG
+
+
+def test_prepare_demucs_source_uses_reversible_loudness_safety_gain(
+    tmp_path: Path, monkeypatch
+):
+    import app.pipeline.runner as runner
+
+    job = Job(id="abcdefabcde4", quality_preset="high", lufs=-7.0, peak_db=1.2)
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    calls = []
+
+    class Result:
+        returncode = 0
+        stderr = b""
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        Path(cmd[-1]).write_bytes(b"processed")
+        return Result()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    _prepare_demucs_source(job, source, tmp_path)
+
+    filter_chain = calls[0][0][calls[0][0].index("-filter:a") + 1]
+    assert "volume=-11dB" in filter_chain
+    assert job.demucs_gain_db == -11.0
+
+
+def test_prepare_local_source_keeps_float_for_high_quality(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    job = Job(id="abcdefabcde5", quality_preset="high")
+    source = tmp_path / "upload.mp3"
+    source.write_bytes(b"ID3")
+    calls = []
+
+    class Result:
+        returncode = 0
+        stderr = b""
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        Path(cmd[-1]).write_bytes(b"processed")
+        return Result()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    dest = _prepare_local_source(job, source, tmp_path)
+
+    assert dest == tmp_path / "source.wav"
+    cmd, _ = calls[0]
+    assert cmd[cmd.index("-sample_fmt") : cmd.index("-sample_fmt") + 2] == ["-sample_fmt", "flt"]
+    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]

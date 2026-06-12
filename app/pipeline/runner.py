@@ -7,7 +7,13 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.core.config import TIMEOUT_FFMPEG, demucs_settings_for_preset, ffmpeg_executable
+from app.core.config import (
+    STEM_PREPROCESS_TARGET_I,
+    STEM_PREPROCESS_TRUE_PEAK,
+    TIMEOUT_FFMPEG,
+    demucs_settings_for_preset,
+    ffmpeg_executable,
+)
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
@@ -19,6 +25,7 @@ from app.pipeline.collect import (
     make_selected_mix,
     repair_bass_dropouts,
     restore_demucs_gain,
+    stabilize_stem_outputs,
 )
 from app.pipeline.download import download
 from app.pipeline.separate import separate
@@ -45,10 +52,12 @@ def _check_cancel(job: Job) -> None:
 
 
 def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
-    """Transcode any local upload to 16-bit 44.1 kHz stereo WAV before
+    """Transcode any local upload to a 44.1 kHz stereo WAV before
     handing it to Demucs. Normalises MP3 and non-standard WAV formats
     (24-bit, 32-bit float, high sample rate, multi-channel) that Demucs
-    would otherwise process silently and output as silence.
+    would otherwise process silently and output as silence. High-quality
+    presets keep this normalization in 32-bit float so hot sources are not
+    truncated before the dedicated safety preprocessing pass.
 
     Deletes the original source file after a successful transcode."""
     dest = job_dir / "source.wav"
@@ -56,6 +65,9 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
         return source
 
     _set(job, stage="Preparing audio...")
+    settings = demucs_settings_for_preset(job.quality_preset)
+    sample_fmt = "flt" if settings.float32 else "s16"
+    codec = "pcm_f32le" if settings.float32 else "pcm_s16le"
     cmd = [
         ffmpeg_executable(),
         "-nostdin",
@@ -68,7 +80,9 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
         "-ac",
         "2",
         "-sample_fmt",
-        "s16",
+        sample_fmt,
+        "-c:a",
+        codec,
         "-y",
         str(dest),
     ]
@@ -82,18 +96,34 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
 
 
 def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
-    """Optionally create a lower-gain working copy for Demucs.
+    """Optionally create a safer high-quality working copy for Demucs.
 
     Hot masters can provoke clipped or ragged stem edges. Feeding Demucs a
-    slightly quieter float WAV costs extra ffmpeg time but preserves the source
-    file for analysis and keeps the quality tweak reversible.
+    true-peak limited, DC-filtered, slightly quieter float WAV costs extra
+    ffmpeg time but preserves the source file and keeps the tweak reversible.
     """
     settings = demucs_settings_for_preset(job.quality_preset)
-    if abs(settings.pre_gain_db) < 0.001:
+    loudness_gain = 0.0
+    if job.lufs is not None and job.lufs > STEM_PREPROCESS_TARGET_I:
+        loudness_gain = STEM_PREPROCESS_TARGET_I - job.lufs
+    peak_gain = 0.0
+    if job.peak_db is not None and job.peak_db > STEM_PREPROCESS_TRUE_PEAK:
+        peak_gain = STEM_PREPROCESS_TRUE_PEAK - job.peak_db
+    demucs_gain_db = min(settings.pre_gain_db, loudness_gain, peak_gain, 0.0)
+    job.demucs_gain_db = demucs_gain_db
+    if abs(demucs_gain_db) < 0.001 and not settings.float32:
         return source
 
     dest = job_dir / "source.demucs.wav"
     _set(job, stage="Preparing high-quality separation...")
+    filters = [
+        "aresample=44100:resampler=soxr:precision=28",
+        "aformat=sample_fmts=flt:channel_layouts=stereo",
+        # A very low high-pass removes DC/near-DC offset without touching bass fundamentals.
+        "highpass=f=12",
+    ]
+    if abs(demucs_gain_db) >= 0.001:
+        filters.append(f"volume={demucs_gain_db:g}dB")
     cmd = [
         ffmpeg_executable(),
         "-nostdin",
@@ -102,7 +132,7 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         "-i",
         str(source),
         "-filter:a",
-        f"volume={settings.pre_gain_db:g}dB",
+        ",".join(filters),
         "-ar",
         "44100",
         "-ac",
@@ -133,6 +163,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     stems_dir = job_dir / "stems"
     restore_demucs_gain(job, stems_dir, found)
     repair_bass_dropouts(job, source, stems_dir, found)
+    stabilize_stem_outputs(job, stems_dir, found)
     _check_cancel(job)
     job.stem_presence = compute_stem_presence(stems_dir, found)
     # Source (100-300 MB or the local upload) is no longer needed after
@@ -190,6 +221,7 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "tempo_stability": job.tempo_stability,
         "stem_presence": job.stem_presence,
         "quality_preset": job.quality_preset,
+        "demucs_gain_db": job.demucs_gain_db,
         "tags": job.tags,
     }
     try:
