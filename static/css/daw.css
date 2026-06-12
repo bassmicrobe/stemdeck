@@ -2475,3 +2475,816 @@ input, textarea { font-family: inherit; }
   .daw-track-card { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
   .stem-presence-panel { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ═══════════════════════════════════
+   Responsive phone / small tablet layout
+   ═══════════════════════════════════ */
+@media (max-width: 1180px) {
+  .daw-topbar {
+    height: auto;
+    min-height: 77px;
+    flex-wrap: wrap;
+    align-content: center;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .daw-sep { display: none; }
+
+  .daw-composer {
+    order: 3;
+    flex: 1 0 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  html,
+  body,
+  .daw {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+
+  .daw {
+    font-size: 12px;
+  }
+
+  .daw-topbar {
+    padding: max(10px, env(safe-area-inset-top)) 10px 10px;
+  }
+
+  .daw-brand-name {
+    font-size: 17px;
+  }
+
+  .daw-composer {
+    height: auto;
+    min-height: 52px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    overflow: visible;
+    border-radius: 18px;
+  }
+
+  .daw-url-zone {
+    flex: 1 0 100%;
+    min-height: 46px;
+    padding: 0 12px;
+  }
+
+  .daw-url-zone input[type="url"] {
+    font-size: 16px; /* avoids iOS input zoom */
+  }
+
+  .file-name {
+    max-width: min(46vw, 220px);
+  }
+
+  .daw-composer-sep {
+    display: none;
+  }
+
+  .daw-stem-section,
+  .daw-quality-section {
+    min-height: 42px;
+    padding: 0 10px 8px;
+  }
+
+  .daw-stem-section {
+    flex: 1 1 360px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .daw-stem-section::-webkit-scrollbar {
+    display: none;
+  }
+
+  .daw-stem-chips {
+    min-width: max-content;
+  }
+
+  .daw-quality-section {
+    flex: 0 1 220px;
+    justify-content: flex-end;
+  }
+
+  .daw-process-btn {
+    flex: 1 0 180px;
+    min-height: 42px;
+    margin: 0 8px 8px;
+    justify-content: center;
+    border-left: none;
+    border-radius: 12px;
+  }
+
+  .daw-notif-panel {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 64px);
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: min(70dvh, 420px);
+    overflow-y: auto;
+  }
+
+  .daw-body {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: clamp(160px, 28dvh, 230px);
+    border-right: none;
+    border-bottom: 1px solid var(--border-strong);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.24), inset 0 -1px 0 rgba(47,255,227,0.06);
+  }
+
+  .sidebar-rail {
+    width: 58px;
+    padding: 8px 0;
+  }
+
+  .rail-btn {
+    width: 42px;
+    height: 38px;
+    font-size: 8px;
+  }
+
+  .sidebar-body {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .daw-search {
+    height: 34px;
+  }
+
+  .search-kbd {
+    display: none;
+  }
+
+  .daw-main-col {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .error {
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: calc(132px + env(safe-area-inset-bottom));
+    border: 1px solid rgba(214,90,74,0.34);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.34);
+  }
+
+  .daw-track-header {
+    max-height: 190px;
+    overflow-y: auto;
+  }
+
+  .daw-info-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .daw-track-card {
+    grid-column: 1 / -1;
+    padding: 10px 12px;
+  }
+
+  .daw-cover {
+    width: 52px;
+    height: 52px;
+  }
+
+  .daw-track-title {
+    font-size: 14px;
+  }
+
+  .daw-meta-card {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  .meta-card-value {
+    font-size: 18px;
+  }
+
+  .stem-presence-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .stem-card {
+    padding: 9px 12px;
+  }
+
+  .stem-card-pct {
+    font-size: 20px;
+  }
+
+  .daw-mixer-label,
+  .daw-wave-label,
+  .daw-stems-panel {
+    width: clamp(176px, 42vw, 230px);
+  }
+
+  .daw-sections-area,
+  .daw-ruler-area,
+  .daw-wave-panel {
+    min-width: 0;
+  }
+
+  .daw-content {
+    overflow: hidden;
+  }
+
+  .lane-header.mx-row {
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  .lane-name-vu {
+    width: 58px;
+  }
+
+  .mx-name {
+    font-size: 12px;
+  }
+
+  .mx-val {
+    width: 30px;
+    font-size: 9px;
+  }
+
+  .lane-icon-toggle.mx-btn,
+  .ms-btn.mx-btn,
+  .lane-dl.mx-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .daw-footer {
+    height: 150px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .footer-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "track controls"
+      "chips chips";
+    gap: 8px 10px;
+    align-items: center;
+    padding: 8px 12px;
+  }
+
+  .footer-track {
+    grid-area: track;
+  }
+
+  .footer-center {
+    grid-area: controls;
+    padding: 0;
+  }
+
+  .footer-chips {
+    grid-area: chips;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .footer-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .footer-track-body {
+    align-items: center;
+  }
+
+  .footer-cover {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .footer-track-body .daw-track-meta {
+    display: none;
+  }
+
+  .footer-track-title {
+    font-size: 13px;
+  }
+
+  .footer-wave-bar {
+    height: 28px;
+  }
+
+  .footer-transport {
+    gap: 7px;
+  }
+
+  .footer-transport .daw-iconbtn.btn-transport {
+    width: 38px;
+    height: 38px;
+  }
+
+  .daw-play-btn {
+    width: 50px;
+    height: 50px;
+  }
+
+  .footer-chip,
+  .daw-footer .footer-btn {
+    height: 34px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+
+  .footer-chip-panel {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(150px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 46dvh;
+    overflow-y: auto;
+  }
+
+  .chip-panel-export {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .daw-topbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .daw-brand {
+    min-height: 30px;
+  }
+
+  .daw-brand-name {
+    font-size: 16px;
+  }
+
+  .daw-notif-wrap {
+    margin-left: auto;
+  }
+
+  .daw-composer {
+    border-radius: 16px;
+  }
+
+  .daw-extract-label {
+    display: none;
+  }
+
+  .stem-choice {
+    height: 32px;
+    padding: 0 10px;
+  }
+
+  .daw-quality-section {
+    flex: 1 1 170px;
+    justify-content: flex-start;
+  }
+
+  .daw-quality-select {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .daw-process-btn {
+    flex: 1 1 150px;
+    margin: 0 8px 8px 0;
+  }
+
+  .sidebar {
+    height: clamp(136px, 24dvh, 188px);
+  }
+
+  .sidebar-rail {
+    width: 50px;
+  }
+
+  .rail-btn {
+    width: 38px;
+  }
+
+  .rail-btn span {
+    display: none;
+  }
+
+  .daw-lib-header {
+    display: none;
+  }
+
+  .lib-section {
+    padding-top: 8px;
+  }
+
+  .daw-track-header {
+    max-height: 152px;
+  }
+
+  .daw-info-row {
+    grid-template-columns: 1fr;
+  }
+
+  .daw-meta-card {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .daw-meta-card:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .stem-presence-panel {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .stem-presence-panel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stem-card {
+    min-width: 88px;
+    border-right: 1px solid var(--border);
+  }
+
+  .daw-mixer-label,
+  .daw-wave-label,
+  .daw-stems-panel {
+    width: clamp(142px, 39vw, 176px);
+  }
+
+  .daw-label-sub,
+  .sections-save-indicator,
+  .mx-val {
+    display: none;
+  }
+
+  .daw-mixer-label,
+  .daw-wave-label {
+    padding-inline: 10px;
+  }
+
+  .lane-name-vu {
+    width: 48px;
+  }
+
+  .mx-name {
+    font-size: 11px;
+  }
+
+  .mx-fader-input::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+    margin-top: -7px;
+  }
+
+  .mx-fader-input::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .daw-footer {
+    height: 138px;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "track"
+      "chips";
+    justify-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+  }
+
+  .footer-track,
+  .footer-chips {
+    width: 100%;
+  }
+
+  .footer-track-body {
+    justify-content: center;
+  }
+
+  .footer-cover {
+    display: none !important;
+  }
+
+  .footer-track-title-row {
+    justify-content: center;
+  }
+
+  .footer-track-title {
+    text-align: center;
+    max-width: 100%;
+  }
+
+  .footer-time-row {
+    display: none;
+  }
+
+  .footer-chip-panel {
+    bottom: calc(138px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 480px) {
+  .daw {
+    font-size: 11px;
+  }
+
+  .daw-topbar {
+    padding-bottom: 8px;
+  }
+
+  .daw-url-zone {
+    min-height: 42px;
+  }
+
+  .file-size {
+    display: none;
+  }
+
+  .daw-stem-section,
+  .daw-quality-section {
+    min-height: 38px;
+    padding-bottom: 7px;
+  }
+
+  .stem-choice {
+    height: 30px;
+    padding-inline: 9px;
+    font-size: 11px;
+  }
+
+  .daw-upload-btn,
+  .daw-iconbtn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sidebar {
+    height: clamp(118px, 22dvh, 160px);
+  }
+
+  .sidebar-body {
+    padding: 7px;
+  }
+
+  .daw-search {
+    height: 32px;
+  }
+
+  .daw-track-header {
+    max-height: 124px;
+  }
+
+  .daw-track-card {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .daw-cover {
+    width: 44px;
+    height: 44px;
+  }
+
+  .daw-meta-card {
+    padding: 8px 10px;
+  }
+
+  .meta-card-value {
+    font-size: 16px;
+  }
+
+  .stem-card {
+    min-width: 76px;
+    padding: 8px 10px;
+  }
+
+  .stem-card-pct {
+    font-size: 17px;
+  }
+
+  .daw-mixer-label,
+  .daw-wave-label,
+  .daw-stems-panel {
+    width: 136px;
+  }
+
+  .daw-label-title {
+    font-size: 11px;
+  }
+
+  .lane-header.mx-row {
+    gap: 4px;
+    padding-inline: 6px;
+  }
+
+  .lane-name-vu {
+    width: 42px;
+  }
+
+  .lane-icon-toggle.mx-btn,
+  .ms-btn.mx-btn,
+  .lane-dl.mx-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 9px;
+  }
+
+  .job {
+    padding: 22px 16px;
+  }
+
+  .job .job-progress-row {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .job .job-percent {
+    text-align: center;
+  }
+
+  .daw-footer {
+    height: 128px;
+  }
+
+  .daw-play-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  .footer-transport .daw-iconbtn.btn-transport {
+    width: 36px;
+    height: 36px;
+  }
+
+  .footer-chip,
+  .daw-footer .footer-btn {
+    height: 32px;
+    padding-inline: 10px;
+  }
+
+  .footer-chip-panel {
+    bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+
+  .about-card,
+  .friends-card {
+    width: min(360px, calc(100vw - 20px));
+    max-height: calc(100dvh - 28px);
+    overflow-y: auto;
+    padding-inline: 18px;
+  }
+
+  .about-primary-links {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) and (max-height: 720px) {
+  .daw-topbar {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: 7px;
+  }
+
+  .daw-brand {
+    min-height: 24px;
+  }
+
+  .daw-brand-name {
+    font-size: 15px;
+  }
+
+  .daw-url-zone {
+    min-height: 38px;
+  }
+
+  .daw-stem-section,
+  .daw-quality-section {
+    min-height: 34px;
+    padding-bottom: 5px;
+  }
+
+  .stem-choice {
+    height: 28px;
+  }
+
+  .daw-process-btn {
+    min-height: 36px;
+    font-size: 13px;
+  }
+
+  .sidebar {
+    height: 104px;
+  }
+
+  .daw-lib-header,
+  .lib-tags-row {
+    display: none;
+  }
+
+  .daw-track-header {
+    max-height: 96px;
+  }
+
+  .daw-footer {
+    height: 110px;
+  }
+
+  .footer-wave-bar {
+    height: 18px;
+  }
+
+  .footer-chip-panel {
+    bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .daw-topbar {
+    min-height: 58px;
+  }
+
+  .daw-composer {
+    flex-wrap: nowrap;
+  }
+
+  .daw-url-zone {
+    flex: 1 1 200px;
+  }
+
+  .daw-stem-section {
+    flex: 1 1 180px;
+  }
+
+  .daw-quality-section {
+    flex: 0 0 150px;
+  }
+
+  .daw-extract-label {
+    display: none;
+  }
+
+  .daw-stem-section,
+  .daw-quality-section,
+  .daw-process-btn {
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+
+  .daw-process-btn {
+    flex: 0 0 108px;
+    padding-inline: 12px;
+  }
+
+  .sidebar {
+    height: 106px;
+  }
+
+  .daw-track-header {
+    display: none;
+  }
+
+  .daw-footer {
+    height: 92px;
+  }
+
+  .footer-wave-bar {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .daw button,
+  .daw a,
+  .daw input,
+  .daw select {
+    touch-action: manipulation;
+  }
+
+  .daw-lib-list,
+  .mixer-column,
+  .daw .wave-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
