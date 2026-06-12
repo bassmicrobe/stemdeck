@@ -180,6 +180,35 @@ def test_upload_503_when_queue_full(upload_client):
     assert r.status_code == 503
 
 
+def test_active_jobs_include_queue_positions(client):
+    first = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+    second = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    r = client.get("/api/jobs/active")
+    assert r.status_code == 200
+    body = r.json()
+    assert [item["job_id"] for item in body] == [first.json()["job_id"], second.json()["job_id"]]
+    assert [item["queue_position"] for item in body] == [1, 2]
+    assert [item["queue_size"] for item in body] == [2, 2]
+
+
+def test_cancel_queued_job_opens_queue_slot(client):
+    created = [
+        client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).json()["job_id"]
+        for _ in range(MAX_PENDING_JOBS)
+    ]
+
+    r = client.post(f"/api/jobs/{created[0]}/cancel")
+    assert r.status_code == 200
+    assert r.json()["status"] == "cancelled"
+
+    replacement = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+    assert replacement.status_code == 200
+
+
 # ─── File upload ─────────────────────────────────────────────────────────────
 
 

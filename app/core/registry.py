@@ -21,27 +21,52 @@ _procs: dict[str, subprocess.Popen] = {}
 _lock = threading.Lock()
 _REGISTRY_FILE = "registry.json"
 _TERMINAL = {"done"}
+_ACTIVE_STATUSES = {"queued", "downloading", "analyzing", "separating", "processing"}
+
+
+def _refresh_queue_positions_locked() -> None:
+    queued = sorted(
+        (job for job in _jobs.values() if job.status == "queued" and not job.cancel_requested),
+        key=lambda item: item.created_at,
+    )
+    queue_size = len(queued)
+    queued_ids = {job.id for job in queued}
+    for index, job in enumerate(queued, start=1):
+        job.queue_position = index
+        job.queue_size = queue_size
+    for job in _jobs.values():
+        if job.id not in queued_ids:
+            job.queue_position = None
+            job.queue_size = queue_size
+
+
+def refresh_queue_positions() -> None:
+    with _lock:
+        _refresh_queue_positions_locked()
 
 
 def register(job: Job) -> Job:
     with _lock:
         _jobs[job.id] = job
+        _refresh_queue_positions_locked()
     return job
 
 
 def register_if_capacity(job: Job, max_pending: int) -> bool:
-    """Atomically check pending count and register if under capacity.
+    """Atomically check active count and register if under capacity.
     Returns True if registered, False if the queue is full."""
     with _lock:
-        pending = sum(1 for j in _jobs.values() if j.status == "queued")
-        if pending >= max_pending:
+        active = sum(1 for j in _jobs.values() if j.status in _ACTIVE_STATUSES)
+        if active >= max_pending:
             return False
         _jobs[job.id] = job
+        _refresh_queue_positions_locked()
     return True
 
 
 def get(job_id: str) -> Job | None:
     with _lock:
+        _refresh_queue_positions_locked()
         return _jobs.get(job_id)
 
 
@@ -54,6 +79,7 @@ def remove(job_id: str) -> None:
 def all_jobs() -> dict[str, Job]:
     """Return a snapshot of the registry for sweep / cleanup."""
     with _lock:
+        _refresh_queue_positions_locked()
         return dict(_jobs)
 
 

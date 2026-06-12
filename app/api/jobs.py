@@ -28,6 +28,7 @@ from app.core.registry import all_jobs as registry_all_jobs
 from app.core.registry import get as registry_get
 from app.core.registry import get_proc as registry_get_proc
 from app.core.registry import persist as registry_persist
+from app.core.registry import refresh_queue_positions as registry_refresh_queue_positions
 from app.core.registry import register_if_capacity as registry_register_if_capacity
 from app.core.registry import remove as registry_remove
 from app.pipeline import run_local_pipeline, run_pipeline
@@ -36,6 +37,7 @@ from app.pipeline.download import InvalidYouTubeURL, validate_youtube_url
 router = APIRouter(tags=["jobs"])
 logger = logging.getLogger("stemdeck.api")
 
+ACTIVE_JOB_STATUSES = frozenset(("queued", "downloading", "analyzing", "separating", "processing"))
 _ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac"))
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 _WS_RE = re.compile(r"\s+")
@@ -188,7 +190,7 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
 async def _create_local_job(request: Request) -> dict[str, str]:
     # Fast pre-check: if already at capacity, reject before touching disk.
     # The real atomic check happens in register_if_capacity after the upload.
-    if sum(1 for j in registry_all_jobs().values() if j.status == "queued") >= MAX_PENDING_JOBS:
+    if sum(1 for j in registry_all_jobs().values() if j.status in ACTIVE_JOB_STATUSES) >= MAX_PENDING_JOBS:
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
 
     # Quick pre-check on Content-Length to fail fast for obviously oversized
@@ -289,6 +291,17 @@ def list_jobs() -> list[dict]:
     ]
 
 
+@router.get("/active")
+def list_active_jobs() -> list[dict]:
+    """List queued and running jobs, sorted by creation time."""
+    registry_refresh_queue_positions()
+    return [
+        job.to_state()
+        for job in sorted(registry_all_jobs().values(), key=lambda j: j.created_at)
+        if job.status in ACTIVE_JOB_STATUSES
+    ]
+
+
 @router.get("/{job_id}")
 def get_job(job_id: str) -> dict:
     """Get the current state of a job by ID."""
@@ -310,6 +323,10 @@ def cancel_job(job_id: str) -> dict:
     proc = registry_get_proc(job_id)
     if proc is not None and proc.poll() is None:
         proc.terminate()
+    elif job.status == "queued":
+        job.status = "cancelled"
+        job.stage_message = "Cancelled"
+        registry_refresh_queue_positions()
     return job.to_state()
 
 

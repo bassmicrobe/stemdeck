@@ -60,6 +60,12 @@ const TRASH_ID = "trash";
 // The default landing folder for unorganized tracks — protected from deletion.
 const UNSORTED_ID = "f-unsorted";
 const PROCESSING_STATUSES = new Set(["queued", "downloading", "analyzing", "separating", "processing"]);
+const RUNNING_STATUS_LABELS = {
+  downloading: "Downloading",
+  analyzing: "Analyzing",
+  separating: "Separating",
+  processing: "Processing",
+};
 const FOLDER_COLORS = ["#d8a84a", "#e85f6f", "#64c86f", "#4f9de8", "#a985f4"];
 const DEFAULT_FOLDER_COLOR = FOLDER_COLORS[0];
 const TRACK_DRAG_TYPE = "application/x-stemdeck-track";
@@ -300,6 +306,10 @@ function stateMetadataToTrack(state, fallbackTrack) {
     qualityPreset: state.quality_preset || fallbackTrack.qualityPreset || "standard",
     duration: state.duration || fallbackTrack.duration,
     status: state.status || fallbackTrack.status,
+    progressPercent: state.progress_percent ?? fallbackTrack.progressPercent ?? null,
+    queuePosition: state.queue_position ?? fallbackTrack.queuePosition ?? null,
+    queueSize: state.queue_size ?? fallbackTrack.queueSize ?? 0,
+    stage: state.stage ?? fallbackTrack.stage ?? "",
     bpm: state.bpm ?? fallbackTrack.bpm,
     key: state.key ?? fallbackTrack.key,
     scale: state.scale ?? fallbackTrack.scale,
@@ -316,6 +326,23 @@ function stateMetadataToTrack(state, fallbackTrack) {
     createdAt: fallbackTrack.createdAt ?? state.created_at,
     favorite: fallbackTrack.favorite ?? false,
   };
+}
+
+function trackSubText(track, { inTrash = false } = {}) {
+  if (inTrash) return "Removed";
+  if (track?.status === "queued") {
+    if (track.queuePosition != null && track.queueSize) {
+      return `Queued #${track.queuePosition} of ${track.queueSize}`;
+    }
+    return "Queued";
+  }
+  if (PROCESSING_STATUSES.has(track?.status)) {
+    const label = RUNNING_STATUS_LABELS[track.status] || "Processing";
+    return track.progressPercent != null ? `${label} ${track.progressPercent}%` : label;
+  }
+  const duration = track.duration ? fmtTime(track.duration) : "";
+  const stemCount = track.stems?.length ?? 0;
+  return [duration, `${stemCount} stem${stemCount !== 1 ? "s" : ""}`].filter(Boolean).join(" · ");
 }
 
 function fmtExtracted(ts) {
@@ -938,9 +965,7 @@ function renderRecentItem(trackId) {
   const isUnavailable = track.status === "unavailable";
   el.className = `cat-item${trackId === _currentTrackId ? " active" : ""}${isUnavailable ? " unavailable" : ""}`;
   el.dataset.id = trackId;
-  const duration = track.duration ? fmtTime(track.duration) : "";
-  const stemCount = track.stems?.length ?? 0;
-  const sub = [duration, `${stemCount} stem${stemCount !== 1 ? "s" : ""}`].filter(Boolean).join(" · ");
+  const sub = trackSubText(track);
   el.innerHTML = `
     <div class="cat-thumb">${thumbHtml(track)}</div>
     <div class="cat-meta">
@@ -987,7 +1012,7 @@ function renderTrackItem(trackId, { inTrash = false } = {}) {
   el.className = `cat-item${trackId === _currentTrackId ? " active" : ""}${isUnavailable ? " unavailable" : ""}`;
   el.dataset.id = trackId;
 
-  const stemCount = track.stems?.length ?? 0;
+  const sub = trackSubText(track, { inTrash });
   el.innerHTML = `
     <div class="cat-thumb">${thumbHtml(track)}</div>
     <div class="cat-meta">
@@ -995,7 +1020,7 @@ function renderTrackItem(trackId, { inTrash = false } = {}) {
       <div class="cat-sub">
         <span>${esc(track.channel ?? "")}</span>
         <span class="dot">·</span>
-        <span>${inTrash ? "Removed" : `${stemCount} stem${stemCount !== 1 ? "s" : ""}`}</span>
+        <span>${esc(sub)}</span>
       </div>
     </div>
     <div class="cat-status${PROCESSING_STATUSES.has(track.status) ? " processing" : isUnavailable ? " unavailable" : ""}"></div>

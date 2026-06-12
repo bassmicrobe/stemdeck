@@ -57,6 +57,8 @@ class Job:
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
     demucs_gain_db: float | None = None  # reversible gain applied to the Demucs working copy
+    queue_position: int | None = None  # 1-based waiting position while status == queued
+    queue_size: int = 0  # current number of queued jobs, for UI context
     error: str | None = None
     # Set by POST /api/jobs/{id}/cancel; consumed by pipeline stages.
     # Not surfaced via to_state() -- it's internal control state.
@@ -109,6 +111,8 @@ class Job:
             "quality_preset": self.quality_preset,
             "mix_url": self.mix_url,
             "source_url": self.source_url,
+            "queue_position": self.queue_position,
+            "queue_size": self.queue_size,
             "error": self.error,
             "created_at": self.created_at,
         }
@@ -129,4 +133,5 @@ class Job:
         return job
 
 
-_JOB_FIELDS = frozenset(f.name for f in dataclasses.fields(Job) if f.name != "cancel_requested")
+_TRANSIENT_FIELDS = frozenset(("cancel_requested", "queue_position", "queue_size"))
+_JOB_FIELDS = frozenset(f.name for f in dataclasses.fields(Job) if f.name not in _TRANSIENT_FIELDS)

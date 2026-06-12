@@ -17,8 +17,10 @@ const ROTATION_MS = 2500;
 let phraseTimerId = null;
 let lastStatus = null;
 let jobPollTimerId = null;
+let activeJobSyncTimerId = null;
 const renderedJobs = new Set();
 const jobSources = new Map();
+const activeJobIds = new Set();
 
 const TERMINAL_STATUSES = new Set(["done", "error", "cancelled"]);
 
@@ -49,6 +51,9 @@ function formatClock(seconds) {
 
 function etaLabel(state, pct) {
   if (TERMINAL_STATUSES.has(state.status)) return "";
+  if (state.status === "queued" && state.queue_position != null) {
+    return `Queue #${state.queue_position}${state.queue_size ? ` of ${state.queue_size}` : ""}`;
+  }
   if (state.eta_seconds != null) return `ETA ${formatClock(state.eta_seconds)}`;
   if (state.status === "separating" && pct > 0 && pct < 100) return "ETA estimating...";
   if (state.status === "queued") return "Waiting in queue";
@@ -133,17 +138,27 @@ export function reset() {
   setCurrentJobId(null);
 }
 
-function applyState(state) {
+function channelForStatus(state) {
+  if (state.status === "done") return "Extracted";
+  if (state.status === "queued") return "Queued";
+  return "Processing";
+}
+
+function applyState(state, { focus = true } = {}) {
   if (state.job_id) {
     addTrackToLibrary({
       id: state.job_id,
-      title: state.title || urlInput.value || "Processing track",
-      channel: state.status === "done" ? "Extracted" : "Processing",
+      title: state.title || state.source_url || urlInput.value || "Processing track",
+      channel: channelForStatus(state),
       thumb: state.thumbnail,
       stems: state.selected_stems || state.stems?.map((stem) => stem.name) || [...selectedStems],
       selectedStems: state.selected_stems || [...selectedStems],
       audioStems: state.stems || [],
       status: state.status,
+      progressPercent: state.progress_percent ?? null,
+      queuePosition: state.queue_position ?? null,
+      queueSize: state.queue_size ?? 0,
+      stage: state.stage || "",
       duration: state.duration,
       bpm: state.bpm,
       key: state.key,
@@ -152,10 +167,16 @@ function applyState(state) {
       lufs: state.lufs,
       peakDb: state.peak_db,
       stemPresence: state.stem_presence,
-      sourceUrl: jobSources.get(state.job_id) || urlInput.value,
+      sourceUrl: jobSources.get(state.job_id) || state.source_url || urlInput.value,
       createdAt: state.created_at,
     });
-    setCurrentTrack(state.job_id);
+    if (focus) setCurrentTrack(state.job_id);
+  }
+  if (!focus) {
+    if (state.status === "done") updateTrackStatus(state.job_id, "done");
+    else if (state.status === "error") updateTrackStatus(state.job_id, "error");
+    else if (state.status === "cancelled") updateTrackStatus(state.job_id, "cancelled");
+    return;
   }
   if (state.title) {
     jobTitleEl.textContent = state.title;
@@ -273,14 +294,14 @@ function applyState(state) {
   }
 }
 
-async function probeJob(jobId) {
+async function probeJob(jobId, options = {}) {
   const r = await fetch(`/api/jobs/${jobId}`);
   if (!r.ok) {
     if (r.status === 404) throw new Error("Job no longer exists on the server");
     throw new Error(`Job probe failed: ${r.status}`);
   }
   const s = await r.json();
-  applyState(s);
+  applyState(s, options);
   return s;
 }
 
@@ -296,6 +317,36 @@ function startJobPolling(jobId) {
   };
   tick();
   jobPollTimerId = setInterval(tick, 1000);
+}
+
+async function syncActiveJobs() {
+  try {
+    const res = await fetch("/api/jobs/active", { cache: "no-store" });
+    if (!res.ok) return;
+    const states = await res.json();
+    const nextIds = new Set(states.map((state) => state.job_id));
+    for (const state of states) {
+      activeJobIds.add(state.job_id);
+      applyState(state, { focus: false });
+    }
+    for (const id of [...activeJobIds]) {
+      if (nextIds.has(id)) continue;
+      activeJobIds.delete(id);
+      try {
+        await probeJob(id, { focus: false });
+      } catch {
+        /* job may have been swept or deleted */
+      }
+    }
+  } catch (err) {
+    console.warn("[job] active queue sync failed:", err);
+  }
+}
+
+function startActiveJobSync() {
+  if (activeJobSyncTimerId) return;
+  syncActiveJobs();
+  activeJobSyncTimerId = setInterval(syncActiveJobs, 2500);
 }
 
 // Connect (or reconnect) to the SSE stream for a job. On unexpected
@@ -426,13 +477,16 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
   addTrackToLibrary({
     id: jobId,
     title: title || url || "Processing track",
-    channel: "Processing",
+    channel: "Queued",
     thumb: "",
     stems: stemSel,
     selectedStems: stemSel,
     qualityPreset: preset,
     audioStems: [],
-    status: "processing",
+    status: "queued",
+    progressPercent: 0,
+    queuePosition: null,
+    queueSize: 0,
     bpm: null,
     key: null,
     scale: null,
@@ -448,11 +502,14 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
   startPhraseRotation("queued");
   lastStatus = "queued";
   connectEvents(jobId);
+  syncActiveJobs();
+  setSubmitProcessing(false);
   return jobId;
 }
 
 export function wireJobForm() {
   jobCancelBtn.addEventListener("click", cancelCurrentJob);
+  startActiveJobSync();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -518,13 +575,16 @@ export function wireJobForm() {
     addTrackToLibrary({
       id: jobId,
       title: displayTitle,
-      channel: "Processing",
+      channel: "Queued",
       thumb: "",
       stems: stemSel,
       selectedStems: stemSel,
       qualityPreset: preset,
       audioStems: [],
-      status: "processing",
+      status: "queued",
+      progressPercent: 0,
+      queuePosition: null,
+      queueSize: 0,
       bpm: null,
       key: null,
       scale: null,
@@ -542,5 +602,7 @@ export function wireJobForm() {
     lastStatus = "queued";
 
     connectEvents(jobId);
+    syncActiveJobs();
+    setSubmitProcessing(false);
   });
 }

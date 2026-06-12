@@ -42,6 +42,23 @@ def test_persist_and_restore_terminal_job(tmp_path: Path):
     assert restored.cancel_requested is False
 
 
+def test_persist_excludes_transient_queue_fields(tmp_path: Path):
+    job = Job(
+        id="abcdefabcdea",
+        status="done",
+        title="Saved song",
+        queue_position=1,
+        queue_size=2,
+    )
+    _jobs[job.id] = job
+
+    persist_registry(tmp_path)
+
+    data = json.loads((tmp_path / "registry.json").read_text(encoding="utf-8"))
+    assert "queue_position" not in data["jobs"][0]
+    assert "queue_size" not in data["jobs"][0]
+
+
 def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     job_dir = tmp_path / "abcdefabcdee"
     stems_dir = job_dir / "stems"
