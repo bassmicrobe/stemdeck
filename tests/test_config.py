@@ -65,6 +65,18 @@ def test_ffmpeg_executable_prefers_portable_binary(monkeypatch, tmp_path: Path):
         importlib.reload(original)
 
 
+def test_ffmpeg_executable_uses_imageio_fallback(monkeypatch, tmp_path: Path):
+    import app.core.config as config
+
+    ffmpeg = tmp_path / "imageio-ffmpeg"
+    ffmpeg.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(config.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(config, "_imageio_ffmpeg_executable", lambda: str(ffmpeg))
+
+    assert config.ffmpeg_executable() == str(ffmpeg)
+    assert config.ffmpeg_available() is True
+
+
 def test_configure_portable_environment_leaves_dev_cache_env_alone(monkeypatch):
     import app.core.config as config
 
@@ -129,6 +141,7 @@ def test_explicit_demucs_options_win_over_quality_preset(monkeypatch):
 def test_high_quality_preset_supports_four_stems():
     from app.core.config import (
         bass_repair_enabled_for_preset,
+        phase_repair_enabled_for_preset,
         stem_names_for_quality_preset,
         wav_codec_for_quality_preset,
     )
@@ -149,6 +162,9 @@ def test_high_quality_preset_supports_four_stems():
     assert bass_repair_enabled_for_preset("standard") is False
     assert bass_repair_enabled_for_preset("high") is True
     assert bass_repair_enabled_for_preset("max") is True
+    assert phase_repair_enabled_for_preset("standard") is False
+    assert phase_repair_enabled_for_preset("high") is True
+    assert phase_repair_enabled_for_preset("max") is True
 
 
 def test_bass_repair_env_override(monkeypatch):
@@ -158,3 +174,12 @@ def test_bass_repair_env_override(monkeypatch):
     assert bass_repair_enabled_for_preset("high") is False
     monkeypatch.setenv("STEMDECK_BASS_REPAIR", "1")
     assert bass_repair_enabled_for_preset("standard") is True
+
+
+def test_phase_repair_env_override(monkeypatch):
+    from app.core.config import phase_repair_enabled_for_preset
+
+    monkeypatch.setenv("STEMDECK_PHASE_REPAIR", "0")
+    assert phase_repair_enabled_for_preset("high") is False
+    monkeypatch.setenv("STEMDECK_PHASE_REPAIR", "1")
+    assert phase_repair_enabled_for_preset("standard") is True

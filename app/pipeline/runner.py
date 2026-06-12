@@ -24,6 +24,7 @@ from app.pipeline.collect import (
     make_original_track,
     make_selected_mix,
     repair_bass_dropouts,
+    repair_phase_coherence,
     restore_demucs_gain,
     stabilize_stem_outputs,
 )
@@ -117,7 +118,7 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
     dest = job_dir / "source.demucs.wav"
     _set(job, stage="Preparing high-quality separation...")
     filters = [
-        "aresample=44100:resampler=soxr:precision=28",
+        "aresample=44100",
         "aformat=sample_fmts=flt:channel_layouts=stereo",
         # A very low high-pass removes DC/near-DC offset without touching bass fundamentals.
         "highpass=f=12",
@@ -163,6 +164,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     stems_dir = job_dir / "stems"
     restore_demucs_gain(job, stems_dir, found)
     repair_bass_dropouts(job, source, stems_dir, found)
+    repair_phase_coherence(job, source, job_dir, stems_dir, found)
     stabilize_stem_outputs(job, stems_dir, found)
     _check_cancel(job)
     job.stem_presence = compute_stem_presence(stems_dir, found)

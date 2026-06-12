@@ -40,6 +40,9 @@ dependencies = [
     # FastAPI multipart/form-data (file uploads) unconditionally require
     # python-multipart — it is not an optional extra.
     "python-multipart>=0.0.9",
+    # Provides a portable ffmpeg binary fallback for local runs where ffmpeg is
+    # not installed on PATH. Desktop builds still prefer their bundled binary.
+    "imageio-ffmpeg>=0.5",
     # CVE-2026-44431 / CVE-2026-44432: sensitive header forwarding and
     # decompression-bomb bypass fixed in 2.7.0. urllib3 is a transitive
     # dep via requests; pin floor to pull in the fix.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import shutil
@@ -17,12 +18,15 @@ from app.core.config import (
     BASS_REPAIR_SHORT_GAP_RATIO,
     BASS_REPAIR_TRIGGER_RATIO,
     JOB_TTL_SECONDS,
+    PHASE_REPAIR_FLOOR_DB,
+    PHASE_REPAIR_MAX_BLEND,
     STEM_NAMES,
     STEM_POST_LIMITER_PEAK,
     TIMEOUT_FFMPEG,
     bass_repair_enabled_for_preset,
     demucs_settings_for_preset,
     ffmpeg_executable,
+    phase_repair_enabled_for_preset,
     wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
@@ -414,6 +418,175 @@ def repair_bass_dropouts(job: Job, source: Path, stems_dir: Path, stem_names: li
     finally:
         residual_path.unlink(missing_ok=True)
         repaired_path.unlink(missing_ok=True)
+        _set(job, stage=old_stage)
+
+
+def _write_phase_reference(job: Job, source: Path, out: Path) -> bool:
+    """Render the original source into the same float/stereo space as stems."""
+    cmd = [
+        ffmpeg_executable(),
+        "-y",
+        "-nostdin",
+        "-loglevel",
+        "error",
+        "-i",
+        str(source),
+        "-filter:a",
+        "aresample=44100,aformat=sample_fmts=flt:channel_layouts=stereo,highpass=f=12",
+        "-ar",
+        "44100",
+        "-ac",
+        "2",
+        "-c:a",
+        "pcm_f32le",
+        str(out),
+    ]
+    return _run_ffmpeg(job, cmd)
+
+
+def _pad_block(block: np.ndarray, frames: int) -> np.ndarray:
+    if len(block) >= frames:
+        return block
+    channels = block.shape[1] if block.ndim == 2 and block.shape[1] > 0 else 1
+    pad = np.zeros((frames - len(block), channels), dtype=np.float32)
+    return np.vstack((block, pad))
+
+
+def _blend_phase_residual(
+    reference_path: Path,
+    stems_dir: Path,
+    stem_names: list[str],
+    out_paths: list[Path],
+    *,
+    max_blend: float = PHASE_REPAIR_MAX_BLEND,
+    floor_db: float = PHASE_REPAIR_FLOOR_DB,
+    subtype: str = "FLOAT",
+) -> bool:
+    """Distribute source-minus-stem-sum residual back into active stems.
+
+    The correction is energy-weighted instead of copied into every stem. That
+    keeps the summed playback closer to the source while limiting bleed in
+    isolated stems.
+    """
+    if max_blend <= 0 or len(stem_names) != len(out_paths):
+        return False
+
+    changed = False
+    blocksize = 262_144
+    floor = 10 ** (floor_db / 20)
+
+    with contextlib.ExitStack() as stack:
+        reference_file = stack.enter_context(sf.SoundFile(reference_path))
+        samplerate = reference_file.samplerate
+        channels = reference_file.channels
+
+        stem_files: list[sf.SoundFile] = []
+        for name in stem_names:
+            path = stems_dir / f"{name}.wav"
+            stem_file = stack.enter_context(sf.SoundFile(path))
+            if stem_file.samplerate != samplerate:
+                logger.warning(
+                    "skip phase repair: sample-rate mismatch for %s (%s != %s)",
+                    path,
+                    stem_file.samplerate,
+                    samplerate,
+                )
+                return False
+            stem_files.append(stem_file)
+
+        out_files = [
+            stack.enter_context(
+                sf.SoundFile(
+                    out,
+                    mode="w",
+                    samplerate=samplerate,
+                    channels=channels,
+                    subtype=subtype,
+                )
+            )
+            for out in out_paths
+        ]
+
+        window = max(128, int(samplerate * 0.026))
+        smooth = max(64, int(samplerate * 0.010))
+
+        while True:
+            reference = reference_file.read(blocksize, dtype="float32", always_2d=True)
+            if reference.size == 0:
+                break
+            reference = _match_channels(reference, channels)
+            frames = len(reference)
+
+            stem_blocks = []
+            envelopes = []
+            for stem_file in stem_files:
+                block = stem_file.read(frames, dtype="float32", always_2d=True)
+                block = _match_channels(_pad_block(block, frames), channels)
+                stem_blocks.append(block)
+                envelopes.append(_rms_envelope(block, window))
+
+            stem_sum = np.sum(np.stack(stem_blocks, axis=0), axis=0, dtype=np.float32)
+            residual = reference - stem_sum
+            residual_env = _rms_envelope(residual, window)
+            env_matrix = np.stack(envelopes, axis=1)
+            env_sum = np.sum(env_matrix, axis=1, dtype=np.float32)
+            active = (residual_env > floor) & (env_sum > floor)
+
+            for idx, block in enumerate(stem_blocks):
+                weight = np.where(active, env_matrix[:, idx] / (env_sum + 1e-8), 0.0)
+                weight = _moving_average(weight.astype(np.float32), smooth)
+                correction = residual * (weight[:, None] * max_blend)
+                if float(np.max(np.abs(correction), initial=0.0)) > 1e-5:
+                    changed = True
+                out_files[idx].write(_soft_limit_block(block + correction))
+
+    return changed
+
+
+def repair_phase_coherence(
+    job: Job,
+    source: Path,
+    job_dir: Path,
+    stems_dir: Path,
+    stem_names: list[str],
+) -> bool:
+    """Reduce stem-sum phase/residual mismatch against the original source."""
+    if not phase_repair_enabled_for_preset(job.quality_preset):
+        return False
+    available = [name for name in stem_names if (stems_dir / f"{name}.wav").is_file()]
+    if len(available) < 2:
+        return False
+
+    old_stage = job.stage_message
+    reference_path = job_dir / "source.phase.wav"
+    tmp_paths = [stems_dir / f"{name}.phase.wav" for name in available]
+    _set(job, stage="Repairing phase coherence...")
+    try:
+        if not _write_phase_reference(job, source, reference_path):
+            return False
+        subtype = (
+            "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
+        )
+        changed = _blend_phase_residual(
+            reference_path,
+            stems_dir,
+            available,
+            tmp_paths,
+            subtype=subtype,
+        )
+        if not changed:
+            return False
+        for name, tmp in zip(available, tmp_paths, strict=False):
+            tmp.replace(stems_dir / f"{name}.wav")
+        logger.info("phase coherence repair applied for job %s", job.id)
+        return True
+    except Exception:
+        logger.warning("phase coherence repair skipped for job %s", job.id, exc_info=True)
+        return False
+    finally:
+        reference_path.unlink(missing_ok=True)
+        for tmp in tmp_paths:
+            tmp.unlink(missing_ok=True)
         _set(job, stage=old_stage)
 
 

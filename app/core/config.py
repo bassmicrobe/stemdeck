@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -162,6 +163,17 @@ def bass_repair_enabled_for_preset(preset: str | None) -> bool:
     return _env_bool("STEMDECK_BASS_REPAIR", default)
 
 
+def phase_repair_enabled_for_preset(preset: str | None) -> bool:
+    """Enable stem-sum residual repair for quality-first presets.
+
+    Demucs can leave tiny phase/residual errors between the sum of the stems
+    and the original mix. The repair pass is slower, so keep it on the
+    quality-first path unless explicitly overridden.
+    """
+    default = normalize_quality_preset(preset) in ("high", "max")
+    return _env_bool("STEMDECK_PHASE_REPAIR", default)
+
+
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
@@ -202,6 +214,8 @@ BASS_REPAIR_SHORT_GAP_MS = max(8, _env_int("STEMDECK_BASS_REPAIR_SHORT_GAP_MS", 
 BASS_REPAIR_SHORT_GAP_RATIO = max(
     1.05, _env_float("STEMDECK_BASS_REPAIR_SHORT_GAP_RATIO", 2.4)
 )
+PHASE_REPAIR_MAX_BLEND = min(1.0, max(0.0, _env_float("STEMDECK_PHASE_REPAIR_MAX_BLEND", 0.42)))
+PHASE_REPAIR_FLOOR_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_PHASE_REPAIR_FLOOR_DB", -58.0)))
 STEM_POST_LIMITER_PEAK = min(0.999, max(0.5, _env_float("STEMDECK_STEM_POST_LIMITER_PEAK", 0.98)))
 STEM_PREPROCESS_TARGET_I = _env_float("STEMDECK_PREPROCESS_TARGET_I", -18.0)
 STEM_PREPROCESS_TRUE_PEAK = min(
@@ -215,6 +229,16 @@ TIMEOUT_ANALYZE = _env_int("STEMDECK_TIMEOUT_ANALYZE", 120)
 TIMEOUT_DEMUCS_STALL = _env_int("STEMDECK_TIMEOUT_DEMUCS_STALL", 1800)
 
 
+def _imageio_ffmpeg_executable() -> str | None:
+    try:
+        import imageio_ffmpeg
+
+        path = Path(imageio_ffmpeg.get_ffmpeg_exe())
+    except Exception:
+        return None
+    return str(path) if path.is_file() else None
+
+
 def ffmpeg_executable() -> str:
     """Return the preferred FFmpeg executable.
 
@@ -222,7 +246,17 @@ def ffmpeg_executable() -> str:
     binary when present; otherwise fall back to PATH so local dev and Docker
     keep working exactly as before.
     """
-    return str(FFMPEG_BIN) if FFMPEG_BIN.is_file() else "ffmpeg"
+    if FFMPEG_BIN.is_file():
+        return str(FFMPEG_BIN)
+    if path := shutil.which("ffmpeg"):
+        return path
+    if path := _imageio_ffmpeg_executable():
+        return path
+    return "ffmpeg"
+
+
+def ffmpeg_available() -> bool:
+    return Path(ffmpeg_executable()).is_file() or shutil.which(ffmpeg_executable()) is not None
 
 
 def ffprobe_executable() -> str:

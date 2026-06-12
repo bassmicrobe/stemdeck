@@ -21,13 +21,13 @@ from app.core.config import (
     DEMUCS_MODEL,
     DEMUCS_PRE_GAIN_DB,
     DEMUCS_SHIFTS,
-    FFMPEG_BIN,
     JOBS_DIR,
     QUALITY_PRESET,
     ROOT,
     STATIC_DIR,
     configure_portable_environment,
     ensure_runtime_dirs,
+    ffmpeg_available,
 )
 from app.core.registry import restore as restore_registry
 from app.pipeline.collect import sweep_old_jobs
@@ -157,7 +157,7 @@ def health() -> dict[str, object]:
         "name": "STEMDECK",
         "status": "ok",
         "version": app_version(),
-        "ffmpeg_configured": FFMPEG_BIN.is_file(),
+        "ffmpeg_configured": ffmpeg_available(),
         "quality_preset": QUALITY_PRESET,
         "demucs_model": DEMUCS_MODEL,
         "demucs_device": DEMUCS_DEVICE,

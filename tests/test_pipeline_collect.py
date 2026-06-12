@@ -12,10 +12,12 @@ from app.core.models import Job
 from app.pipeline.collect import (
     _PEAK_POINTS,
     _blend_bass_dropout_repair,
+    _blend_phase_residual,
     _write_bass_residual_candidate,
     compute_stem_peaks,
     make_selected_mix,
     repair_bass_dropouts,
+    repair_phase_coherence,
     restore_demucs_gain,
     stabilize_stem_outputs,
 )
@@ -298,6 +300,101 @@ def test_repair_bass_dropouts_noops_for_standard_preset(tmp_path, monkeypatch):
         stems_dir,
         ["bass", "drums"],
     )
+
+
+def test_blend_phase_residual_reduces_stem_sum_error(tmp_path):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    sr = 8000
+    t = np.arange(sr, dtype=np.float32) / sr
+    vocals = (np.sin(2 * np.pi * 220 * t) * 0.22).astype(np.float32)
+    drums = (np.sin(2 * np.pi * 880 * t) * 0.12).astype(np.float32)
+    missing_phase = (np.sin(2 * np.pi * 330 * t + 0.9) * 0.06).astype(np.float32)
+    source = vocals + drums + missing_phase
+
+    reference_path = tmp_path / "source.phase.wav"
+    sf.write(reference_path, source, sr, subtype="FLOAT")
+    sf.write(stems_dir / "vocals.wav", vocals, sr, subtype="FLOAT")
+    sf.write(stems_dir / "drums.wav", drums, sr, subtype="FLOAT")
+    out_vocals = stems_dir / "vocals.phase.wav"
+    out_drums = stems_dir / "drums.phase.wav"
+
+    changed = _blend_phase_residual(
+        reference_path,
+        stems_dir,
+        ["vocals", "drums"],
+        [out_vocals, out_drums],
+        max_blend=1.0,
+        floor_db=-90.0,
+        subtype="FLOAT",
+    )
+
+    assert changed
+    repaired_vocals, _ = sf.read(out_vocals, dtype="float32")
+    repaired_drums, _ = sf.read(out_drums, dtype="float32")
+    before = source - (vocals + drums)
+    after = source - (repaired_vocals + repaired_drums)
+    assert float(np.mean(after * after)) < float(np.mean(before * before)) * 0.08
+
+
+def test_repair_phase_coherence_noops_for_standard_preset(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    (stems_dir / "vocals.wav").write_bytes(b"wav")
+    (stems_dir / "drums.wav").write_bytes(b"wav")
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(
+        collect_mod,
+        "_write_phase_reference",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected repair")),
+    )
+
+    assert not repair_phase_coherence(
+        Job(id="abcdefabcdef", quality_preset="standard"),
+        tmp_path / "source.wav",
+        tmp_path,
+        stems_dir,
+        ["vocals", "drums"],
+    )
+
+
+def test_repair_phase_coherence_replaces_changed_stems(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"source")
+    for name in ("vocals", "drums"):
+        (stems_dir / f"{name}.wav").write_bytes(b"old")
+
+    import app.pipeline.collect as collect_mod
+
+    def fake_write_reference(job, src, out):
+        assert src == source
+        out.write_bytes(b"reference")
+        return True
+
+    def fake_blend(reference, stem_dir, names, out_paths, **kwargs):
+        assert reference.read_bytes() == b"reference"
+        assert names == ["vocals", "drums"]
+        for idx, out in enumerate(out_paths):
+            out.write_bytes(f"new-{idx}".encode())
+        return True
+
+    monkeypatch.setattr(collect_mod, "_write_phase_reference", fake_write_reference)
+    monkeypatch.setattr(collect_mod, "_blend_phase_residual", fake_blend)
+
+    assert repair_phase_coherence(
+        Job(id="abcdefabcdef", quality_preset="high"),
+        source,
+        tmp_path,
+        stems_dir,
+        ["vocals", "drums"],
+    )
+    assert (stems_dir / "vocals.wav").read_bytes() == b"new-0"
+    assert (stems_dir / "drums.wav").read_bytes() == b"new-1"
+    assert not (tmp_path / "source.phase.wav").exists()
 
 
 def test_stabilize_stem_outputs_removes_dc_and_limits_float_peak(tmp_path):
