@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     env, fs,
-    io::{Read, Write},
+    io::{Read, Seek, SeekFrom, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
@@ -13,7 +13,6 @@ use std::{
 };
 use tar::Archive;
 use tauri::{Emitter, Manager};
-use tauri_plugin_store::StoreExt;
 #[cfg(windows)]
 use zip::ZipArchive;
 
@@ -134,6 +133,16 @@ struct BackendStarted {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct BackendRuntimeStatus {
+    running: bool,
+    starting: bool,
+    pid: Option<u32>,
+    url: Option<String>,
+    pip_pid: Option<u32>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AssetStatus {
     ffmpeg_ready: bool,
     ffmpeg_path: Option<String>,
@@ -148,6 +157,42 @@ struct GpuSetup {
     cuda_version: Option<String>,
     torch_device: String,
     cuda_verified: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MaintenanceReport {
+    data_dir: String,
+    jobs_dir: String,
+    jobs_bytes: u64,
+    job_dirs: u64,
+    cache_bytes: u64,
+    downloads_bytes: u64,
+    removed_paths: Vec<String>,
+    warnings: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AudioAnalysis {
+    path: String,
+    sample_rate: u32,
+    channels: u16,
+    duration_seconds: f64,
+    peak: f32,
+    rms: f32,
+    waveform_peaks: Vec<f32>,
+}
+
+#[derive(Clone, Copy)]
+struct WavFormat {
+    audio_format: u16,
+    channels: u16,
+    sample_rate: u32,
+    bits_per_sample: u16,
+    block_align: u16,
+    data_offset: u64,
+    data_size: u64,
 }
 
 fn main() {
@@ -195,10 +240,15 @@ fn main() {
             ensure_external_assets,
             ensure_torch_device,
             start_backend,
+            backend_status,
+            stop_backend_command,
             open_url,
             save_audio_file,
             store_get,
             store_set,
+            maintenance_status,
+            run_maintenance,
+            analyze_wav_file,
             mark_store_migration_done,
         ])
         .build(tauri::generate_context!())
@@ -250,17 +300,65 @@ fn documents_dir_for_jobs(app: &tauri::AppHandle) -> PathBuf {
 #[tauri::command]
 fn store_get(app: tauri::AppHandle, key: String) -> Result<Option<serde_json::Value>, String> {
     let path = documents_store_path(&app)?;
-    let store = app.store(path).map_err(|e| e.to_string())?;
-    Ok(store.get(&key))
+    let store = read_store_map(&path)?;
+    Ok(store.get(&key).cloned())
 }
 
 /// Set a value in the persistent user-data store and immediately flush to disk.
 #[tauri::command]
 fn store_set(app: tauri::AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
     let path = documents_store_path(&app)?;
-    let store = app.store(path).map_err(|e| e.to_string())?;
-    store.set(key, value);
-    store.save().map_err(|e| e.to_string())
+    let mut store = read_store_map(&path)?;
+    store.insert(key, value);
+    atomic_write_json(&path, &serde_json::Value::Object(store))
+}
+
+fn read_store_map(path: &Path) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    if !path.is_file() {
+        return Ok(serde_json::Map::new());
+    }
+    let text = fs::read_to_string(path)
+        .map_err(|e| format!("failed to read store {}: {e}", path.display()))?;
+    if text.trim().is_empty() {
+        return Ok(serde_json::Map::new());
+    }
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(serde_json::Value::Object(map)) => Ok(map),
+        Ok(_) => Err(format!("store {} is not a JSON object", path.display())),
+        Err(e) => Err(format!("failed to parse store {}: {e}", path.display())),
+    }
+}
+
+fn atomic_write_json(path: &Path, value: &serde_json::Value) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+    }
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("invalid store path {}", path.display()))?;
+    let tmp = path.with_file_name(format!("{filename}.tmp"));
+    let mut file = fs::File::create(&tmp)
+        .map_err(|e| format!("failed to create temp store {}: {e}", tmp.display()))?;
+    file.write_all(
+        serde_json::to_string_pretty(value)
+            .map_err(|e| format!("failed to serialize store: {e}"))?
+            .as_bytes(),
+    )
+    .map_err(|e| format!("failed to write temp store {}: {e}", tmp.display()))?;
+    file.write_all(b"\n")
+        .map_err(|e| format!("failed to finish temp store {}: {e}", tmp.display()))?;
+    file.sync_all()
+        .map_err(|e| format!("failed to flush temp store {}: {e}", tmp.display()))?;
+    drop(file);
+    fs::rename(&tmp, path).map_err(|e| {
+        format!(
+            "failed to replace store {} with {}: {e}",
+            path.display(),
+            tmp.display()
+        )
+    })
 }
 
 /// Called by JS after the one-time localStorage → store migration completes.
@@ -634,6 +732,50 @@ fn start_backend(
         }
         Err(e) => Err(e),
     }
+}
+
+/// Returns the backend process status tracked by the desktop shell.
+#[tauri::command]
+fn backend_status(state: tauri::State<BackendState>) -> Result<BackendRuntimeStatus, String> {
+    let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    let mut running = false;
+    let mut pid = None;
+    let mut url = None;
+    let mut clear_handles = false;
+
+    if let Some(handles) = inner.handles.as_mut() {
+        match handles.child.try_wait() {
+            Ok(Some(_)) => {
+                clear_handles = true;
+            }
+            Ok(None) => {
+                running = true;
+                pid = Some(handles.child.id());
+                url = Some(handles.url.clone());
+            }
+            Err(_) => {
+                clear_handles = true;
+            }
+        }
+    }
+    if clear_handles {
+        inner.handles = None;
+    }
+
+    Ok(BackendRuntimeStatus {
+        running,
+        starting: inner.starting,
+        pid,
+        url,
+        pip_pid: inner.pip_pid,
+    })
+}
+
+/// Stops the managed backend process and any tracked setup subprocess.
+#[tauri::command]
+fn stop_backend_command(state: tauri::State<BackendState>) -> Result<(), String> {
+    stop_backend(&state);
+    Ok(())
 }
 
 /// Detects GPU hardware, installs CUDA torch if needed, and persists the chosen device.
@@ -1220,6 +1362,341 @@ fn stop_backend(state: &BackendState) {
         let _ = handles.child.kill();
         let _ = handles.child.wait();
     });
+}
+
+/// Reports desktop-owned data directories and safe cleanup candidates.
+#[tauri::command]
+fn maintenance_status(app: tauri::AppHandle) -> Result<MaintenanceReport, String> {
+    build_maintenance_report(&app, false)
+}
+
+/// Runs conservative desktop-side cleanup for interrupted installs/downloads.
+#[tauri::command]
+fn run_maintenance(app: tauri::AppHandle) -> Result<MaintenanceReport, String> {
+    build_maintenance_report(&app, true)
+}
+
+fn build_maintenance_report(
+    app: &tauri::AppHandle,
+    clean: bool,
+) -> Result<MaintenanceReport, String> {
+    let data_dir = local_data_dir()?;
+    let jobs_dir = documents_dir_for_jobs(app);
+    let mut removed_paths = Vec::new();
+    let mut warnings = Vec::new();
+
+    if clean {
+        for path in [data_dir.join("runtime.tmp"), data_dir.join("runtime.old")] {
+            if path.exists() {
+                remove_path_best_effort(&path, &mut removed_paths, &mut warnings);
+            }
+        }
+        cleanup_download_temps(&data_dir.join("downloads"), &mut removed_paths, &mut warnings);
+        cleanup_empty_job_dirs(&jobs_dir, &mut removed_paths, &mut warnings);
+    }
+
+    Ok(MaintenanceReport {
+        data_dir: data_dir.display().to_string(),
+        jobs_dir: jobs_dir.display().to_string(),
+        jobs_bytes: dir_size(&jobs_dir),
+        job_dirs: count_direct_child_dirs(&jobs_dir),
+        cache_bytes: dir_size(&data_dir.join("cache")),
+        downloads_bytes: dir_size(&data_dir.join("downloads")),
+        removed_paths,
+        warnings,
+    })
+}
+
+fn cleanup_download_temps(
+    downloads_dir: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let Ok(entries) = fs::read_dir(downloads_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".download") || name.ends_with(".tmp") {
+            remove_path_best_effort(&path, removed_paths, warnings);
+        }
+    }
+}
+
+fn cleanup_empty_job_dirs(
+    jobs_dir: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let Ok(entries) = fs::read_dir(jobs_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_dir() || !looks_like_job_dir(&path) || !dir_is_empty(&path) {
+            continue;
+        }
+        if path_age(&path).is_some_and(|age| age >= Duration::from_secs(24 * 60 * 60)) {
+            remove_path_best_effort(&path, removed_paths, warnings);
+        }
+    }
+}
+
+fn remove_path_best_effort(
+    path: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let result = if path.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+    match result {
+        Ok(_) => removed_paths.push(path.display().to_string()),
+        Err(e) => warnings.push(format!("failed to remove {}: {e}", path.display())),
+    }
+}
+
+fn dir_size(path: &Path) -> u64 {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if metadata.is_file() {
+        return metadata.len();
+    }
+    if !metadata.is_dir() {
+        return 0;
+    }
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| dir_size(&entry.path()))
+        .sum()
+}
+
+fn count_direct_child_dirs(path: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .count() as u64
+}
+
+fn dir_is_empty(path: &Path) -> bool {
+    fs::read_dir(path)
+        .map(|mut entries| entries.next().is_none())
+        .unwrap_or(false)
+}
+
+fn looks_like_job_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            name.len() >= 8
+                && name.len() <= 64
+                && name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        })
+}
+
+fn path_age(path: &Path) -> Option<Duration> {
+    let modified = fs::metadata(path).ok()?.modified().ok()?;
+    SystemTime::now().duration_since(modified).ok()
+}
+
+/// Analyzes a WAV file in Rust for quick waveform, peak, and RMS metadata.
+#[tauri::command]
+fn analyze_wav_file(path: String, bins: Option<usize>) -> Result<AudioAnalysis, String> {
+    let path_buf = PathBuf::from(&path);
+    let mut file =
+        fs::File::open(&path_buf).map_err(|e| format!("failed to open {path}: {e}"))?;
+    let format = parse_wav_format(&mut file)?;
+    if format.sample_rate == 0 || format.channels == 0 || format.block_align == 0 {
+        return Err("invalid WAV format".to_string());
+    }
+    let frames = format.data_size / u64::from(format.block_align);
+    if frames == 0 {
+        return Ok(AudioAnalysis {
+            path,
+            sample_rate: format.sample_rate,
+            channels: format.channels,
+            duration_seconds: 0.0,
+            peak: 0.0,
+            rms: 0.0,
+            waveform_peaks: Vec::new(),
+        });
+    }
+
+    let bin_count = bins.unwrap_or(2048).clamp(1, 8192);
+    let mut waveform_peaks = vec![0.0_f32; bin_count];
+    let mut frame = vec![0_u8; usize::from(format.block_align)];
+    let bytes_per_sample = usize::from(format.bits_per_sample / 8);
+    let mut peak = 0.0_f32;
+    let mut sum_squares = 0.0_f64;
+    let mut sample_count = 0_u64;
+
+    file.seek(SeekFrom::Start(format.data_offset))
+        .map_err(|e| format!("failed to seek WAV data: {e}"))?;
+    for frame_index in 0..frames {
+        file.read_exact(&mut frame)
+            .map_err(|e| format!("failed to read WAV frame: {e}"))?;
+        let mut frame_peak = 0.0_f32;
+        for channel in 0..usize::from(format.channels) {
+            let offset = channel * bytes_per_sample;
+            let sample = decode_wav_sample(&frame[offset..offset + bytes_per_sample], format)?;
+            let amplitude = sample.abs().min(1.0);
+            frame_peak = frame_peak.max(amplitude);
+            peak = peak.max(amplitude);
+            sum_squares += f64::from(sample) * f64::from(sample);
+            sample_count += 1;
+        }
+        let bin = ((frame_index * bin_count as u64) / frames).min((bin_count - 1) as u64) as usize;
+        waveform_peaks[bin] = waveform_peaks[bin].max(frame_peak);
+    }
+
+    let rms = if sample_count == 0 {
+        0.0
+    } else {
+        (sum_squares / sample_count as f64).sqrt() as f32
+    };
+
+    Ok(AudioAnalysis {
+        path,
+        sample_rate: format.sample_rate,
+        channels: format.channels,
+        duration_seconds: frames as f64 / f64::from(format.sample_rate),
+        peak,
+        rms,
+        waveform_peaks,
+    })
+}
+
+fn parse_wav_format(file: &mut fs::File) -> Result<WavFormat, String> {
+    let mut header = [0_u8; 12];
+    file.read_exact(&mut header)
+        .map_err(|e| format!("failed to read WAV header: {e}"))?;
+    if &header[0..4] != b"RIFF" || &header[8..12] != b"WAVE" {
+        return Err("only RIFF/WAVE files are supported".to_string());
+    }
+
+    let mut format: Option<WavFormat> = None;
+    let mut data_offset = None;
+    let mut data_size = None;
+    loop {
+        let mut chunk_header = [0_u8; 8];
+        match file.read_exact(&mut chunk_header) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(e) => return Err(format!("failed to read WAV chunk: {e}")),
+        }
+        let chunk_id = &chunk_header[0..4];
+        let chunk_size = u32::from_le_bytes([
+            chunk_header[4],
+            chunk_header[5],
+            chunk_header[6],
+            chunk_header[7],
+        ]) as u64;
+        let chunk_start = file
+            .stream_position()
+            .map_err(|e| format!("failed to read WAV position: {e}"))?;
+
+        if chunk_id == b"fmt " {
+            if chunk_size < 16 {
+                return Err("WAV fmt chunk is too small".to_string());
+            }
+            let mut fmt = vec![0_u8; chunk_size as usize];
+            file.read_exact(&mut fmt)
+                .map_err(|e| format!("failed to read WAV fmt chunk: {e}"))?;
+            let audio_format = u16::from_le_bytes([fmt[0], fmt[1]]);
+            let channels = u16::from_le_bytes([fmt[2], fmt[3]]);
+            let sample_rate = u32::from_le_bytes([fmt[4], fmt[5], fmt[6], fmt[7]]);
+            let block_align = u16::from_le_bytes([fmt[12], fmt[13]]);
+            let bits_per_sample = u16::from_le_bytes([fmt[14], fmt[15]]);
+            format = Some(WavFormat {
+                audio_format,
+                channels,
+                sample_rate,
+                bits_per_sample,
+                block_align,
+                data_offset: data_offset.unwrap_or(0),
+                data_size: data_size.unwrap_or(0),
+            });
+        } else if chunk_id == b"data" {
+            data_offset = Some(chunk_start);
+            data_size = Some(chunk_size);
+        }
+
+        let next = chunk_start + chunk_size + (chunk_size % 2);
+        file.seek(SeekFrom::Start(next))
+            .map_err(|e| format!("failed to seek WAV chunk: {e}"))?;
+        if format.is_some() && data_offset.is_some() {
+            break;
+        }
+    }
+
+    let Some(mut wav) = format else {
+        return Err("WAV fmt chunk was not found".to_string());
+    };
+    wav.data_offset = data_offset.ok_or_else(|| "WAV data chunk was not found".to_string())?;
+    wav.data_size = data_size.ok_or_else(|| "WAV data chunk was not found".to_string())?;
+    validate_wav_format(wav)?;
+    Ok(wav)
+}
+
+fn validate_wav_format(format: WavFormat) -> Result<(), String> {
+    match (format.audio_format, format.bits_per_sample) {
+        (1, 16) | (1, 24) | (1, 32) | (3, 32) => {}
+        _ => {
+            return Err(format!(
+                "unsupported WAV format {} with {} bits per sample",
+                format.audio_format, format.bits_per_sample
+            ))
+        }
+    }
+    if format.bits_per_sample % 8 != 0 {
+        return Err("unsupported non-byte-aligned WAV sample size".to_string());
+    }
+    let expected = format.channels.saturating_mul(format.bits_per_sample / 8);
+    if expected == 0 || expected != format.block_align {
+        return Err("unsupported WAV block alignment".to_string());
+    }
+    Ok(())
+}
+
+fn decode_wav_sample(bytes: &[u8], format: WavFormat) -> Result<f32, String> {
+    match (format.audio_format, format.bits_per_sample) {
+        (1, 16) => {
+            let value = i16::from_le_bytes([bytes[0], bytes[1]]);
+            Ok(value as f32 / 32768.0)
+        }
+        (1, 24) => {
+            let raw = i32::from(bytes[0]) | (i32::from(bytes[1]) << 8) | (i32::from(bytes[2]) << 16);
+            let signed = if raw & 0x80_0000 != 0 {
+                raw | !0xFF_FFFF
+            } else {
+                raw
+            };
+            Ok(signed as f32 / 8_388_608.0)
+        }
+        (1, 32) => {
+            let value = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+            Ok(value as f32 / 2_147_483_648.0)
+        }
+        (3, 32) => {
+            let value = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+            Ok(value.clamp(-1.0, 1.0))
+        }
+        _ => Err("unsupported WAV sample format".to_string()),
+    }
 }
 
 /// Returns the persistent user data directory for StemDeck.
