@@ -65,6 +65,10 @@ soundfile
 License: BSD
 Website: https://github.com/bastibe/python-soundfile
 
+imageio-ffmpeg
+License: BSD-2-Clause
+Website: https://github.com/imageio/imageio-ffmpeg
+
 Downloaded During First-Run Setup
 ---------------------------------
 

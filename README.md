@@ -254,8 +254,8 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 ./run.sh status     # is it running?
 ```
 
-If `ffmpeg` is not installed on your PATH, `./run.sh start` falls back to a
-uv-managed `imageio-ffmpeg` binary automatically.
+If `ffmpeg` is not installed on your PATH, `./run.sh start` and the Python
+runtime fall back to an `imageio-ffmpeg` binary automatically.
 
 ---
 
@@ -290,6 +290,9 @@ uv-managed `imageio-ffmpeg` binary automatically.
 | `STEMDECK_BASS_REPAIR_LOW_PASS_HZ` | `180` | Low-pass cutoff used for the bass residual candidate. |
 | `STEMDECK_BASS_REPAIR_TRIGGER_RATIO` | `1.9` | How much stronger the residual must be than the bass stem before repair blends in. Higher is more conservative. |
 | `STEMDECK_BASS_REPAIR_MAX_BLEND` | `0.65` | Maximum amount of residual blended into detected bass dropouts. |
+| `STEMDECK_PHASE_REPAIR` | `high`/`max`: on, `standard`: off | Repair stem-sum phase/residual mismatch against the original source. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_PHASE_REPAIR_MAX_BLEND` | `0.42` | Maximum source-minus-stem-sum residual blended back into active stems. Higher reconstructs the source more strongly but can increase bleed. |
+| `STEMDECK_PHASE_REPAIR_FLOOR_DB` | `-58` | Residual floor below which phase repair stays inactive. Lower values are less conservative. |
 | `STEMDECK_JOBS_DIR` | `./jobs` | Where job directories land. |
 | `STEMDECK_DATA_DIR` | (none) | Portable mode root; sets all sub-dirs below to live inside it. |
 | `STEMDECK_CACHE_DIR` | `<data>/cache` | Torch model cache directory. |

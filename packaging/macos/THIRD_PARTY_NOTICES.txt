@@ -21,6 +21,8 @@ Bundled in STEMDECK.app:
 Downloaded during first-run setup:
 
 - STEMDECK runtime pack containing Python and Python package dependencies
+- imageio-ffmpeg (BSD-2-Clause), used by the Python runtime as a portable
+  FFmpeg executable fallback when needed
 - FFmpeg and ffprobe
 - Demucs model weights
 

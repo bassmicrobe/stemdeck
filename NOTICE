@@ -18,10 +18,17 @@ Attribution:
 Modification notice:
   This fork keeps the visible product branding as STEMDECK and includes local
   changes for higher-quality stem separation, FFmpeg handling, UI styling,
-  asynchronous queue handling, and bass dropout repair. See the Git history for
-  the complete change record.
+  asynchronous queue handling, bass dropout repair, and phase-coherence repair.
+  See the Git history for the complete change record.
 
 Third-party dependencies:
   Runtime dependencies remain licensed by their respective authors. Packaged
   builds include THIRD_PARTY_NOTICES.txt and generated dependency inventories
   where available.
+
+Additional runtime helper:
+  imageio-ffmpeg
+  https://github.com/imageio/imageio-ffmpeg
+  License: BSD-2-Clause
+  Used as a portable FFmpeg executable fallback when no system or bundled
+  FFmpeg binary is available.
