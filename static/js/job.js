@@ -443,8 +443,8 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
   });
   setCurrentTrack(jobId);
 
-  jobBox.classList.add("hidden");
-  jobCancelBtn.classList.add("hidden");
+  jobBox.classList.remove("hidden");
+  jobCancelBtn.classList.remove("hidden");
   startPhraseRotation("queued");
   lastStatus = "queued";
   connectEvents(jobId);
@@ -535,10 +535,9 @@ export function wireJobForm() {
     });
     setCurrentTrack(jobId);
 
-    // Both paths: keep job box hidden, overlay drives the UI.
-    // Start phrase rotation now that the job exists on the server.
-    jobBox.classList.add("hidden");
-    jobCancelBtn.classList.add("hidden");
+    // Show the progress overlay immediately; SSE frames update percent + ETA.
+    jobBox.classList.remove("hidden");
+    jobCancelBtn.classList.remove("hidden");
     startPhraseRotation("queued");
     lastStatus = "queued";
 
