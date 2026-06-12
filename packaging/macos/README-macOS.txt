@@ -29,3 +29,5 @@ Notes:
 - Internet access is required for first-run setup.
 - Public releases should be signed and notarized.
 - Unsigned local builds are for development and internal testing only.
+- NeonSplice is a modified derivative of StemDeck and is distributed under the
+  Apache License 2.0. See LICENSE and NOTICE in the DMG for attribution.

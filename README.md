@@ -374,6 +374,14 @@ The author(s) of NeonSplice provide this software "as is", without warranty of a
 
 ---
 
+## License and Attribution
+
+NeonSplice is a modified derivative of [StemDeck](https://github.com/stemdeckapp/stemdeck). The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
+
+See [NOTICE](NOTICE) for the upstream attribution and modification notice. Third-party runtime dependencies are licensed by their respective authors; packaged builds include `THIRD_PARTY_NOTICES.txt` and generated dependency inventories where available.
+
+---
+
 ## Community
 
 | Platform | Link |

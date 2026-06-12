@@ -153,6 +153,8 @@ cp -R "$REPO_ROOT/app" "$BACKEND_DIR/app"
 cp -R "$REPO_ROOT/static" "$BACKEND_DIR/static"
 cp "$REPO_ROOT/pyproject.toml" "$BACKEND_DIR/pyproject.toml"
 cp "$REPO_ROOT/uv.lock" "$BACKEND_DIR/uv.lock"
+cp "$REPO_ROOT/LICENSE" "$BACKEND_DIR/LICENSE"
+cp "$REPO_ROOT/NOTICE" "$BACKEND_DIR/NOTICE"
 
 cat > "$BACKEND_DIR/static/version.json" <<JSON
 {
@@ -164,6 +166,8 @@ JSON
 echo "==> Capturing dependency inventory"
 mkdir -p "$RUNTIME_DIR/licenses"
 uv pip list --system --python "$PYTHON_DIR/bin/python" --format=json > "$RUNTIME_DIR/licenses/pip-list.json"
+cp "$REPO_ROOT/LICENSE" "$RUNTIME_DIR/licenses/LICENSE"
+cp "$REPO_ROOT/NOTICE" "$RUNTIME_DIR/licenses/NOTICE"
 
 cat > "$RUNTIME_DIR/runtime-manifest.json" <<JSON
 {

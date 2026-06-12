@@ -1,0 +1,26 @@
+NeonSplice
+
+NeonSplice is a modified derivative of StemDeck.
+
+Original project:
+  StemDeck
+  https://github.com/stemdeckapp/stemdeck
+
+Original license:
+  Apache License, Version 2.0
+  See LICENSE in this distribution, or:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Attribution:
+  Portions of this software are based on StemDeck by the StemDeck contributors.
+  NeonSplice retains the upstream Apache-2.0 license text and attribution.
+
+Modification notice:
+  This fork changes visible product branding to NeonSplice and includes local
+  changes for higher-quality stem separation, FFmpeg handling, UI styling, and
+  bass dropout repair. See the Git history for the complete change record.
+
+Third-party dependencies:
+  Runtime dependencies remain licensed by their respective authors. Packaged
+  builds include THIRD_PARTY_NOTICES.txt and generated dependency inventories
+  where available.

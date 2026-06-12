@@ -181,8 +181,12 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText((Join-Path $BackendDir "static\version.json"), $VersionJson + "`n", $utf8NoBom)
 Copy-Item -Force (Join-Path $Root "pyproject.toml") (Join-Path $BackendDir "pyproject.toml")
 Copy-Item -Force (Join-Path $Root "uv.lock") (Join-Path $BackendDir "uv.lock")
+Copy-Item -Force (Join-Path $Root "LICENSE") (Join-Path $BackendDir "LICENSE")
+Copy-Item -Force (Join-Path $Root "NOTICE") (Join-Path $BackendDir "NOTICE")
 Copy-Item -Force (Join-Path $Root "packaging\windows\README-WINDOWS.txt") (Join-Path $Stage "README-WINDOWS.txt")
 Copy-Item -Force (Join-Path $Root "packaging\windows\THIRD_PARTY_NOTICES.txt") (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $Root "LICENSE") (Join-Path $Stage "LICENSE")
+Copy-Item -Force (Join-Path $Root "NOTICE") (Join-Path $Stage "NOTICE")
 
 if (Get-Command "py" -ErrorAction SilentlyContinue) {
   & py -3.12 -m venv $PythonDir

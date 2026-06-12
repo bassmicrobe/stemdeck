@@ -70,5 +70,13 @@ if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
   cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$RESOURCES/THIRD_PARTY_NOTICES.txt"
 fi
 
+if [[ -f "$REPO_ROOT/LICENSE" ]]; then
+  cp "$REPO_ROOT/LICENSE" "$RESOURCES/LICENSE"
+fi
+
+if [[ -f "$REPO_ROOT/NOTICE" ]]; then
+  cp "$REPO_ROOT/NOTICE" "$RESOURCES/NOTICE"
+fi
+
 echo "$APP_DIR" > "$BUILD_DIR/app-path-${ARCH}.txt"
 echo "==> App ready: $APP_DIR"

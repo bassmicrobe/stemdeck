@@ -11,6 +11,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import router
@@ -23,6 +24,7 @@ from app.core.config import (
     FFMPEG_BIN,
     JOBS_DIR,
     QUALITY_PRESET,
+    ROOT,
     STATIC_DIR,
     configure_portable_environment,
     ensure_runtime_dirs,
@@ -162,6 +164,16 @@ def health() -> dict[str, object]:
         "demucs_shifts": DEMUCS_SHIFTS,
         "demucs_pre_gain_db": DEMUCS_PRE_GAIN_DB,
     }
+
+
+@app.get("/LICENSE", include_in_schema=False)
+def license_file() -> FileResponse:
+    return FileResponse(ROOT / "LICENSE", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/NOTICE", include_in_schema=False)
+def notice_file() -> FileResponse:
+    return FileResponse(ROOT / "NOTICE", media_type="text/plain; charset=utf-8")
 
 
 # Content-Security-Policy. Defense-in-depth so an injected string in the webview

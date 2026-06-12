@@ -73,8 +73,10 @@ New API endpoints and pipeline stages should come with tests under `tests/`. The
 
 ## License
 
-NeonSplice is licensed under the [Apache License 2.0](LICENSE). By contributing, you agree that your
-contributions are licensed under the same terms.
+NeonSplice is a modified derivative of StemDeck and is licensed under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for upstream attribution and
+the modification notice. By contributing, you agree that your contributions are
+licensed under the same terms.
 
 ## Questions
 

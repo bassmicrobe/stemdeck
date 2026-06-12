@@ -17,3 +17,17 @@ def test_health_endpoints_report_ok():
             assert "ffmpeg_configured" in body
             assert "jobs_dir" not in body
             assert "data_dir" not in body
+
+
+def test_license_and_notice_are_served():
+    from app.main import app
+
+    with TestClient(app) as client:
+        license_response = client.get("/LICENSE")
+        assert license_response.status_code == 200
+        assert "Apache License" in license_response.text
+
+        notice_response = client.get("/NOTICE")
+        assert notice_response.status_code == 200
+        assert "modified derivative of StemDeck" in notice_response.text
+        assert "https://github.com/stemdeckapp/stemdeck" in notice_response.text

@@ -72,6 +72,14 @@ if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
   cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$DMG_STAGING/THIRD_PARTY_NOTICES.txt"
 fi
 
+if [[ -f "$REPO_ROOT/LICENSE" ]]; then
+  cp "$REPO_ROOT/LICENSE" "$DMG_STAGING/LICENSE"
+fi
+
+if [[ -f "$REPO_ROOT/NOTICE" ]]; then
+  cp "$REPO_ROOT/NOTICE" "$DMG_STAGING/NOTICE"
+fi
+
 rm -f "$DMG_PATH" "$DMG_RW_PATH"
 hdiutil create \
   -volname "NeonSplice" \
@@ -93,6 +101,8 @@ if command -v SetFile >/dev/null 2>&1; then
   SetFile -a V "$MOUNT_DIR/$BACKGROUND_DIR_NAME" || true
   SetFile -a V "$MOUNT_DIR/README-macOS.txt" || true
   SetFile -a V "$MOUNT_DIR/THIRD_PARTY_NOTICES.txt" || true
+  SetFile -a V "$MOUNT_DIR/LICENSE" || true
+  SetFile -a V "$MOUNT_DIR/NOTICE" || true
 fi
 
 if [[ -f "$MOUNT_DIR/$BACKGROUND_DIR_NAME/$BACKGROUND_PNG_NAME" ]]; then

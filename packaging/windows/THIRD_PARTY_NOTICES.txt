@@ -4,6 +4,16 @@ THIRD-PARTY NOTICES
 NeonSplice includes third-party open-source software. Each component is
 copyrighted by its respective authors and distributed under its own license.
 
+Project License and Upstream Attribution
+----------------------------------------
+
+NeonSplice is a modified derivative of StemDeck:
+https://github.com/stemdeckapp/stemdeck
+
+StemDeck and NeonSplice are licensed under the Apache License, Version 2.0.
+See LICENSE and NOTICE in this distribution for the full license text,
+upstream attribution, and modification notice.
+
 This starter notice is not a substitute for the full license inventory that
 must be generated from the final packaged Python runtime before a public
 release.

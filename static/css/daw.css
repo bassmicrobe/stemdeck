@@ -2163,6 +2163,9 @@ input, textarea { font-family: inherit; }
 }
 .about-card h2 { margin: 0 0 4px; font-size: 18px; font-family: var(--font-mono); font-weight: 700; }
 .about-tagline { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+.about-license { margin: -4px 0 12px; max-width: 360px; font-size: 11px; line-height: 1.45; color: var(--muted-2); }
+.about-license a { color: var(--accent); text-decoration: none; }
+.about-license a:hover { text-decoration: underline; }
 .about-version-badge {
   display: inline-block; font-size: 11px; font-family: var(--font-mono);
   color: var(--muted); background: var(--panel); border: 1px solid var(--border);
