@@ -1,17 +1,17 @@
-StemDeck for macOS
-==================
+NeonSplice for macOS
+====================
 
 Install:
 
-1. Open the StemDeck DMG.
-2. Drag StemDeck.app to Applications.
-3. Open StemDeck from Applications.
+1. Open the NeonSplice DMG.
+2. Drag NeonSplice.app to Applications.
+3. Open NeonSplice from Applications.
 
 First launch:
 
-- StemDeck is a thin native app. It downloads a pinned, checksummed StemDeck
+- NeonSplice is a thin native app. It downloads a pinned, checksummed NeonSplice
   runtime pack on first launch.
-- The runtime installs to:
+- The runtime currently installs to the legacy compatibility path:
   ~/Library/Application Support/StemDeck/runtime
 - FFmpeg and ffprobe install to:
   ~/Library/Application Support/StemDeck/ffmpeg
@@ -20,8 +20,8 @@ First launch:
 
 Uninstall:
 
-1. Delete /Applications/StemDeck.app.
-2. To remove runtime files, jobs, caches, models, and logs, delete:
+1. Delete /Applications/NeonSplice.app.
+2. To remove runtime files, jobs, caches, models, and logs, delete the legacy compatibility path:
    ~/Library/Application Support/StemDeck
 
 Notes:

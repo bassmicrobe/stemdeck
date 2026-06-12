@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StemDeck",
+  "productName": "NeonSplice",
   "version": "0.0.0",
   "identifier": "app.stemdeck.desktop",
   "build": {
@@ -12,7 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "StemDeck",
+        "title": "NeonSplice",
         "width": 1280,
         "height": 820,
         "minWidth": 1024,

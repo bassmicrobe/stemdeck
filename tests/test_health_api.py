@@ -11,7 +11,7 @@ def test_health_endpoints_report_ok():
             r = client.get(path)
             assert r.status_code == 200
             body = r.json()
-            assert body["name"] == "StemDeck"
+            assert body["name"] == "NeonSplice"
             assert body["status"] == "ok"
             assert body["version"]
             assert "ffmpeg_configured" in body

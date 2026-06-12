@@ -1,11 +1,11 @@
-StemDeck Windows Portable Alpha
-===============================
+NeonSplice Windows Portable Alpha
+=================================
 
 Run
 ---
 
 1. Extract the zip folder.
-2. Double-click StemDeck.exe.
+2. Double-click NeonSplice.exe.
 3. Let first-run setup prepare local runtime assets.
 
 Notes
