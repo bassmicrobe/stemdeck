@@ -961,17 +961,65 @@ input, textarea { font-family: inherit; }
 .job .title { font-size: 15px; font-weight: 600; color: var(--fg); text-align: center; }
 .job .stage { font-size: 12px; color: var(--muted); text-align: center; }
 .job progress {
-  width: 280px; max-width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  appearance: none; border: none;
-  background: var(--panel-3);
+  width: min(420px, 100%);
+  height: 12px;
+  border-radius: 999px;
+  appearance: none;
+  border: 1px solid rgba(47,255,227,0.34);
+  background:
+    linear-gradient(180deg, rgba(236,255,251,0.09), rgba(0,0,0,0.08)),
+    rgba(2, 13, 18, 0.92);
   overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.045),
+    inset 0 0 18px rgba(0,0,0,0.52),
+    0 0 20px rgba(47,255,227,0.22);
 }
-.job progress::-webkit-progress-bar { background: var(--panel-3); border-radius: 2px; }
-.job progress::-webkit-progress-value { background: var(--accent); border-radius: 2px; }
-.job progress::-moz-progress-bar { background: var(--accent); border-radius: 2px; }
+.job progress::-webkit-progress-bar {
+  background:
+    linear-gradient(90deg, rgba(47,255,227,0.08) 1px, transparent 1px),
+    rgba(2, 13, 18, 0.92);
+  background-size: 18px 100%;
+  border-radius: 999px;
+}
+.job progress::-webkit-progress-value {
+  background:
+    linear-gradient(90deg, var(--accent), var(--accent-2) 52%, var(--neon-pink));
+  border-radius: 999px;
+  box-shadow:
+    0 0 16px rgba(47,255,227,0.72),
+    0 0 26px rgba(234,255,50,0.38);
+  transition: width 220ms var(--easing);
+}
+.job progress::-moz-progress-bar {
+  background:
+    linear-gradient(90deg, var(--accent), var(--accent-2) 52%, var(--neon-pink));
+  border-radius: 999px;
+  box-shadow:
+    0 0 16px rgba(47,255,227,0.72),
+    0 0 26px rgba(234,255,50,0.38);
+}
 .job .job-detail { font-size: 11px; color: var(--muted-2); text-align: center; }
+.job .job-progress-row {
+  width: min(480px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.job .job-percent {
+  min-width: 4ch;
+  color: var(--accent-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: right;
+  text-shadow:
+    0 0 10px rgba(234,255,50,0.65),
+    0 0 18px rgba(47,255,227,0.42);
+  font-variant-numeric: tabular-nums;
+}
 .cancel-btn {
   height: 30px; padding: 0 16px;
   background: var(--panel-2); border: 1px solid var(--border-strong);
