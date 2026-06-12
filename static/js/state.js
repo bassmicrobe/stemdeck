@@ -25,6 +25,8 @@ export const jobBox = $("job");
 export const jobTitleEl = $("job-title");
 export const jobStageEl = $("job-stage");
 export const jobDetailEl = $("job-detail");
+export const jobEtaEl = $("job-eta");
+export const jobPercentEl = $("job-percent");
 export const jobCancelBtn = $("job-cancel");
 export const progressEl = $("progress");
 

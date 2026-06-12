@@ -1,6 +1,6 @@
 import {
   form, urlInput, submitBtn, errorEl, jobBox, jobTitleEl, jobStageEl,
-  jobDetailEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
+  jobDetailEl, jobEtaEl, jobPercentEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
   eventSource, setEventSource, setCurrentJobId, currentJobId,
   effectiveSelectedStems, qualityPreset, selectedStems,
 } from "./state.js";
@@ -36,6 +36,23 @@ function setSubmitProcessing(processing) {
   document.querySelector(".strip-sq-process")?.classList.toggle("loading", processing);
   const label = submitBtn.querySelector("span");
   if (label) label.textContent = processing ? "Processing" : "Process";
+}
+
+function formatClock(seconds) {
+  const n = Math.max(0, Math.round(Number(seconds) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const s = n % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function etaLabel(state, pct) {
+  if (TERMINAL_STATUSES.has(state.status)) return "";
+  if (state.eta_seconds != null) return `ETA ${formatClock(state.eta_seconds)}`;
+  if (state.status === "separating" && pct > 0 && pct < 100) return "ETA estimating...";
+  if (state.status === "queued") return "Waiting in queue";
+  return state.elapsed_seconds != null ? `Elapsed ${formatClock(state.elapsed_seconds)}` : "";
 }
 
 function pickPhrase(status) {
@@ -109,6 +126,8 @@ export function reset() {
   jobTitleEl.textContent = "";
   jobStageEl.textContent = "";
   jobDetailEl.textContent = "";
+  jobEtaEl.textContent = "";
+  jobPercentEl.textContent = "0%";
   progressEl.value = 0;
   setSubmitProcessing(false);
   setCurrentJobId(null);
@@ -207,7 +226,10 @@ function applyState(state) {
   // overwrite it from each SSE tick. The truthful backend stage goes
   // to the small detail line instead.
   jobDetailEl.textContent = state.stage || "";
-  progressEl.value = Math.round((state.progress || 0) * 100);
+  const pct = Math.max(0, Math.min(100, Math.round(state.progress_percent ?? ((state.progress || 0) * 100))));
+  progressEl.value = pct;
+  jobPercentEl.textContent = `${pct}%`;
+  jobEtaEl.textContent = etaLabel(state, pct);
 
   // Cancel button is visible exactly while the job is in a non-terminal state.
   const terminal = TERMINAL_STATUSES.has(state.status);

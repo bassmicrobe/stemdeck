@@ -488,10 +488,16 @@
               <div id="job" class="job hidden" role="status" aria-live="polite">
                 <div class="job-header">
                   <div id="job-title" class="title"></div>
-                  <div id="job-stage" class="stage"></div>
+                  <div class="job-headline">
+                    <div id="job-stage" class="stage"></div>
+                    <div id="job-eta" class="job-eta"></div>
+                  </div>
                   <button id="job-cancel" class="cancel-btn hidden" type="button" aria-label="Cancel job">Cancel</button>
                 </div>
-                <progress id="progress" max="100" value="0"></progress>
+                <div class="job-progress-row">
+                  <progress id="progress" max="100" value="0"></progress>
+                  <span id="job-percent" class="job-percent">0%</span>
+                </div>
                 <div id="job-detail" class="job-detail" aria-live="polite"></div>
               </div>
               <div class="wave-scroll" id="wave-scroll">
