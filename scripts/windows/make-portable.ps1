@@ -144,6 +144,44 @@ Remove -SkipTauriBuild or run the NVIDIA package build first so the CPU package 
   }
 }
 
+function Sign-FileIfConfigured([string]$Path) {
+  $certPath = $env:WINDOWS_SIGN_CERT_PATH
+  if (-not $certPath) {
+    Write-Host "Skipping Windows code signing (set WINDOWS_SIGN_CERT_PATH to sign)."
+    return
+  }
+  if (-not (Test-Path $certPath)) {
+    throw "WINDOWS_SIGN_CERT_PATH does not exist: $certPath"
+  }
+
+  $signTool = if ($env:WINDOWS_SIGNTOOL_PATH) { $env:WINDOWS_SIGNTOOL_PATH } else { "signtool.exe" }
+  $timestampUrl = if ($env:WINDOWS_TIMESTAMP_URL) {
+    $env:WINDOWS_TIMESTAMP_URL
+  } else {
+    "http://timestamp.digicert.com"
+  }
+
+  if (-not (Get-Command $signTool -ErrorAction SilentlyContinue)) {
+    throw "signtool not found. Install Windows SDK or set WINDOWS_SIGNTOOL_PATH."
+  }
+
+  $args = @(
+    "sign",
+    "/fd", "SHA256",
+    "/tr", $timestampUrl,
+    "/td", "SHA256",
+    "/f", $certPath
+  )
+  if ($env:WINDOWS_SIGN_CERT_PASSWORD) {
+    $args += @("/p", $env:WINDOWS_SIGN_CERT_PASSWORD)
+  }
+  $args += $Path
+
+  Write-Host "Signing Windows executable: $Path"
+  & $signTool @args
+  & $signTool verify /pa /v $Path
+}
+
 Require-Command "node"
 Require-Command "npm"
 Require-Command "cargo"
@@ -256,6 +294,7 @@ if (-not (Test-Path $TargetExe)) {
 }
 
 Copy-Item -Force $TargetExe (Join-Path $Stage "STEMDECK.exe")
+Sign-FileIfConfigured (Join-Path $Stage "STEMDECK.exe")
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 $Hash = Get-FileHash -Algorithm SHA256 $ZipPath

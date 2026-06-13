@@ -17,10 +17,22 @@ Bundled in STEMDECK.app:
 
 - Tauri v2
 - The system WebKit WebView provided by macOS
+- Rust crates used by the Tauri shell, including reqwest, serde, sha2, tar,
+  zip, zstd, flate2, and Tauri plugins
 
 Downloaded during first-run setup:
 
 - STEMDECK runtime pack containing Python and Python package dependencies
+- Python
+- FastAPI
+- Uvicorn
+- yt-dlp
+- Demucs
+- PyTorch / Torch
+- torchaudio
+- librosa
+- pyloudnorm
+- soundfile
 - imageio-ffmpeg (BSD-2-Clause), used by the Python runtime as a portable
   FFmpeg executable fallback when needed
 - FFmpeg and ffprobe
@@ -30,3 +42,6 @@ The runtime pack includes its own dependency inventory under
 runtime/licenses/pip-list.json. Before public release, generate and include
 full license texts for every packaged dependency and verify the exact FFmpeg
 build license/provenance.
+
+This notice is not legal advice. It is a distribution checklist for the current
+packaging flow; the final shipped artifacts remain the source of truth.

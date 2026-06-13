@@ -34,6 +34,8 @@ Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK splits t
 
 > STEMDECK is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, STEMDECK has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
 
+日本語での概要、配布手順、ライセンス/NOTICE、そしてこの fork で加えた変更点は [README.ja.md](README.ja.md) にまとめています。
+
 ![STEMDECK screenshot](imgs/screenshot/stemdeck.png)
 
 ## We Recommend
@@ -125,6 +127,26 @@ macOS may show a Gatekeeper prompt on first open — right-click the app and cho
 | `STEMDECK-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
 
 Extract the zip anywhere, run `STEMDECK.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
+
+### Release Signing / Notarization
+
+Local builds are unsigned unless signing credentials are provided. Release scripts support optional signing without storing secrets in the repository:
+
+- macOS app signing: set `APPLE_SIGNING_IDENTITY` before `scripts/macos/make-app.sh`.
+- macOS DMG signing: set `APPLE_SIGNING_IDENTITY` before `scripts/macos/make-dmg.sh`.
+- macOS notarization: set `APPLE_NOTARIZE=1` and either `APPLE_NOTARY_KEYCHAIN_PROFILE` or `APPLE_ID`, `APPLE_TEAM_ID`, and `APPLE_APP_SPECIFIC_PASSWORD` before `scripts/macos/make-dmg.sh`.
+- Windows executable signing: set `WINDOWS_SIGN_CERT_PATH` and optionally `WINDOWS_SIGN_CERT_PASSWORD`, `WINDOWS_SIGNTOOL_PATH`, and `WINDOWS_TIMESTAMP_URL` before `scripts/windows/make-portable.ps1`.
+
+Unsigned internal builds are acceptable for local testing, but public macOS builds should be Developer ID signed and notarized. Public Windows builds should be Authenticode signed when possible.
+
+### Distribution Size and Storage
+
+The desktop shell is intentionally thin. The Python runtime, FFmpeg/ffprobe, and Demucs model are prepared during first-run setup or first use. This keeps the app bundle smaller, but the first launch needs internet access and enough disk space.
+
+- macOS first-run setup downloads a runtime pack, FFmpeg/ffprobe, and later the model cache.
+- Windows portable builds include a Python environment; the NVIDIA variant is larger because CUDA/PyTorch wheels are large.
+- Stem WAVs are large: a 10-minute stereo 16-bit WAV is about 101 MiB, and a 10-minute stereo float32 WAV is about 202 MiB before multiplying by the number of stems.
+- `LICENSE`, `NOTICE`, and platform `THIRD_PARTY_NOTICES.txt` are copied into release packages. Runtime dependency inventories are generated where available.
 
 ---
 
@@ -382,6 +404,8 @@ The author(s) of STEMDECK provide this software "as is", without warranty of any
 STEMDECK is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
 
 See [NOTICE](NOTICE) for the upstream attribution and modification notice. Third-party runtime dependencies are licensed by their respective authors; packaged builds include `THIRD_PARTY_NOTICES.txt` and generated dependency inventories where available.
+
+This repository is a modified fork, not an official upstream release. Apache-2.0 does not grant trademark rights, so public distributions should avoid implying upstream endorsement.
 
 ---
 

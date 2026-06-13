@@ -29,6 +29,10 @@ Tauri
 License: MIT or Apache-2.0, depending on component
 Website: https://tauri.app/
 
+Rust crates used by the Tauri shell
+License: varies by crate
+Inventory source: desktop/src-tauri/Cargo.lock
+
 FastAPI
 License: MIT
 Website: https://fastapi.tiangolo.com/

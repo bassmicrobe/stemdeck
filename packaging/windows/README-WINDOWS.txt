@@ -13,11 +13,17 @@ Notes
 
 - This is a portable folder, not an installer.
 - No Start Menu shortcut, service, or registry integration is created.
+- Public releases should Authenticode-sign STEMDECK.exe when possible. Local
+  unsigned zips are intended for development/internal testing.
 - Generated files stay under data/.
 - FFmpeg is downloaded during first-run setup into data/ffmpeg/.
 - Demucs model weights are downloaded by the backend on first use into data/models/.
 - STEMDECK is based on the original StemDeck project and is distributed under the
   Apache License 2.0. See LICENSE and NOTICE in this folder for attribution.
+- This package is a modified fork, not an official upstream release.
+- Third-party notices are included in THIRD_PARTY_NOTICES.txt. Final public
+  releases should verify the exact Python, FFmpeg, Demucs, PyTorch, Tauri, and
+  Rust dependency licenses used in the shipped artifacts.
 
 Troubleshooting
 ---------------

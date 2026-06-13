@@ -138,6 +138,45 @@ trap - EXIT
 hdiutil convert "$DMG_RW_PATH" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" >/dev/null
 rm -f "$DMG_RW_PATH"
 
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing DMG with identity: ${APPLE_SIGNING_IDENTITY}"
+  dmg_codesign_args=(--force)
+  if [[ "${APPLE_CODESIGN_TIMESTAMP:-1}" == "1" ]]; then
+    dmg_codesign_args+=(--timestamp)
+  fi
+  dmg_codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$DMG_PATH")
+  codesign "${dmg_codesign_args[@]}"
+  codesign --verify --verbose=2 "$DMG_PATH"
+else
+  echo "==> Skipping DMG signing (set APPLE_SIGNING_IDENTITY to sign)"
+fi
+
+if [[ "${APPLE_NOTARIZE:-0}" == "1" ]]; then
+  echo "==> Submitting DMG for notarization"
+  if ! command -v xcrun >/dev/null 2>&1; then
+    echo "ERROR: xcrun is required for notarization" >&2
+    exit 1
+  fi
+  if [[ -n "${APPLE_NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
+    xcrun notarytool submit "$DMG_PATH" \
+      --keychain-profile "$APPLE_NOTARY_KEYCHAIN_PROFILE" \
+      --wait
+  else
+    : "${APPLE_ID:?APPLE_ID is required when APPLE_NOTARY_KEYCHAIN_PROFILE is not set}"
+    : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required when APPLE_NOTARY_KEYCHAIN_PROFILE is not set}"
+    : "${APPLE_APP_SPECIFIC_PASSWORD:?APPLE_APP_SPECIFIC_PASSWORD is required when APPLE_NOTARY_KEYCHAIN_PROFILE is not set}"
+    xcrun notarytool submit "$DMG_PATH" \
+      --apple-id "$APPLE_ID" \
+      --team-id "$APPLE_TEAM_ID" \
+      --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+      --wait
+  fi
+  xcrun stapler staple "$DMG_PATH"
+  xcrun stapler validate "$DMG_PATH"
+else
+  echo "==> Skipping notarization (set APPLE_NOTARIZE=1 to notarize)"
+fi
+
 CHECKSUMS_PATH="${DIST_DIR}/SHA256SUMS-macOS-${ARCH}.txt"
 {
   shasum -a 256 "$DMG_PATH"

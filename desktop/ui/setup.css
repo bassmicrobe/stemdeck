@@ -67,6 +67,44 @@ h1 {
   color: var(--muted);
 }
 
+.setup-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+.setup-facts div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 10px;
+  background: rgba(3, 10, 15, 0.34);
+}
+
+.setup-facts span,
+.license-note {
+  color: var(--muted);
+}
+
+.setup-facts span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.setup-facts strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .setup-steps {
   display: grid;
   gap: 12px;
@@ -193,6 +231,12 @@ h1 {
   margin-top: 20px;
 }
 
+.license-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 button {
   min-height: 42px;
   padding: 0 18px;
@@ -211,5 +255,19 @@ button {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 680px) {
+  .setup-shell {
+    padding: 18px;
+  }
+
+  .setup-card {
+    padding: 22px;
+  }
+
+  .setup-facts {
+    grid-template-columns: 1fr;
   }
 }

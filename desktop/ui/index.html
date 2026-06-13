@@ -15,6 +15,21 @@
         </div>
         <p class="subtitle">Preparing the local audio engine, first run will take a while...</p>
 
+        <div class="setup-facts" aria-label="Setup details">
+          <div>
+            <span>Runtime download</span>
+            <strong id="meta-runtime">Checking...</strong>
+          </div>
+          <div>
+            <span>Workspace</span>
+            <strong id="meta-workspace">Checking...</strong>
+          </div>
+          <div>
+            <span>Data folder</span>
+            <strong id="meta-data-dir">Resolving...</strong>
+          </div>
+        </div>
+
         <ol class="setup-steps" id="steps">
           <li data-step="runtime">Setting up local runtime</li>
           <li data-step="workspace">Creating workspace</li>
@@ -33,6 +48,12 @@
         <div class="actions">
           <button id="retry" type="button" class="hidden">Retry</button>
         </div>
+
+        <p class="license-note">
+          STEMDECK is based on the original StemDeck project and is distributed
+          under the Apache License 2.0. LICENSE, NOTICE, and third-party notices
+          are included in the app/package.
+        </p>
       </section>
     </main>
     <script type="module" src="./setup.js"></script>

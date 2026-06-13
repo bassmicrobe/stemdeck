@@ -6,6 +6,9 @@ const statusEl = document.getElementById("status");
 const detailsEl = document.getElementById("details");
 const retryBtn = document.getElementById("retry");
 const steps = [...document.querySelectorAll("[data-step]")];
+const metaRuntimeEl = document.getElementById("meta-runtime");
+const metaWorkspaceEl = document.getElementById("meta-workspace");
+const metaDataDirEl = document.getElementById("meta-data-dir");
 
 function setStep(name, state) {
   const el = steps.find((item) => item.dataset.step === name);
@@ -55,6 +58,44 @@ function formatElapsed(startedAt) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n <= 0) return "0 MB";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = n;
+  let idx = 0;
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024;
+    idx += 1;
+  }
+  return `${value >= 10 || idx < 2 ? value.toFixed(0) : value.toFixed(1)} ${units[idx]}`;
+}
+
+async function refreshSetupFacts(runtime, runtimeStatus) {
+  const status = runtimeStatus ?? await invoke("runtime_pack_status").catch(() => null);
+  const maintenance = await invoke("maintenance_status").catch(() => null);
+
+  if (metaRuntimeEl) {
+    const size = status?.manifest?.runtimeSize;
+    metaRuntimeEl.textContent = size
+      ? `${formatBytes(size)} runtime + model on first use`
+      : "Runtime manifest bundled";
+  }
+  if (metaWorkspaceEl) {
+    if (maintenance) {
+      const cacheBytes = Number(maintenance.cacheBytes || 0) + Number(maintenance.downloadsBytes || 0);
+      metaWorkspaceEl.textContent =
+        `${formatBytes(maintenance.jobsBytes)} jobs, ${formatBytes(cacheBytes)} cache`;
+    } else {
+      metaWorkspaceEl.textContent = "Created on first launch";
+    }
+  }
+  if (metaDataDirEl) {
+    metaDataDirEl.textContent = runtime?.dataDir || maintenance?.dataDir || "App data folder";
+    metaDataDirEl.title = metaDataDirEl.textContent;
+  }
 }
 
 function startProgressStatus(messages) {
@@ -223,6 +264,7 @@ async function runSetup() {
     // backend + frontend and the new release (e.g. new features, version) never
     // takes effect until the runtime is manually cleared.
     const runtimeStatus = await invoke("runtime_pack_status");
+    await refreshSetupFacts(runtime, runtimeStatus);
     const expectedVersion = runtimeStatus.manifest?.version;
     const installedVersion = runtimeStatus.installedVersion;
     // Mismatch when this build expects a version the installed runtime isn't.
@@ -271,6 +313,7 @@ async function runSetup() {
     let gpuSummary = "";
 
     await runStep("workspace", () => invoke("ensure_workspace"));
+    await refreshSetupFacts(runtime);
 
     if (runtime.ffmpegReady) {
       setStep("ffmpeg", "done");

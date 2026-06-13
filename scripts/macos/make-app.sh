@@ -78,5 +78,25 @@ if [[ -f "$REPO_ROOT/NOTICE" ]]; then
   cp "$REPO_ROOT/NOTICE" "$RESOURCES/NOTICE"
 fi
 
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing app with identity: ${APPLE_SIGNING_IDENTITY}"
+  codesign_args=(--force --deep --options runtime)
+  if [[ -n "${APPLE_ENTITLEMENTS:-}" ]]; then
+    if [[ ! -f "$APPLE_ENTITLEMENTS" ]]; then
+      echo "ERROR: APPLE_ENTITLEMENTS does not exist: $APPLE_ENTITLEMENTS" >&2
+      exit 1
+    fi
+    codesign_args+=(--entitlements "$APPLE_ENTITLEMENTS")
+  fi
+  if [[ "${APPLE_CODESIGN_TIMESTAMP:-1}" == "1" ]]; then
+    codesign_args+=(--timestamp)
+  fi
+  codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$APP_DIR")
+  codesign "${codesign_args[@]}"
+  codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+else
+  echo "==> Skipping app signing (set APPLE_SIGNING_IDENTITY to sign)"
+fi
+
 echo "$APP_DIR" > "$BUILD_DIR/app-path-${ARCH}.txt"
 echo "==> App ready: $APP_DIR"
