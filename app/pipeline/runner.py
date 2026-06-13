@@ -30,6 +30,7 @@ from app.pipeline.collect import (
     stabilize_stem_outputs,
 )
 from app.pipeline.download import download
+from app.pipeline.progress import set_stage_progress
 from app.pipeline.separate import separate
 
 logger = logging.getLogger("stemdeck.pipeline")
@@ -66,7 +67,7 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
     if source.resolve() == dest.resolve():
         return source
 
-    _set(job, stage="Preparing audio...")
+    set_stage_progress(job, "acquire", 0.0, status="processing", stage="Preparing audio...")
     settings = demucs_settings_for_preset(job.quality_preset)
     sample_fmt = "flt" if settings.float32 else "s16"
     codec = "pcm_f32le" if settings.float32 else "pcm_s16le"
@@ -117,7 +118,13 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         return source
 
     dest = job_dir / "source.demucs.wav"
-    _set(job, stage="Preparing high-quality separation...")
+    set_stage_progress(
+        job,
+        "prepare_separation",
+        0.25,
+        status="processing",
+        stage="Preparing high-quality separation...",
+    )
     filters = [
         "aresample=44100",
         "aformat=sample_fmts=flt:channel_layouts=stereo",
@@ -158,26 +165,49 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     _check_cancel(job)
     analyze(job, source)
     _check_cancel(job)
+    set_stage_progress(
+        job,
+        "prepare_separation",
+        0.0,
+        status="processing",
+        stage="Preparing separation input...",
+    )
     demucs_source = _prepare_demucs_source(job, source, job_dir)
+    set_stage_progress(job, "prepare_separation", 1.0, stage="Separation input ready")
     _check_cancel(job)
     stems_root = separate(job, demucs_source, job_dir)
+    set_stage_progress(job, "collect", 0.0, status="processing", stage="Collecting stems...")
     found = collect(job, stems_root, job_dir)
+    set_stage_progress(job, "collect", 1.0, stage="Stems collected")
     stems_dir = job_dir / "stems"
+    set_stage_progress(job, "restore_gain", 0.0, stage="Restoring stem levels...")
     restore_demucs_gain(job, stems_dir, found)
+    set_stage_progress(job, "restore_gain", 1.0, stage="Stem levels restored")
+    set_stage_progress(job, "bass_repair", 0.0, stage="Checking bass dropouts...")
     job.bass_repair_applied = repair_bass_dropouts(job, source, stems_dir, found)
+    set_stage_progress(job, "bass_repair", 1.0, stage="Bass repair complete")
+    set_stage_progress(job, "phase_repair", 0.0, stage="Checking phase coherence...")
     repair_phase_coherence(job, source, job_dir, stems_dir, found)
+    set_stage_progress(job, "phase_repair", 1.0, stage="Phase repair complete")
+    set_stage_progress(job, "denoise", 0.0, stage="Checking stem denoise...")
     job.stem_denoise_applied = denoise_stem_outputs(job, stems_dir, found)
+    set_stage_progress(job, "denoise", 1.0, stage="Stem denoise complete")
+    set_stage_progress(job, "stabilize", 0.0, stage="Stabilizing stems...")
     stabilize_stem_outputs(job, stems_dir, found)
+    set_stage_progress(job, "stabilize", 1.0, stage="Stems stabilized")
     _check_cancel(job)
+    set_stage_progress(job, "presence", 0.0, stage="Measuring stem presence...")
     job.stem_presence = compute_stem_presence(stems_dir, found)
+    set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
     # Source (100-300 MB or the local upload) is no longer needed after
     # collect; delete it before the ffmpeg amix steps in case scratch space
     # is tight.
     cleanup_source(job_dir)
     job.stems = [{"name": name, "url": f"/api/jobs/{job.id}/stems/{name}.wav"} for name in found]
     _check_cancel(job)
-    _set(job, stage="Mixing tracks...")
+    set_stage_progress(job, "mix", 0.0, stage="Mixing tracks...")
     original_path = make_original_track(job, job_dir, stems_dir)
+    set_stage_progress(job, "mix", 0.45, stage="Mixing tracks...")
     if original_path is not None:
         job.stems.insert(
             0,
@@ -188,6 +218,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
         )
     _check_cancel(job)
     mix_path = make_selected_mix(job, stems_dir, found)
+    set_stage_progress(job, "mix", 1.0, stage="Mixing complete")
     if mix_path is not None:
         job.mix_url = f"/api/jobs/{job.id}/stems/{mix_path.name}"
     _check_cancel(job)
@@ -195,7 +226,9 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     all_stem_names = [s["name"] for s in job.stems]
     if mix_path is not None and mix_path.stem not in all_stem_names:
         all_stem_names.append(mix_path.stem)
+    set_stage_progress(job, "peaks", 0.0, stage="Rendering waveforms...")
     compute_stem_peaks(stems_dir, all_stem_names)
+    set_stage_progress(job, "peaks", 1.0, stage="Waveforms ready")
 
 
 def _run_blocking(job: Job, url: str, job_dir: Path) -> None:

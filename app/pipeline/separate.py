@@ -15,8 +15,9 @@ from app.core.config import (
     DemucsSettings,
     demucs_settings_for_preset,
 )
-from app.core.models import Job, JobCancelled, _set
+from app.core.models import Job, JobCancelled
 from app.core.registry import set_proc
+from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.pipeline")
 
@@ -51,7 +52,7 @@ def build_demucs_command(source: Path, job_dir: Path, settings: DemucsSettings) 
 
 
 def separate(job: Job, source: Path, job_dir: Path) -> Path:
-    _set(job, status="separating", progress=0.0, stage="Separating stems...")
+    set_stage_progress(job, "separate", 0.0, status="separating", stage="Separating stems...")
 
     settings = demucs_settings_for_preset(job.quality_preset)
     cmd = build_demucs_command(source, job_dir, settings)
@@ -115,7 +116,7 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
                 m = _PCT_RE.search(line)
                 if m:
                     pct = max(0, min(100, int(m.group(1))))
-                    _set(job, progress=pct / 100.0, stage=f"Separating {pct}%")
+                    set_stage_progress(job, "separate", pct / 100.0, stage=f"Separating {pct}%")
                 else:
                     tail.append(line)
                     if len(tail) > 40:
@@ -143,4 +144,5 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
     stems_root = job_dir / settings.model / source.stem
     if not stems_root.is_dir():
         raise RuntimeError(f"demucs output not found at {stems_root}")
+    set_stage_progress(job, "separate", 1.0, stage="Separation complete")
     return stems_root

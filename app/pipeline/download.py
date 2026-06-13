@@ -10,6 +10,7 @@ from yt_dlp import YoutubeDL
 
 from app.core.config import MAX_DURATION_SEC
 from app.core.models import Job, JobCancelled, _set
+from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.download")
 
@@ -151,7 +152,7 @@ def normalize_youtube_url(url: str) -> str:
 def download(job: Job, url: str, job_dir: Path) -> Path:
     url = normalize_youtube_url(url)
     logger.info("[%s] download starting: %s", job.id, url)
-    _set(job, status="downloading", progress=0.0, stage="Processing...")
+    set_stage_progress(job, "acquire", 0.0, status="downloading", stage="Fetching metadata...")
 
     # Fetch metadata first (no download) so we can reject videos that are
     # too long before wasting bandwidth and disk.
@@ -173,9 +174,9 @@ def download(job: Job, url: str, job_dir: Path) -> Path:
             total = d.get("total_bytes") or d.get("total_bytes_estimate")
             if total:
                 p = float(d.get("downloaded_bytes", 0)) / float(total)
-                _set(job, progress=p, stage=f"Downloading {int(p * 100)}%")
+                set_stage_progress(job, "acquire", p, stage=f"Downloading {int(p * 100)}%")
         elif d.get("status") == "finished":
-            _set(job, progress=1.0, stage="Download complete")
+            set_stage_progress(job, "acquire", 1.0, stage="Download complete")
 
     # No postprocessors -- Demucs reads the raw audio container (webm/m4a/opus/...)
     # directly via torchaudio + ffmpeg. Skipping the WAV transcode saves the slowest

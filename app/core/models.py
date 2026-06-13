@@ -23,6 +23,13 @@ def _set(job: Job, **fields: object) -> None:
             job.stage_message = v  # type: ignore[assignment]
         else:
             setattr(job, k, v)
+    if "progress" in fields and job.progress_started_at is None:
+        try:
+            progress = float(fields["progress"] or 0.0)
+        except (TypeError, ValueError):
+            progress = 0.0
+        if progress > 0.001 and job.status not in ("queued", "done", "error", "cancelled"):
+            job.progress_started_at = time.time()
     if "status" in fields and job.status != old_status:
         job.status_started_at = time.time()
 
@@ -72,9 +79,14 @@ class Job:
     # than directory mtime, which can be touched by unrelated FS events.
     created_at: float = field(default_factory=time.time)
     status_started_at: float = field(default_factory=time.time)
+    progress_started_at: float | None = None
 
     def elapsed_seconds(self) -> float:
         return max(0.0, time.time() - self.status_started_at)
+
+    def total_elapsed_seconds(self) -> float:
+        started_at = self.progress_started_at or self.created_at
+        return max(0.0, time.time() - started_at)
 
     def eta_seconds(self) -> float | None:
         if self.status in ("done", "error", "cancelled"):
@@ -82,7 +94,7 @@ class Job:
         progress = max(0.0, min(1.0, float(self.progress or 0.0)))
         if progress < 0.01 or progress >= 0.995:
             return None
-        elapsed = self.elapsed_seconds()
+        elapsed = max(0.0, time.time() - (self.progress_started_at or self.status_started_at))
         if elapsed < 2.0:
             return None
         return max(0.0, (elapsed / progress) - elapsed)
@@ -96,6 +108,7 @@ class Job:
             "progress_percent": round(max(0.0, min(1.0, float(self.progress or 0.0))) * 100),
             "stage": self.stage_message,
             "elapsed_seconds": round(self.elapsed_seconds(), 1),
+            "total_elapsed_seconds": round(self.total_elapsed_seconds(), 1),
             "eta_seconds": None if eta is None else round(eta, 1),
             "title": self.title,
             "duration": self.duration_sec,

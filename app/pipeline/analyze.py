@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.core.config import JOBS_DIR, TIMEOUT_ANALYZE, ffmpeg_executable
 from app.core.models import Job, _set
+from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.analyze")
 
@@ -250,11 +251,12 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
     """Best-effort BPM and key detection. On failure, returns (None, None)
     and leaves job fields untouched -- the chips stay as placeholders."""
     logger.info("analyze: entering for job %s, source=%s", job.id, source)
-    _set(job, status="analyzing", progress=0.0, stage="Analyzing audio...")
+    set_stage_progress(job, "analyze", 0.0, status="analyzing", stage="Analyzing audio...")
     try:
         import librosa
     except ImportError:
         logger.warning("librosa not installed -- skipping BPM/key analysis")
+        set_stage_progress(job, "analyze", 1.0, stage="Analysis skipped")
         return None, None
 
     try:
@@ -321,11 +323,11 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
             peak_db=peak_db,
             dynamic_range=dynamic_range,
             tempo_stability=tempo_stability,
-            progress=1.0,
             stage="Analysis complete",
         )
+        set_stage_progress(job, "analyze", 1.0, stage="Analysis complete")
         return bpm, key
     except Exception as e:
         logger.exception("analyze failed for job %s", job.id)
-        _set(job, stage=f"Analysis skipped ({e})")
+        set_stage_progress(job, "analyze", 1.0, stage=f"Analysis skipped ({e})")
         return None, None

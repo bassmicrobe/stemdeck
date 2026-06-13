@@ -57,7 +57,8 @@ function etaLabel(state, pct) {
   if (state.eta_seconds != null) return `ETA ${formatClock(state.eta_seconds)}`;
   if (state.status === "separating" && pct > 0 && pct < 100) return "ETA estimating...";
   if (state.status === "queued") return "Waiting in queue";
-  return state.elapsed_seconds != null ? `Elapsed ${formatClock(state.elapsed_seconds)}` : "";
+  const elapsed = state.total_elapsed_seconds ?? state.elapsed_seconds;
+  return elapsed != null ? `Elapsed ${formatClock(elapsed)}` : "";
 }
 
 function pickPhrase(status) {
