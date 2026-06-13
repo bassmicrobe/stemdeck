@@ -142,6 +142,7 @@ def test_high_quality_preset_supports_four_stems():
     from app.core.config import (
         bass_repair_enabled_for_preset,
         phase_repair_enabled_for_preset,
+        phase_repair_max_blend_for_preset,
         stem_names_for_quality_preset,
         wav_codec_for_quality_preset,
     )
@@ -165,6 +166,9 @@ def test_high_quality_preset_supports_four_stems():
     assert phase_repair_enabled_for_preset("standard") is False
     assert phase_repair_enabled_for_preset("high") is True
     assert phase_repair_enabled_for_preset("max") is True
+    assert phase_repair_max_blend_for_preset("standard") == 0.42
+    assert phase_repair_max_blend_for_preset("high") == 0.65
+    assert phase_repair_max_blend_for_preset("max") == 0.9
 
 
 def test_bass_repair_env_override(monkeypatch):
@@ -177,9 +181,13 @@ def test_bass_repair_env_override(monkeypatch):
 
 
 def test_phase_repair_env_override(monkeypatch):
-    from app.core.config import phase_repair_enabled_for_preset
+    from app.core.config import phase_repair_enabled_for_preset, phase_repair_max_blend_for_preset
 
     monkeypatch.setenv("STEMDECK_PHASE_REPAIR", "0")
     assert phase_repair_enabled_for_preset("high") is False
     monkeypatch.setenv("STEMDECK_PHASE_REPAIR", "1")
     assert phase_repair_enabled_for_preset("standard") is True
+    monkeypatch.setenv("STEMDECK_PHASE_REPAIR_MAX_BLEND", "0.8")
+    assert phase_repair_max_blend_for_preset("high") == 0.8
+    monkeypatch.setenv("STEMDECK_PHASE_REPAIR_MAX_BLEND", "2")
+    assert phase_repair_max_blend_for_preset("max") == 1.0

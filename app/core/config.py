@@ -174,6 +174,28 @@ def phase_repair_enabled_for_preset(preset: str | None) -> bool:
     return _env_bool("STEMDECK_PHASE_REPAIR", default)
 
 
+_PHASE_REPAIR_DEFAULT_MAX_BLEND = {
+    "standard": 0.42,
+    "high": 0.65,
+    "max": 0.90,
+}
+
+
+def _clamp_phase_repair_blend(value: float) -> float:
+    return min(1.0, max(0.0, value))
+
+
+def phase_repair_max_blend_for_preset(preset: str | None) -> float:
+    """Return residual blend strength for stem-sum coherence repair.
+
+    High stays moderately conservative to protect isolation. Max prioritizes
+    source reconstruction and can leave more bleed in isolated stems.
+    """
+    quality_preset = normalize_quality_preset(preset)
+    default = _PHASE_REPAIR_DEFAULT_MAX_BLEND[quality_preset]
+    return _clamp_phase_repair_blend(_env_float("STEMDECK_PHASE_REPAIR_MAX_BLEND", default))
+
+
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
@@ -214,7 +236,7 @@ BASS_REPAIR_SHORT_GAP_MS = max(8, _env_int("STEMDECK_BASS_REPAIR_SHORT_GAP_MS", 
 BASS_REPAIR_SHORT_GAP_RATIO = max(
     1.05, _env_float("STEMDECK_BASS_REPAIR_SHORT_GAP_RATIO", 2.4)
 )
-PHASE_REPAIR_MAX_BLEND = min(1.0, max(0.0, _env_float("STEMDECK_PHASE_REPAIR_MAX_BLEND", 0.42)))
+PHASE_REPAIR_MAX_BLEND = phase_repair_max_blend_for_preset(QUALITY_PRESET)
 PHASE_REPAIR_FLOOR_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_PHASE_REPAIR_FLOOR_DB", -58.0)))
 STEM_POST_LIMITER_PEAK = min(0.999, max(0.5, _env_float("STEMDECK_STEM_POST_LIMITER_PEAK", 0.98)))
 STEM_PREPROCESS_TARGET_I = _env_float("STEMDECK_PREPROCESS_TARGET_I", -18.0)

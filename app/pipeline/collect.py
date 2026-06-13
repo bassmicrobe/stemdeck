@@ -28,6 +28,7 @@ from app.core.config import (
     demucs_settings_for_preset,
     ffmpeg_executable,
     phase_repair_enabled_for_preset,
+    phase_repair_max_blend_for_preset,
     wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
@@ -588,6 +589,7 @@ def repair_phase_coherence(
             stems_dir,
             available,
             tmp_paths,
+            max_blend=phase_repair_max_blend_for_preset(job.quality_preset),
             subtype=subtype,
         )
         job.phase_repair_residual_ratio = result.residual_ratio

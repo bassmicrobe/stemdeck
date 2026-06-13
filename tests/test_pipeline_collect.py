@@ -381,6 +381,7 @@ def test_repair_phase_coherence_replaces_changed_stems(tmp_path, monkeypatch):
     def fake_blend(reference, stem_dir, names, out_paths, **kwargs):
         assert reference.read_bytes() == b"reference"
         assert names == ["vocals", "drums"]
+        assert kwargs["max_blend"] == 0.65
         for idx, out in enumerate(out_paths):
             out.write_bytes(f"new-{idx}".encode())
         return PhaseRepairResult(True, 0.42)
