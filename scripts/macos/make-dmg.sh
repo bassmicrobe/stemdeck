@@ -7,16 +7,13 @@ VERSION="${VERSION#v}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/.build"
 DIST_DIR="${BUILD_DIR}/macos-dist"
-DMG_STAGING="${BUILD_DIR}/dmg-staging-${ARCH}"
 DMG_NAME="STEMDECK-Enhanced-macOS-${ARCH}.dmg"
 DMG_PATH="${DIST_DIR}/${DMG_NAME}"
 DMG_RW_PATH="${DIST_DIR}/STEMDECK-Enhanced-macOS-${ARCH}.rw.dmg"
 RUNTIME_NAME="STEMDECK-Enhanced-runtime-macOS-${ARCH}.tar.zst"
 RUNTIME_PATH="${BUILD_DIR}/${RUNTIME_NAME}"
-BACKGROUND_SRC="${REPO_ROOT}/packaging/macos/dmg-background.svg"
-BACKGROUND_DIR_NAME=".background"
-BACKGROUND_PNG_NAME="dmg-background.png"
 APP_BUNDLE_NAME="STEMDECK Enhanced.app"
+DMG_SIZE="${DMG_SIZE:-256m}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "ERROR: make-dmg.sh must run on macOS" >&2
@@ -28,7 +25,7 @@ if [[ "$ARCH" != "arm64" && "$ARCH" != "x64" ]]; then
   exit 1
 fi
 
-for cmd in ditto hdiutil qlmanage shasum; do
+for cmd in ditto hdiutil shasum; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: required command not found on PATH: $cmd" >&2
     exit 1
@@ -36,9 +33,9 @@ for cmd in ditto hdiutil qlmanage shasum; do
 done
 
 if [[ "$ARCH" == "arm64" ]]; then
-  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK Enhanced.app"
+  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/${APP_BUNDLE_NAME}"
 else
-  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/STEMDECK Enhanced.app"
+  APP_DIR="${REPO_ROOT}/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/${APP_BUNDLE_NAME}"
 fi
 
 if [[ ! -d "$APP_DIR" ]]; then
@@ -53,41 +50,16 @@ if [[ ! -f "$RUNTIME_PATH" ]]; then
   exit 1
 fi
 
-rm -rf "$DMG_STAGING"
-mkdir -p "$DMG_STAGING" "$DIST_DIR"
-mkdir -p "$DMG_STAGING/$BACKGROUND_DIR_NAME"
-
-ditto --noextattr "$APP_DIR" "$DMG_STAGING/$APP_BUNDLE_NAME"
-ln -s /Applications "$DMG_STAGING/Applications"
-
-if [[ -f "$BACKGROUND_SRC" ]]; then
-  qlmanage -t -s 1320 -o "$DMG_STAGING/$BACKGROUND_DIR_NAME" "$BACKGROUND_SRC" >/dev/null 2>&1
-  mv "$DMG_STAGING/$BACKGROUND_DIR_NAME/dmg-background.svg.png" "$DMG_STAGING/$BACKGROUND_DIR_NAME/$BACKGROUND_PNG_NAME"
-fi
-
-if [[ -f "$REPO_ROOT/packaging/macos/README-macOS.txt" ]]; then
-  cp "$REPO_ROOT/packaging/macos/README-macOS.txt" "$DMG_STAGING/README-macOS.txt"
-fi
-
-if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
-  cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$DMG_STAGING/THIRD_PARTY_NOTICES.txt"
-fi
-
-if [[ -f "$REPO_ROOT/LICENSE" ]]; then
-  cp "$REPO_ROOT/LICENSE" "$DMG_STAGING/LICENSE"
-fi
-
-if [[ -f "$REPO_ROOT/NOTICE" ]]; then
-  cp "$REPO_ROOT/NOTICE" "$DMG_STAGING/NOTICE"
-fi
-
 rm -f "$DMG_PATH" "$DMG_RW_PATH"
+mkdir -p "$DIST_DIR"
+
 hdiutil create \
+  -size "$DMG_SIZE" \
+  -type UDIF \
+  -fs APFS \
   -volname "STEMDECK Enhanced" \
-  -srcfolder "$DMG_STAGING" \
   -ov \
-  -format UDRW \
-  "$DMG_RW_PATH"
+  "$DMG_RW_PATH" >/dev/null
 
 MOUNT_DIR="$(mktemp -d /tmp/stemdeck-dmg.XXXXXX)"
 cleanup_mount() {
@@ -98,61 +70,45 @@ trap cleanup_mount EXIT
 
 hdiutil attach "$DMG_RW_PATH" -readwrite -noverify -nobrowse -mountpoint "$MOUNT_DIR" >/dev/null
 
-if command -v SetFile >/dev/null 2>&1; then
-  SetFile -a V "$MOUNT_DIR/$BACKGROUND_DIR_NAME" || true
-  SetFile -a V "$MOUNT_DIR/README-macOS.txt" || true
-  SetFile -a V "$MOUNT_DIR/THIRD_PARTY_NOTICES.txt" || true
-  SetFile -a V "$MOUNT_DIR/LICENSE" || true
-  SetFile -a V "$MOUNT_DIR/NOTICE" || true
+ditto --noextattr "$APP_DIR" "$MOUNT_DIR/$APP_BUNDLE_NAME"
+ln -s /Applications "$MOUNT_DIR/Applications"
+
+if [[ -f "$REPO_ROOT/packaging/macos/README-macOS.txt" ]]; then
+  cp "$REPO_ROOT/packaging/macos/README-macOS.txt" "$MOUNT_DIR/README-macOS.txt"
 fi
 
-if [[ -f "$MOUNT_DIR/$BACKGROUND_DIR_NAME/$BACKGROUND_PNG_NAME" ]]; then
-  osascript <<APPLESCRIPT || echo "warning: DMG window styling failed (cosmetic only, DMG is still valid)"
-tell application "Finder"
-  set dmgFolder to POSIX file "$MOUNT_DIR" as alias
-  open dmgFolder
-  set current view of container window of dmgFolder to icon view
-  set toolbar visible of container window of dmgFolder to false
-  set statusbar visible of container window of dmgFolder to false
-  set bounds of container window of dmgFolder to {100, 100, 760, 500}
-  set viewOptions to icon view options of container window of dmgFolder
-  set arrangement of viewOptions to not arranged
-  set icon size of viewOptions to 104
-  set text size of viewOptions to 13
-  set background picture of viewOptions to POSIX file "$MOUNT_DIR/$BACKGROUND_DIR_NAME/$BACKGROUND_PNG_NAME"
-  set position of item "$APP_BUNDLE_NAME" of dmgFolder to {205, 205}
-  set position of item "Applications" of dmgFolder to {455, 205}
-  close container window of dmgFolder
-  open dmgFolder
-  update dmgFolder without registering applications
-  delay 1
-  close container window of dmgFolder
-end tell
-APPLESCRIPT
+if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
+  cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$MOUNT_DIR/THIRD_PARTY_NOTICES.txt"
 fi
 
-if [[ -d "$MOUNT_DIR/$APP_BUNDLE_NAME" ]]; then
-  # Finder window styling and filesystem copies can attach FinderInfo/resource
-  # xattrs that strict codesign rejects. Strip them after styling, then
-  # re-sign the app inside the mounted image when signing is configured.
-  xattr -cr "$MOUNT_DIR/$APP_BUNDLE_NAME" >/dev/null 2>&1 || true
-  if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
-    echo "==> Signing mounted app with identity: ${APPLE_SIGNING_IDENTITY}"
-    app_codesign_args=(--force --deep --options runtime)
-    if [[ -n "${APPLE_ENTITLEMENTS:-}" ]]; then
-      if [[ ! -f "$APPLE_ENTITLEMENTS" ]]; then
-        echo "ERROR: APPLE_ENTITLEMENTS does not exist: $APPLE_ENTITLEMENTS" >&2
-        exit 1
-      fi
-      app_codesign_args+=(--entitlements "$APPLE_ENTITLEMENTS")
+if [[ -f "$REPO_ROOT/LICENSE" ]]; then
+  cp "$REPO_ROOT/LICENSE" "$MOUNT_DIR/LICENSE"
+fi
+
+if [[ -f "$REPO_ROOT/NOTICE" ]]; then
+  cp "$REPO_ROOT/NOTICE" "$MOUNT_DIR/NOTICE"
+fi
+
+# Finder metadata/resource xattrs make strict codesign validation fail. Strip
+# after the final copy into the image, then re-sign the app in-place when a
+# signing identity is configured.
+xattr -cr "$MOUNT_DIR/$APP_BUNDLE_NAME" >/dev/null 2>&1 || true
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing mounted app with identity: ${APPLE_SIGNING_IDENTITY}"
+  app_codesign_args=(--force --deep --options runtime)
+  if [[ -n "${APPLE_ENTITLEMENTS:-}" ]]; then
+    if [[ ! -f "$APPLE_ENTITLEMENTS" ]]; then
+      echo "ERROR: APPLE_ENTITLEMENTS does not exist: $APPLE_ENTITLEMENTS" >&2
+      exit 1
     fi
-    if [[ "${APPLE_CODESIGN_TIMESTAMP:-1}" == "1" ]]; then
-      app_codesign_args+=(--timestamp)
-    fi
-    app_codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$MOUNT_DIR/$APP_BUNDLE_NAME")
-    codesign "${app_codesign_args[@]}"
-    codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_BUNDLE_NAME"
+    app_codesign_args+=(--entitlements "$APPLE_ENTITLEMENTS")
   fi
+  if [[ "${APPLE_CODESIGN_TIMESTAMP:-1}" == "1" ]]; then
+    app_codesign_args+=(--timestamp)
+  fi
+  app_codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$MOUNT_DIR/$APP_BUNDLE_NAME")
+  codesign "${app_codesign_args[@]}"
+  codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_BUNDLE_NAME"
 fi
 
 sync
