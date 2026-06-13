@@ -136,7 +136,7 @@ input, textarea { font-family: inherit; }
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
   cursor: text;
 }
@@ -230,8 +230,12 @@ input, textarea { font-family: inherit; }
   align-items: center;
   gap: 10px;
   padding: 0 14px;
-  flex-shrink: 0;
+  flex: 1 1 430px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.daw-stem-section::-webkit-scrollbar { display: none; }
 .daw-extract-label {
   font-size: 10px;
   font-weight: 600;
@@ -239,14 +243,19 @@ input, textarea { font-family: inherit; }
   text-transform: uppercase;
   color: var(--muted);
 }
-.daw-stem-chips { display: flex; gap: 4px; }
+.daw-stem-chips {
+  display: flex;
+  gap: 4px;
+  min-width: max-content;
+}
 
 .daw-quality-section {
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 0 12px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .daw-quality-select {
@@ -351,7 +360,10 @@ input, textarea { font-family: inherit; }
     inset 0 1px 0 rgba(255,255,255,0.36),
     0 0 22px rgba(47,255,227,0.2),
     0 0 34px rgba(234,255,50,0.12);
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  min-width: 150px;
+  justify-content: center;
+  white-space: nowrap;
   transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
 }
 .daw-process-btn:hover {
@@ -935,18 +947,21 @@ input, textarea { font-family: inherit; }
 
 /* ── Job progress overlay ── */
 .job {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 1000;
   background:
-    radial-gradient(circle at 50% 44%, rgba(47,255,227,0.12), transparent 52%),
-    radial-gradient(circle at 40% 55%, rgba(255,61,139,0.08), transparent 48%),
-    rgb(4, 10, 15);
+    radial-gradient(circle at 50% 42%, rgba(234,255,50,0.18), transparent 32%),
+    radial-gradient(circle at 41% 56%, rgba(47,255,227,0.2), transparent 42%),
+    radial-gradient(circle at 60% 60%, rgba(255,61,139,0.14), transparent 46%),
+    rgba(0, 4, 7, 0.88);
+  backdrop-filter: blur(10px) saturate(1.24);
+  -webkit-backdrop-filter: blur(10px) saturate(1.24);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 18px;
   padding: 32px;
 }
 /* Neon ambient glow -- matches the wave-loading-overlay aesthetic */
@@ -954,68 +969,135 @@ input, textarea { font-family: inherit; }
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 0;
   background:
-    linear-gradient(90deg, rgba(47,255,227,0.05) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 34px 34px;
+    linear-gradient(90deg, rgba(47,255,227,0.1) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+  background-size: 30px 30px;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at center, #000 0 48%, transparent 76%);
+  mask-image: radial-gradient(circle at center, #000 0 48%, transparent 76%);
+}
+.job::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  width: min(680px, calc(100vw - 32px));
+  min-height: min(360px, calc(100dvh - 48px));
+  border-radius: 28px;
+  border: 1px solid rgba(118,255,240,0.42);
+  background:
+    linear-gradient(145deg, rgba(11,31,38,0.94), rgba(2,8,12,0.96)),
+    rgba(3, 12, 17, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.11),
+    0 0 0 1px rgba(234,255,50,0.08),
+    0 26px 70px rgba(0,0,0,0.62),
+    0 0 44px rgba(47,255,227,0.28),
+    0 0 72px rgba(234,255,50,0.13);
   pointer-events: none;
 }
-.job > * { position: relative; z-index: 1; }
+.job > * {
+  position: relative;
+  z-index: 2;
+  width: min(560px, calc(100vw - 64px));
+}
 .job.hidden { display: none !important; }
-.job .title { font-size: 15px; font-weight: 600; color: var(--fg); text-align: center; }
-.job .stage { font-size: 12px; color: var(--muted); text-align: center; }
+.job-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+}
+.job .title {
+  font-size: clamp(20px, 2.3vw, 30px);
+  font-weight: 800;
+  color: var(--fg);
+  text-align: center;
+  text-shadow:
+    0 0 18px rgba(47,255,227,0.46),
+    0 0 34px rgba(234,255,50,0.2);
+}
+.job-headline {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.job .stage {
+  font-size: 14px;
+  color: var(--fg-2);
+  text-align: center;
+}
+.job .job-eta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-2);
+  text-shadow: 0 0 14px rgba(234,255,50,0.5);
+}
 .job progress {
-  width: min(420px, 100%);
-  height: 12px;
+  width: 100%;
+  height: 18px;
   border-radius: 999px;
   appearance: none;
-  border: 1px solid rgba(47,255,227,0.34);
+  border: 1px solid rgba(118,255,240,0.76);
   background:
-    linear-gradient(180deg, rgba(236,255,251,0.09), rgba(0,0,0,0.08)),
-    rgba(2, 13, 18, 0.92);
+    linear-gradient(90deg, rgba(47,255,227,0.14) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(236,255,251,0.18), rgba(0,0,0,0.04)),
+    rgba(5, 26, 32, 0.98);
+  background-size: 20px 100%, auto, auto;
   overflow: hidden;
   box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.045),
-    inset 0 0 18px rgba(0,0,0,0.52),
-    0 0 20px rgba(47,255,227,0.22);
+    inset 0 0 0 1px rgba(255,255,255,0.1),
+    inset 0 0 18px rgba(47,255,227,0.16),
+    0 0 0 3px rgba(47,255,227,0.08),
+    0 0 28px rgba(47,255,227,0.4);
 }
 .job progress::-webkit-progress-bar {
   background:
-    linear-gradient(90deg, rgba(47,255,227,0.08) 1px, transparent 1px),
-    rgba(2, 13, 18, 0.92);
-  background-size: 18px 100%;
+    linear-gradient(90deg, rgba(47,255,227,0.18) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,0.13), rgba(47,255,227,0.06)),
+    rgba(4, 23, 29, 0.98);
+  background-size: 18px 100%, auto, auto;
   border-radius: 999px;
 }
 .job progress::-webkit-progress-value {
   background:
-    linear-gradient(90deg, var(--accent), var(--accent-2) 52%, var(--neon-pink));
+    linear-gradient(90deg, #7dfff2 0%, var(--accent) 30%, var(--accent-2) 68%, #ff78b4 100%);
   border-radius: 999px;
   box-shadow:
-    0 0 16px rgba(47,255,227,0.72),
-    0 0 26px rgba(234,255,50,0.38);
+    0 0 18px rgba(47,255,227,0.9),
+    0 0 34px rgba(234,255,50,0.48);
   transition: width 220ms var(--easing);
 }
 .job progress::-moz-progress-bar {
   background:
-    linear-gradient(90deg, var(--accent), var(--accent-2) 52%, var(--neon-pink));
+    linear-gradient(90deg, #7dfff2 0%, var(--accent) 30%, var(--accent-2) 68%, #ff78b4 100%);
   border-radius: 999px;
   box-shadow:
-    0 0 16px rgba(47,255,227,0.72),
-    0 0 26px rgba(234,255,50,0.38);
+    0 0 18px rgba(47,255,227,0.9),
+    0 0 34px rgba(234,255,50,0.48);
 }
-.job .job-detail { font-size: 11px; color: var(--muted-2); text-align: center; }
+.job .job-detail {
+  font-size: 13px;
+  color: var(--fg-2);
+  text-align: center;
+}
 .job .job-progress-row {
-  width: min(480px, 100%);
+  width: min(560px, calc(100vw - 64px));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 .job .job-percent {
   min-width: 4ch;
   color: var(--accent-2);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-align: right;
@@ -1025,13 +1107,18 @@ input, textarea { font-family: inherit; }
   font-variant-numeric: tabular-nums;
 }
 .cancel-btn {
-  height: 30px; padding: 0 16px;
-  background: var(--panel-2); border: 1px solid var(--border-strong);
-  color: var(--fg-2); border-radius: 8px; font-size: 12px;
+  height: 34px; padding: 0 18px;
+  background: rgba(47,255,227,0.1); border: 1px solid rgba(118,255,240,0.44);
+  color: var(--fg); border-radius: 999px; font-size: 12px;
   font-family: inherit; cursor: pointer;
-  transition: background var(--t-fast);
+  box-shadow: 0 0 18px rgba(47,255,227,0.12);
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.cancel-btn:hover { background: var(--panel-3); color: var(--fg); }
+.cancel-btn:hover {
+  background: rgba(47,255,227,0.18);
+  border-color: rgba(234,255,50,0.58);
+  box-shadow: 0 0 24px rgba(47,255,227,0.22);
+}
 .cancel-btn.hidden { display: none !important; }
 
 /* Error banner */
@@ -2451,15 +2538,31 @@ input, textarea { font-family: inherit; }
 /* No track loaded: hide main waveform content */
 .daw.is-import .daw-track-header,
 .daw.is-import .daw-section-ribbon,
-.daw.is-import .daw-wave-header,
-.daw.is-import .daw-content { opacity: 0.3; pointer-events: none; }
-.daw.is-import .daw-content .mixer-column { opacity: 1; pointer-events: auto; }
+.daw.is-import .daw-wave-header { opacity: 0.3; pointer-events: none; }
+.daw.is-import .daw-content {
+  opacity: 1;
+  pointer-events: auto;
+}
+.daw.is-import .daw-content .mixer-column,
+.daw.is-import .daw-content .waves-column {
+  opacity: 0.28;
+  pointer-events: none;
+}
 
 .daw.no-track .daw-track-header,
 .daw.no-track .daw-section-ribbon,
-.daw.no-track .daw-wave-header,
-.daw.no-track .daw-content { opacity: 0.3; pointer-events: none; }
-/* Overlay and job progress live inside .daw-content but must stay fully visible while processing */
+.daw.no-track .daw-wave-header { opacity: 0.3; pointer-events: none; }
+.daw.no-track .daw-content {
+  opacity: 1;
+  pointer-events: auto;
+}
+.daw.no-track .daw-content .mixer-column,
+.daw.no-track .daw-content .waves-column {
+  opacity: 0.28;
+  pointer-events: none;
+}
+/* Overlay and job progress must stay fully visible while processing. */
+.daw.is-import .daw-content .job,
 .daw.no-track .daw-content .wave-loading-overlay,
 .daw.no-track .daw-content .job { opacity: 1; pointer-events: auto; }
 
@@ -2498,6 +2601,49 @@ input, textarea { font-family: inherit; }
   .daw-composer {
     order: 3;
     flex: 1 0 100%;
+    height: auto;
+    min-height: 52px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    overflow: visible;
+    border-radius: 18px;
+  }
+
+  .daw-composer-sep {
+    display: none;
+  }
+
+  .daw-url-zone {
+    flex: 1 1 260px;
+    min-height: 46px;
+  }
+
+  .daw-stem-section,
+  .daw-quality-section {
+    min-height: 42px;
+    padding: 0 10px 8px;
+  }
+
+  .daw-stem-section {
+    flex: 1 1 520px;
+  }
+
+  .daw-quality-section {
+    flex: 1 1 220px;
+    justify-content: flex-start;
+  }
+
+  .daw-quality-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .daw-process-btn {
+    flex: 1 1 180px;
+    min-height: 42px;
+    margin: 0 8px 8px;
+    border-left: none;
+    border-radius: 12px;
   }
 }
 
@@ -2542,10 +2688,6 @@ input, textarea { font-family: inherit; }
 
   .file-name {
     max-width: min(46vw, 220px);
-  }
-
-  .daw-composer-sep {
-    display: none;
   }
 
   .daw-stem-section,
