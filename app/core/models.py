@@ -57,6 +57,9 @@ class Job:
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
     demucs_gain_db: float | None = None  # reversible gain applied to the Demucs working copy
+    bass_repair_applied: bool = False
+    phase_repair_applied: bool = False
+    phase_repair_residual_ratio: float | None = None
     queue_position: int | None = None  # 1-based waiting position while status == queued
     queue_size: int = 0  # current number of queued jobs, for UI context
     error: str | None = None
@@ -111,6 +114,9 @@ class Job:
             "quality_preset": self.quality_preset,
             "mix_url": self.mix_url,
             "source_url": self.source_url,
+            "bass_repair_applied": self.bass_repair_applied,
+            "phase_repair_applied": self.phase_repair_applied,
+            "phase_repair_residual_ratio": self.phase_repair_residual_ratio,
             "queue_position": self.queue_position,
             "queue_size": self.queue_size,
             "error": self.error,

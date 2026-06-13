@@ -194,6 +194,9 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         stem_presence=meta.get("stem_presence"),
         sections=meta.get("sections"),
         tags=meta.get("tags"),
+        bass_repair_applied=bool(meta.get("bass_repair_applied", False)),
+        phase_repair_applied=bool(meta.get("phase_repair_applied", False)),
+        phase_repair_residual_ratio=meta.get("phase_repair_residual_ratio"),
     )
 
 

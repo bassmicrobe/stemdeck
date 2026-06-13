@@ -167,6 +167,9 @@ function applyState(state, { focus = true } = {}) {
       lufs: state.lufs,
       peakDb: state.peak_db,
       stemPresence: state.stem_presence,
+      bassRepairApplied: state.bass_repair_applied ?? false,
+      phaseRepairApplied: state.phase_repair_applied ?? false,
+      phaseRepairResidualRatio: state.phase_repair_residual_ratio ?? null,
       sourceUrl: jobSources.get(state.job_id) || state.source_url || urlInput.value,
       createdAt: state.created_at,
     });
@@ -493,6 +496,9 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
     keyConfidence: null,
     lufs: null,
     peakDb: null,
+    bassRepairApplied: false,
+    phaseRepairApplied: false,
+    phaseRepairResidualRatio: null,
     sourceUrl: url,
   });
   setCurrentTrack(jobId);
@@ -591,6 +597,9 @@ export function wireJobForm() {
       keyConfidence: null,
       lufs: null,
       peakDb: null,
+      bassRepairApplied: false,
+      phaseRepairApplied: false,
+      phaseRepairResidualRatio: null,
       sourceUrl,
     });
     setCurrentTrack(jobId);

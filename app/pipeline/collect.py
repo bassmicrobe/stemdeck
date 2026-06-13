@@ -6,6 +6,7 @@ import logging
 import shutil
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +37,12 @@ from app.core.registry import remove as registry_remove
 from app.core.registry import set_proc
 
 logger = logging.getLogger("stemdeck.collect")
+
+
+@dataclass(frozen=True)
+class PhaseRepairResult:
+    changed: bool
+    residual_ratio: float | None = None
 
 
 def _rmtree(path: Path) -> None:
@@ -461,7 +468,7 @@ def _blend_phase_residual(
     max_blend: float = PHASE_REPAIR_MAX_BLEND,
     floor_db: float = PHASE_REPAIR_FLOOR_DB,
     subtype: str = "FLOAT",
-) -> bool:
+) -> PhaseRepairResult:
     """Distribute source-minus-stem-sum residual back into active stems.
 
     The correction is energy-weighted instead of copied into every stem. That
@@ -469,9 +476,11 @@ def _blend_phase_residual(
     isolated stems.
     """
     if max_blend <= 0 or len(stem_names) != len(out_paths):
-        return False
+        return PhaseRepairResult(False)
 
     changed = False
+    before_power = 0.0
+    after_power = 0.0
     blocksize = 262_144
     floor = 10 ** (floor_db / 20)
 
@@ -491,7 +500,7 @@ def _blend_phase_residual(
                     stem_file.samplerate,
                     samplerate,
                 )
-                return False
+                return PhaseRepairResult(False)
             stem_files.append(stem_file)
 
         out_files = [
@@ -527,20 +536,27 @@ def _blend_phase_residual(
 
             stem_sum = np.sum(np.stack(stem_blocks, axis=0), axis=0, dtype=np.float32)
             residual = reference - stem_sum
+            before_power += float(np.sum(residual * residual, dtype=np.float64))
             residual_env = _rms_envelope(residual, window)
             env_matrix = np.stack(envelopes, axis=1)
             env_sum = np.sum(env_matrix, axis=1, dtype=np.float32)
             active = (residual_env > floor) & (env_sum > floor)
 
+            repaired_sum = np.zeros_like(reference, dtype=np.float32)
             for idx, block in enumerate(stem_blocks):
                 weight = np.where(active, env_matrix[:, idx] / (env_sum + 1e-8), 0.0)
                 weight = _moving_average(weight.astype(np.float32), smooth)
                 correction = residual * (weight[:, None] * max_blend)
                 if float(np.max(np.abs(correction), initial=0.0)) > 1e-5:
                     changed = True
-                out_files[idx].write(_soft_limit_block(block + correction))
+                repaired = _soft_limit_block(block + correction)
+                repaired_sum += repaired
+                out_files[idx].write(repaired)
+            after_residual = reference - repaired_sum
+            after_power += float(np.sum(after_residual * after_residual, dtype=np.float64))
 
-    return changed
+    ratio = after_power / before_power if before_power > 1e-18 else None
+    return PhaseRepairResult(changed, ratio)
 
 
 def repair_phase_coherence(
@@ -567,17 +583,19 @@ def repair_phase_coherence(
         subtype = (
             "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
         )
-        changed = _blend_phase_residual(
+        result = _blend_phase_residual(
             reference_path,
             stems_dir,
             available,
             tmp_paths,
             subtype=subtype,
         )
-        if not changed:
+        job.phase_repair_residual_ratio = result.residual_ratio
+        if not result.changed:
             return False
         for name, tmp in zip(available, tmp_paths, strict=False):
             tmp.replace(stems_dir / f"{name}.wav")
+        job.phase_repair_applied = True
         logger.info("phase coherence repair applied for job %s", job.id)
         return True
     except Exception:

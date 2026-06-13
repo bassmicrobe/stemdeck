@@ -317,6 +317,11 @@ function stateMetadataToTrack(state, fallbackTrack) {
     lufs: state.lufs ?? fallbackTrack.lufs,
     peakDb: state.peak_db ?? fallbackTrack.peakDb,
     stemPresence: state.stem_presence ?? fallbackTrack.stemPresence,
+    bassRepairApplied: state.bass_repair_applied ?? fallbackTrack.bassRepairApplied ?? false,
+    phaseRepairApplied: state.phase_repair_applied ?? fallbackTrack.phaseRepairApplied ?? false,
+    phaseRepairResidualRatio: state.phase_repair_residual_ratio
+      ?? fallbackTrack.phaseRepairResidualRatio
+      ?? null,
     dynamicRange: state.dynamic_range ?? fallbackTrack.dynamicRange,
     tempoStability: state.tempo_stability ?? fallbackTrack.tempoStability,
     tags: state.tags ?? fallbackTrack.tags ?? [],
@@ -372,6 +377,21 @@ function deriveQuality(sourceUrl) {
   if (sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be")) return "High";
   if (sourceUrl.includes("soundcloud.com")) return "Compressed (MP3)";
   return "—";
+}
+
+function deriveRepair(track) {
+  const repairs = [];
+  if (track?.bassRepairApplied) repairs.push("Bass");
+  if (track?.phaseRepairApplied) {
+    const ratio = Number(track.phaseRepairResidualRatio);
+    if (Number.isFinite(ratio)) {
+      const improved = Math.max(0, Math.min(99, Math.round((1 - ratio) * 100)));
+      repairs.push(`Phase ${improved}% better`);
+    } else {
+      repairs.push("Phase");
+    }
+  }
+  return repairs.length ? repairs.join(" + ") : "—";
 }
 
 function drLabel(dr) {
@@ -438,10 +458,12 @@ function applyTrackInfoToPanel(track) {
   const trackExtracted = document.getElementById("track-extracted");
   const trackSource = document.getElementById("track-source");
   const trackQuality = document.getElementById("track-quality");
+  const trackRepair = document.getElementById("track-repair");
   const favBtn = document.getElementById("fav-btn");
   if (trackExtracted) trackExtracted.textContent = fmtExtracted(track.createdAt);
   if (trackSource) trackSource.textContent = deriveSource(track.sourceUrl);
   if (trackQuality) trackQuality.textContent = deriveQuality(track.sourceUrl);
+  if (trackRepair) trackRepair.textContent = deriveRepair(track);
   if (favBtn) {
     favBtn.classList.toggle("active", Boolean(track.favorite));
     favBtn.setAttribute("aria-pressed", String(Boolean(track.favorite)));

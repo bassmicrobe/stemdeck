@@ -163,7 +163,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     found = collect(job, stems_root, job_dir)
     stems_dir = job_dir / "stems"
     restore_demucs_gain(job, stems_dir, found)
-    repair_bass_dropouts(job, source, stems_dir, found)
+    job.bass_repair_applied = repair_bass_dropouts(job, source, stems_dir, found)
     repair_phase_coherence(job, source, job_dir, stems_dir, found)
     stabilize_stem_outputs(job, stems_dir, found)
     _check_cancel(job)
@@ -224,6 +224,9 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "stem_presence": job.stem_presence,
         "quality_preset": job.quality_preset,
         "demucs_gain_db": job.demucs_gain_db,
+        "bass_repair_applied": job.bass_repair_applied,
+        "phase_repair_applied": job.phase_repair_applied,
+        "phase_repair_residual_ratio": job.phase_repair_residual_ratio,
         "tags": job.tags,
     }
     try:

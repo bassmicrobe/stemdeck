@@ -11,6 +11,7 @@ import soundfile as sf
 from app.core.models import Job
 from app.pipeline.collect import (
     _PEAK_POINTS,
+    PhaseRepairResult,
     _blend_bass_dropout_repair,
     _blend_phase_residual,
     _write_bass_residual_candidate,
@@ -319,7 +320,7 @@ def test_blend_phase_residual_reduces_stem_sum_error(tmp_path):
     out_vocals = stems_dir / "vocals.phase.wav"
     out_drums = stems_dir / "drums.phase.wav"
 
-    changed = _blend_phase_residual(
+    result = _blend_phase_residual(
         reference_path,
         stems_dir,
         ["vocals", "drums"],
@@ -329,12 +330,14 @@ def test_blend_phase_residual_reduces_stem_sum_error(tmp_path):
         subtype="FLOAT",
     )
 
-    assert changed
+    assert result.changed
+    assert result.residual_ratio is not None
     repaired_vocals, _ = sf.read(out_vocals, dtype="float32")
     repaired_drums, _ = sf.read(out_drums, dtype="float32")
     before = source - (vocals + drums)
     after = source - (repaired_vocals + repaired_drums)
     assert float(np.mean(after * after)) < float(np.mean(before * before)) * 0.08
+    assert result.residual_ratio < 0.08
 
 
 def test_repair_phase_coherence_noops_for_standard_preset(tmp_path, monkeypatch):
@@ -380,13 +383,15 @@ def test_repair_phase_coherence_replaces_changed_stems(tmp_path, monkeypatch):
         assert names == ["vocals", "drums"]
         for idx, out in enumerate(out_paths):
             out.write_bytes(f"new-{idx}".encode())
-        return True
+        return PhaseRepairResult(True, 0.42)
 
     monkeypatch.setattr(collect_mod, "_write_phase_reference", fake_write_reference)
     monkeypatch.setattr(collect_mod, "_blend_phase_residual", fake_blend)
 
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
     assert repair_phase_coherence(
-        Job(id="abcdefabcdef", quality_preset="high"),
+        job,
         source,
         tmp_path,
         stems_dir,
@@ -394,6 +399,8 @@ def test_repair_phase_coherence_replaces_changed_stems(tmp_path, monkeypatch):
     )
     assert (stems_dir / "vocals.wav").read_bytes() == b"new-0"
     assert (stems_dir / "drums.wav").read_bytes() == b"new-1"
+    assert job.phase_repair_applied is True
+    assert job.phase_repair_residual_ratio == 0.42
     assert not (tmp_path / "source.phase.wav").exists()
 
 

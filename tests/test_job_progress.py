@@ -31,3 +31,18 @@ def test_job_eta_resets_on_status_change_and_hides_when_done():
     state = job.to_state()
     assert state["progress_percent"] == 100
     assert state["eta_seconds"] is None
+
+
+def test_job_state_includes_repair_metrics():
+    job = Job(
+        id="abcdefabcdef",
+        bass_repair_applied=True,
+        phase_repair_applied=True,
+        phase_repair_residual_ratio=0.37,
+    )
+
+    state = job.to_state()
+
+    assert state["bass_repair_applied"] is True
+    assert state["phase_repair_applied"] is True
+    assert state["phase_repair_residual_ratio"] == 0.37
