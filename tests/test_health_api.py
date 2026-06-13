@@ -11,7 +11,7 @@ def test_health_endpoints_report_ok():
             r = client.get(path)
             assert r.status_code == 200
             body = r.json()
-            assert body["name"] == "STEMDECK"
+            assert body["name"] == "STEMDECK Enhanced"
             assert body["status"] == "ok"
             assert body["version"]
             assert "ffmpeg_configured" in body
@@ -29,5 +29,5 @@ def test_license_and_notice_are_served():
 
         notice_response = client.get("/NOTICE")
         assert notice_response.status_code == 200
-        assert "based on the original StemDeck project" in notice_response.text
+        assert "unofficial modified fork test build" in notice_response.text
         assert "https://github.com/stemdeckapp/stemdeck" in notice_response.text

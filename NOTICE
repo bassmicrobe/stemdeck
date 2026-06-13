@@ -1,6 +1,7 @@
-STEMDECK
+STEMDECK Enhanced
 
-STEMDECK is based on the original StemDeck project.
+STEMDECK Enhanced is an unofficial modified fork test build based on the
+original StemDeck project.
 
 Original project:
   StemDeck
@@ -13,16 +14,19 @@ Original license:
 
 Attribution:
   Portions of this software are based on StemDeck by the StemDeck contributors.
-  STEMDECK retains the upstream Apache-2.0 license text and attribution.
-  This distribution is a modified fork and is not an official upstream release.
+  STEMDECK Enhanced retains the upstream Apache-2.0 license text and
+  attribution. This distribution is a modified fork and is not an official upstream release.
+  It is not affiliated with or endorsed by the original StemDeck project.
 
 Modification notice:
-  This fork keeps the visible product branding as STEMDECK and includes local
-  changes for higher-quality stem separation, FFmpeg handling, UI styling,
-  asynchronous queue handling, bass dropout repair, and phase-coherence repair.
-  Additional changes include optional per-stem denoise, progress/ETA surfacing,
-  responsive neon UI refinements, desktop runtime setup hardening, conservative
-  cleanup/maintenance helpers, and optional release signing/notarization hooks.
+  This fork uses the visible product branding STEMDECK Enhanced and includes
+  local changes for higher-quality stem separation, FFmpeg handling, UI
+  styling, asynchronous queue handling, bass dropout repair, and
+  phase-coherence repair. Additional changes include optional per-stem denoise,
+  progress/ETA surfacing, responsive neon UI refinements, desktop runtime
+  setup hardening, conservative cleanup/maintenance helpers, fork-separated
+  desktop storage paths, fork release update URLs, and optional release
+  signing/notarization hooks.
   See the Git history for the complete change record.
 
 Third-party dependencies:

@@ -48,12 +48,12 @@ else
   TARGET_DIR="$REPO_ROOT/desktop/src-tauri/target/x86_64-apple-darwin/release"
 fi
 
-APP_DIR="${TARGET_DIR}/bundle/macos/STEMDECK.app"
+APP_DIR="${TARGET_DIR}/bundle/macos/STEMDECK Enhanced.app"
 if [[ ! -d "$APP_DIR" ]]; then
-  APP_DIR="$(find "$REPO_ROOT/desktop/src-tauri/target" -path '*/bundle/macos/STEMDECK.app' -type d | head -1)"
+  APP_DIR="$(find "$REPO_ROOT/desktop/src-tauri/target" -path '*/bundle/macos/STEMDECK Enhanced.app' -type d | head -1)"
 fi
 if [[ -z "$APP_DIR" || ! -d "$APP_DIR" ]]; then
-  echo "ERROR: could not find built STEMDECK.app" >&2
+  echo "ERROR: could not find built STEMDECK Enhanced.app" >&2
   exit 1
 fi
 
@@ -77,6 +77,8 @@ fi
 if [[ -f "$REPO_ROOT/NOTICE" ]]; then
   cp "$REPO_ROOT/NOTICE" "$RESOURCES/NOTICE"
 fi
+
+xattr -cr "$APP_DIR" >/dev/null 2>&1 || true
 
 if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
   echo "==> Signing app with identity: ${APPLE_SIGNING_IDENTITY}"

@@ -158,10 +158,10 @@ async function installRuntimePack(appRoot) {
         const pct = Math.min(100, Math.round((received / total) * 100));
         progressFill.style.width = `${pct}%`;
         progressFill.classList.remove("indeterminate");
-        setStatus(`Downloading STEMDECK runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
+        setStatus(`Downloading STEMDECK Enhanced runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
       } else {
         progressFill.classList.add("indeterminate");
-        setStatus(`Downloading STEMDECK runtime... ${mb} MB received`);
+        setStatus(`Downloading STEMDECK Enhanced runtime... ${mb} MB received`);
       }
     }
   );
@@ -185,7 +185,7 @@ async function installRuntimePack(appRoot) {
     }
     if (!verified) {
       progressWrap.classList.remove("hidden");
-      setStatus("Downloading STEMDECK runtime...");
+      setStatus("Downloading STEMDECK Enhanced runtime...");
 
       // Reset stall baseline when network download is actually about to start (#150).
       lastProgressAt = Date.now();
@@ -210,7 +210,7 @@ async function installRuntimePack(appRoot) {
       // startProgressStatus is assigned after stallTimer creation; the closure
       // above captures stopSlowMsg by reference, so it sees the updated value.
       stopSlowMsg = startProgressStatus([
-        { afterSeconds: 0,  text: "Downloading STEMDECK runtime..." },
+        { afterSeconds: 0,  text: "Downloading STEMDECK Enhanced runtime..." },
         { afterSeconds: 30, text: "Still downloading runtime... slow connection detected." },
         { afterSeconds: 90, text: "Still downloading... large file on a slow connection can take a few minutes." },
       ]);
@@ -227,10 +227,10 @@ async function installRuntimePack(appRoot) {
         if (stopSlowMsg) { stopSlowMsg(); }
       }
       progressWrap.classList.add("hidden");
-      setStatus("Verifying STEMDECK runtime...");
+      setStatus("Verifying STEMDECK Enhanced runtime...");
       await invoke("verify_runtime_pack");
     }
-    setStatus("Installing STEMDECK runtime...");
+    setStatus("Installing STEMDECK Enhanced runtime...");
     const installed = await invoke("extract_runtime_pack");
     if (!installed.runtimeReady) {
       throw Object.assign(
@@ -283,9 +283,9 @@ async function runSetup() {
         }
       }
       await runStep("backend", async () => {
-        setStatus("Runtime is ready. Starting STEMDECK backend...");
+        setStatus("Runtime is ready. Starting STEMDECK Enhanced backend...");
         const backend = await invoke("start_backend");
-        setStatus("Opening STEMDECK...");
+        setStatus("Opening STEMDECK Enhanced...");
         window.location.replace(backend.url);
       });
       return;
@@ -401,9 +401,9 @@ async function runSetup() {
     setStatus("AI separation model will download on first use (~340 MB).");
 
     await runStep("backend", async () => {
-      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting STEMDECK backend...");
+      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting STEMDECK Enhanced backend...");
       const backend = await invoke("start_backend");
-      setStatus("Opening STEMDECK...");
+      setStatus("Opening STEMDECK Enhanced...");
       window.location.replace(backend.url);
     });
   } catch (error) {

@@ -252,7 +252,7 @@ fn main() {
             mark_store_migration_done,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build STEMDECK desktop app")
+        .expect("failed to build STEMDECK Enhanced desktop app")
         .run(|app_handle, event| match event {
             tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { .. },
@@ -266,22 +266,23 @@ fn main() {
         });
 }
 
-/// Returns ~/Documents/StemDeck/, creating it if needed.
+/// Returns ~/Documents/StemDeck Enhanced/, creating it if needed.
 /// All user-facing content (library metadata + stem audio) lives here so it is
 /// visible in Finder, eligible for iCloud backup, and survives app reinstalls.
 fn documents_stemdeck_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let documents = app.path().document_dir().map_err(|e| e.to_string())?;
-    let dir = documents.join("StemDeck");
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create ~/Documents/StemDeck: {e}"))?;
+    let dir = documents.join("StemDeck Enhanced");
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("failed to create ~/Documents/StemDeck Enhanced: {e}"))?;
     Ok(dir)
 }
 
-/// Returns ~/Documents/StemDeck/user-data.json (library metadata store).
+/// Returns ~/Documents/StemDeck Enhanced/user-data.json (library metadata store).
 fn documents_store_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(documents_stemdeck_dir(app)?.join("user-data.json"))
 }
 
-/// Returns ~/Documents/StemDeck/jobs/ (stem audio files).
+/// Returns ~/Documents/StemDeck Enhanced/jobs/ (stem audio files).
 /// Falls back to data_dir/jobs if document_dir is unavailable.
 fn documents_dir_for_jobs(app: &tauri::AppHandle) -> PathBuf {
     match documents_stemdeck_dir(app) {
@@ -386,6 +387,7 @@ fn clear_webkit_data() {
         Err(_) => return,
     };
     let targets = [
+        format!("{home}/Library/WebKit/com.bassmicrobe.stemdeck.enhanced"),
         format!("{home}/Library/WebKit/app.stemdeck.desktop"),
         format!("{home}/Library/WebKit/stemdeck"),
     ];
@@ -674,7 +676,7 @@ fn start_backend(
             cmd.env("PYTHONHOME", pythonhome);
         }
 
-        // Jobs (stem audio files) live in ~/Documents/StemDeck/jobs/ so the user's
+        // Jobs (stem audio files) live in ~/Documents/StemDeck Enhanced/jobs/ so the user's
         // library is visible in Finder, backed up by iCloud, and survives app reinstalls.
         let jobs_dir = documents_dir_for_jobs(&app_handle);
 
@@ -1699,9 +1701,9 @@ fn decode_wav_sample(bytes: &[u8], format: WavFormat) -> Result<f32, String> {
     }
 }
 
-/// Returns the persistent user data directory for StemDeck.
-/// On Windows: %LocalAppData%\StemDeck
-/// On macOS: ~/Library/Application Support/StemDeck
+/// Returns the persistent user data directory for StemDeck Enhanced.
+/// On Windows: %LocalAppData%\StemDeck Enhanced
+/// On macOS: ~/Library/Application Support/StemDeck Enhanced
 /// On Linux: $XDG_DATA_HOME/stemdeck  or  ~/.local/share/stemdeck
 /// Can be overridden by STEMDECK_DATA_DIR for development.
 fn local_data_dir() -> Result<PathBuf, String> {
@@ -1712,7 +1714,7 @@ fn local_data_dir() -> Result<PathBuf, String> {
     {
         let base = env::var("LOCALAPPDATA")
             .map_err(|_| "LOCALAPPDATA environment variable not set".to_string())?;
-        Ok(PathBuf::from(base).join("StemDeck"))
+        Ok(PathBuf::from(base).join("StemDeck Enhanced"))
     }
     #[cfg(target_os = "macos")]
     {
@@ -1720,18 +1722,18 @@ fn local_data_dir() -> Result<PathBuf, String> {
         Ok(PathBuf::from(home)
             .join("Library")
             .join("Application Support")
-            .join("StemDeck"))
+            .join("StemDeck Enhanced"))
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         if let Ok(xdg) = env::var("XDG_DATA_HOME") {
-            return Ok(PathBuf::from(xdg).join("stemdeck"));
+            return Ok(PathBuf::from(xdg).join("stemdeck-enhanced"));
         }
         let home = env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
         Ok(PathBuf::from(home)
             .join(".local")
             .join("share")
-            .join("stemdeck"))
+            .join("stemdeck-enhanced"))
     }
 }
 
@@ -2829,7 +2831,10 @@ mod tests {
         // We can't safely delete real WebKit dirs in a test, but we can verify
         // the function handles NotFound gracefully by checking the logic:
         let tmp = make_tmp();
-        let fake_webkit = tmp.path().join("WebKit").join("app.stemdeck.desktop");
+        let fake_webkit = tmp
+            .path()
+            .join("WebKit")
+            .join("com.bassmicrobe.stemdeck.enhanced");
         // Never created → remove_dir_all should return NotFound, which we ignore.
         let result = fs::remove_dir_all(&fake_webkit);
         assert!(result.is_err());

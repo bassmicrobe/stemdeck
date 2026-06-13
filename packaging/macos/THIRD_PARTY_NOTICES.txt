@@ -1,19 +1,20 @@
 THIRD-PARTY NOTICES
 ===================
 
-STEMDECK for macOS uses a thin Tauri app plus a downloaded runtime pack.
+STEMDECK Enhanced for macOS uses a thin Tauri app plus a downloaded runtime pack.
 
 Project License and Upstream Attribution
 ----------------------------------------
 
-STEMDECK is based on the original StemDeck project:
+STEMDECK Enhanced is an unofficial modified fork test build based on the original StemDeck project:
 https://github.com/stemdeckapp/stemdeck
 
 The original StemDeck project and this fork are licensed under the Apache License, Version 2.0.
+This package is not an official upstream release and is not affiliated with or endorsed by the original StemDeck project.
 See LICENSE and NOTICE in this distribution for the full license text,
 upstream attribution, and modification notice.
 
-Bundled in STEMDECK.app:
+Bundled in STEMDECK Enhanced.app:
 
 - Tauri v2
 - The system WebKit WebView provided by macOS
@@ -22,7 +23,7 @@ Bundled in STEMDECK.app:
 
 Downloaded during first-run setup:
 
-- STEMDECK runtime pack containing Python and Python package dependencies
+- STEMDECK Enhanced runtime pack containing Python and Python package dependencies
 - Python
 - FastAPI
 - Uvicorn

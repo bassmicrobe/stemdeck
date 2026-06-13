@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "STEMDECK",
+  "productName": "STEMDECK Enhanced",
   "version": "0.0.0",
-  "identifier": "app.stemdeck.desktop",
+  "identifier": "com.bassmicrobe.stemdeck.enhanced",
   "build": {
     "frontendDist": "../ui",
     "beforeDevCommand": "",
@@ -12,7 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "STEMDECK",
+        "title": "STEMDECK Enhanced",
         "width": 1280,
         "height": 820,
         "minWidth": 1024,

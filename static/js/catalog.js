@@ -1554,9 +1554,9 @@ function wireWidgets() {
 
 const FALLBACK_VERSION = "0.1.0";
 let currentVersion = FALLBACK_VERSION;
-const REPO_URL = "https://github.com/stemdeckapp/stemdeck";
-const RELEASES_URL = "https://github.com/stemdeckapp/stemdeck/releases";
-const RELEASES_API = "https://api.github.com/repos/stemdeckapp/stemdeck/releases/latest";
+const REPO_URL = "https://github.com/bassmicrobe/stemdeck";
+const RELEASES_URL = "https://github.com/bassmicrobe/stemdeck/releases";
+const RELEASES_API = "https://api.github.com/repos/bassmicrobe/stemdeck/releases/latest";
 const DISMISSED_UPDATE_KEY = "stemdeck.dismissed_update";
 
 function normalizeVersion(value) {

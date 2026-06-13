@@ -1,8 +1,8 @@
-# STEMDECK 日本語 README
+# STEMDECK Enhanced 日本語 README
 
-STEMDECK は、音源をローカル環境で stem 分離するためのデスクトップ/ローカルWebアプリです。MP3、WAV、FLAC、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他などの stem に分離します。処理は基本的にユーザーのマシン上で完結し、音源をクラウドへアップロードしない設計です。
+STEMDECK Enhanced は、音源をローカル環境で stem 分離するためのデスクトップ/ローカルWebアプリです。MP3、WAV、FLAC、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他などの stem に分離します。処理は基本的にユーザーのマシン上で完結し、音源をクラウドへアップロードしない設計です。
 
-このリポジトリは、元の StemDeck プロジェクトをベースにした fork です。元プロジェクトと本 fork は Apache License 2.0 のもとで配布されます。再配布時は `LICENSE` と `NOTICE` を同梱し、元プロジェクトの表示と本 fork の変更点を保持してください。本 fork は変更版であり、元プロジェクトの公式リリースではありません。
+このリポジトリは、元の StemDeck プロジェクトをベースにした非公式 fork test build です。元プロジェクトと本 fork は Apache License 2.0 のもとで配布されます。再配布時は `LICENSE` と `NOTICE` を同梱し、元プロジェクトの表示と本 fork の変更点を保持してください。本 fork は変更版であり、元プロジェクトの公式リリースではありません。元プロジェクトとは提携しておらず、元プロジェクトによる承認や推奨を受けたものでもありません。
 
 ## 元プロジェクト
 
@@ -17,7 +17,7 @@ Apache License 2.0 は商標権の利用許諾を自動的に与えるもので�
 
 ## この fork で加えた主な変更
 
-- アプリ名と表示を `STEMDECK` として整理。
+- アプリ名と表示を `STEMDECK Enhanced` として整理し、非公式 fork test build であることを明示。
 - Neon 系のUI、スマホ向けレスポンシブ調整、進捗バー視認性改善。
 - ジョブキュー、キャンセル、進捗率、残り推定時間表示を強化。
 - `ffprobe` がない環境でも `ffmpeg` fallback で duration を読めるよう改善。
@@ -52,7 +52,7 @@ ARCH=arm64 scripts/macos/make-app.sh
 ARCH=arm64 scripts/macos/make-dmg.sh
 ```
 
-ビルド後の `.app` は `desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app` に生成されます。DMG は `.build/macos-dist/STEMDECK-macOS-arm64.dmg` に生成されます。
+ビルド後の `.app` は `desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK Enhanced.app` に生成されます。DMG は `.build/macos-dist/STEMDECK-Enhanced-macOS-arm64.dmg` に生成されます。
 
 ### Windows portable
 
@@ -66,7 +66,7 @@ CPU版は `-CpuOnly` を付けます。
 
 ## 初回セットアップ導線
 
-デスクトップ版は薄い Tauri アプリとして起動し、初回セットアップでローカル処理に必要な runtime を用意します。
+デスクトップ版は薄い Tauri アプリとして起動し、初回セットアップでローカル処理に必要な runtime を用意します。STEMDECK Enhanced は upstream 版と衝突しにくいよう、既定のアプリデータと書き出し先を `StemDeck Enhanced` 系のフォルダに分離します。
 
 - Python runtime を確認またはダウンロード。
 - workspace と data folder を作成。
@@ -111,7 +111,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portabl
 
 ## 更新
 
-アプリ本体は GitHub Releases の最新リリースを確認し、利用中のバージョンと違う場合は通知を表示します。デスクトップ版では、DMG更新後に runtime manifest のバージョンが変わっていれば初回セットアップ画面で runtime を更新します。
+アプリ本体は fork 側の GitHub Releases の最新リリースを確認し、利用中のバージョンと違う場合は通知を表示します。デスクトップ版では、DMG更新後に runtime manifest のバージョンが変わっていれば初回セットアップ画面で runtime を更新します。
+
+公開時は `unofficial fork test build` として GitHub Pre-release にする方針です。Release本文の冒頭で、元プロジェクトの公式版ではないこと、元プロジェクトと提携・承認関係がないこと、Apache License 2.0 に基づく fork であることを明記してください。
 
 更新時も `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を配布物に含めてください。第三者ライブラリや FFmpeg build のライセンスは、最終的に配布する実バイナリに合わせて確認してください。
 
@@ -135,7 +137,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portabl
 - 元プロジェクトの `LICENSE` と `NOTICE` を削除しない。
 - 変更点を `NOTICE`、README、Git履歴で追えるようにする。
 - 配布物のルートまたはアプリリソースに `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を含める。
-- 公開配布時は、元プロジェクトの公式版ではなく変更版 fork であることを明示する。
+- 公開配布時は、元プロジェクトの公式版ではなく `STEMDECK Enhanced` という変更版 fork test build であることを明示する。
+- 元プロジェクトとの提携、承認、推奨を示唆しない。
 - FFmpeg は build により LGPL/GPL 条件が変わるため、使用する配布元とライセンスを明記する。
 - `THIRD_PARTY_NOTICES.txt` は最終成果物の依存関係に合わせて更新する。
 
@@ -150,12 +153,12 @@ scripts/check-distribution-notices.sh
 macOS 署名確認例:
 
 ```sh
-codesign --verify --deep --strict --verbose=2 path/to/STEMDECK.app
-spctl -a -vv -t open path/to/STEMDECK-macOS-arm64.dmg
+codesign --verify --deep --strict --verbose=2 "path/to/STEMDECK Enhanced.app"
+spctl -a -vv -t open path/to/STEMDECK-Enhanced-macOS-arm64.dmg
 ```
 
 Windows 署名確認例:
 
 ```powershell
-signtool verify /pa /v STEMDECK.exe
+signtool verify /pa /v "STEMDECK Enhanced.exe"
 ```

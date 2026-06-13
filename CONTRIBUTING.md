@@ -1,18 +1,22 @@
-# Contributing to STEMDECK
+# Contributing to STEMDECK Enhanced
 
-Thanks for your interest in STEMDECK - free, local stem separation for musicians. Contributions of
-all kinds are welcome, whether you write code or not.
+Thanks for your interest in STEMDECK Enhanced, an unofficial modified fork test
+build of StemDeck. Contributions of all kinds are welcome, whether you write
+code or not.
+
+This fork is not an official upstream release and is not affiliated with or
+endorsed by the original StemDeck project.
 
 By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to contribute
 
-- **Report a bug** - open a [Bug report](https://github.com/stemdeckapp/stemdeck/issues/new/choose).
-  Include your OS, the STEMDECK version (Help icon -> About), and clear steps to reproduce.
-- **Suggest a feature** - open a [Feature request](https://github.com/stemdeckapp/stemdeck/issues/new/choose).
+- **Report a bug** - open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
+  Include your OS, the STEMDECK Enhanced version (Help icon -> About), and clear steps to reproduce.
+- **Suggest a feature** - open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
 - **Improve the docs** - fixes and clarifications to the README or these guides are always useful.
 - **Write code** - bug fixes and features. For anything large, please open an issue or a
-  [Discussion](https://github.com/stemdeckapp/stemdeck/discussions) first so we can agree on the
+  [Issue](https://github.com/bassmicrobe/stemdeck/issues) first so we can agree on the
   approach before you invest time.
 - **Found a security issue?** Do not open a public issue - see [SECURITY.md](SECURITY.md).
 
@@ -73,12 +77,12 @@ New API endpoints and pipeline stages should come with tests under `tests/`. The
 
 ## License
 
-STEMDECK is based on the original StemDeck project and is licensed under the
-[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for upstream attribution and
-the modification notice. By contributing, you agree that your contributions are
-licensed under the same terms.
+STEMDECK Enhanced is based on the original StemDeck project and is licensed
+under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for upstream
+attribution and the modification notice. By contributing, you agree that your
+contributions are licensed under the same terms.
 
 ## Questions
 
-Open a [Discussion](https://github.com/stemdeckapp/stemdeck/discussions) or join the
-[Discord](https://discord.gg/2MVsWqaPRe). Thanks for helping make STEMDECK better.
+Open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
+Thanks for helping make STEMDECK Enhanced better.

@@ -1,38 +1,36 @@
 <div align="center">
 
-<h1>STEMDECK</h1>
+<h1>STEMDECK Enhanced</h1>
 
-**Free, local stem separation. No account. No upload. No subscription.**
+**Unofficial fork test build. Free, local stem separation. No account. No upload. No subscription.**
 
 <div align="center">
   <a href="https://ci.popchores.app/repos/2"><img src="https://ci.popchores.app/api/badges/2/status.svg?event=push" alt="CI"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/stargazers"><img src="https://img.shields.io/github/stars/stemdeckapp/stemdeck?style=flat-square" alt="GitHub Stars"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/releases"><img src="https://img.shields.io/github/downloads/stemdeckapp/stemdeck/total?style=flat-square&color=52c65f" alt="Total Downloads"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/releases/latest"><img src="https://img.shields.io/github/v/release/stemdeckapp/stemdeck?style=flat-square" alt="Latest Release"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/blob/main/LICENSE"><img src="https://img.shields.io/github/license/stemdeckapp/stemdeck?style=flat-square" alt="License"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/stargazers"><img src="https://img.shields.io/github/stars/bassmicrobe/stemdeck?style=flat-square" alt="Fork GitHub Stars"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/releases"><img src="https://img.shields.io/github/downloads/bassmicrobe/stemdeck/total?style=flat-square&color=52c65f" alt="Fork Downloads"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/releases/latest"><img src="https://img.shields.io/github/v/release/bassmicrobe/stemdeck?style=flat-square" alt="Latest Fork Release"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/blob/feat/high-quality-separation/LICENSE"><img src="https://img.shields.io/github/license/bassmicrobe/stemdeck?style=flat-square" alt="License"></a>
 </div>
 
 <br>
 
-<p align="center"><sub>JOIN THE COMMUNITY</sub></p>
+<p align="center"><sub>UNOFFICIAL FORK TEST BUILD</sub></p>
 <div align="center">
-  <a href="https://github.com/stemdeckapp/stemdeck"><img src="https://img.shields.io/badge/GitHub-stemdeckapp-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://discord.gg/2MVsWqaPRe"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://www.reddit.com/r/StemDeckApp/"><img src="https://img.shields.io/badge/Reddit-r%2FStemDeckApp-FF4500?style=flat-square&logo=reddit&logoColor=white" alt="Reddit"></a>
-  <a href="https://www.instagram.com/stemdeck"><img src="https://img.shields.io/badge/Instagram-stemdeck-E4405F?style=flat-square&logo=instagram&logoColor=white" alt="Instagram"></a>
-  <a href="https://x.com/StemDeckApp"><img src="https://img.shields.io/badge/X-StemDeckApp-000000?style=flat-square&logo=x&logoColor=white" alt="X"></a>
-  <a href="https://stemdeck.app"><img src="https://img.shields.io/badge/Website-stemdeck.app-000000?style=flat-square&logo=safari&logoColor=white" alt="Website"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck"><img src="https://img.shields.io/badge/Fork-bassmicrobe%2Fstemdeck-181717?style=flat-square&logo=github&logoColor=white" alt="Fork GitHub"></a>
+  <a href="https://github.com/stemdeckapp/stemdeck"><img src="https://img.shields.io/badge/Original-stemdeckapp%2Fstemdeck-6b7280?style=flat-square&logo=github&logoColor=white" alt="Original StemDeck"></a>
 </div>
 
 </div>
 
 <br>
 
-Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
+STEMDECK Enhanced is an unofficial modified fork of [StemDeck](https://github.com/stemdeckapp/stemdeck). It is a test build for higher-quality local stem separation and is not an official upstream release, not affiliated with, and not endorsed by the original StemDeck project.
 
-> **What is this?** STEMDECK is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. STEMDECK does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
+Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK Enhanced splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
 
-> STEMDECK is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, STEMDECK has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
+> **What is this?** STEMDECK Enhanced is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. STEMDECK Enhanced does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
+
+> STEMDECK Enhanced is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, STEMDECK Enhanced has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
 
 日本語での概要、配布手順、ライセンス/NOTICE、そしてこの fork で加えた変更点は [README.ja.md](README.ja.md) にまとめています。
 
@@ -40,7 +38,7 @@ Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK splits t
 
 ## We Recommend
 
-STEMDECK is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
+STEMDECK Enhanced is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
 
 | Supporter | What they do | Link |
 |---|---|---|
@@ -80,9 +78,9 @@ STEMDECK is free and **does not accept any money, sponsorship, or funding** - no
 
 ## Honest Comparison
 
-STEMDECK is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
+STEMDECK Enhanced is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
 
-| | STEMDECK | Moises / LALAL.AI / similar |
+| | STEMDECK Enhanced | Moises / LALAL.AI / similar |
 |---|---|---|
 | **Price** | Free, forever | Freemium; credits or subscription required for regular use |
 | **Hosting** | Runs entirely on your machine | Cloud; audio must be uploaded to their servers |
@@ -100,22 +98,22 @@ STEMDECK is not trying to compete with commercial stem-separation products. It c
 | **Polish** | Functional, hobby-grade UI | Polished, production-grade apps |
 | **Source code** | Open source, forkable, self-hostable | Closed source |
 
-If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, STEMDECK is enough.
+If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, STEMDECK Enhanced is enough.
 
 ---
 
 ## Download
 
-Pre-built installers and zips are attached to each [GitHub Release](https://github.com/stemdeckapp/stemdeck/releases).
+Unofficial fork test builds are attached to [GitHub Releases](https://github.com/bassmicrobe/stemdeck/releases). For production use, prefer a Developer ID signed and notarized macOS build.
 
 **macOS**
 
 | DMG | GPU | Chip |
 |---|---|---|
-| `STEMDECK-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
-| `STEMDECK-macOS-x64.dmg` | CPU only | Intel |
+| `STEMDECK-Enhanced-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
+| `STEMDECK-Enhanced-macOS-x64.dmg` | CPU only | Intel |
 
-Open the DMG, drag STEMDECK to Applications, and launch it. On first launch the setup screen downloads the Python runtime (~500 MB), FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
+Open the DMG, drag STEMDECK Enhanced to Applications, and launch it. On first launch the setup screen downloads the Python runtime, FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
 
 macOS may show a Gatekeeper prompt on first open — right-click the app and choose Open to bypass it.
 
@@ -123,10 +121,10 @@ macOS may show a Gatekeeper prompt on first open — right-click the app and cho
 
 | Zip | GPU | Approx. size |
 |---|---|---|
-| `STEMDECK-Windows-x64.zip` | CPU only | ~700 MB |
-| `STEMDECK-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
+| `STEMDECK-Enhanced-Windows-x64.zip` | CPU only | ~700 MB |
+| `STEMDECK-Enhanced-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
 
-Extract the zip anywhere, run `STEMDECK.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
+Extract the zip anywhere, run `STEMDECK Enhanced.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
 
 ### Release Signing / Notarization
 
@@ -160,9 +158,9 @@ The desktop shell is intentionally thin. The Python runtime, FFmpeg/ffprobe, and
 
 <br>
 
-STEMDECK is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+STEMDECK Enhanced is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
-*Thanks to the creators and maintainers of all the open-source libraries that make STEMDECK possible.*
+*Thanks to the creators and maintainers of all the open-source libraries that make STEMDECK Enhanced possible.*
 
 ---
 
@@ -188,21 +186,21 @@ ARCH=x64 scripts/macos/make-app.sh
 ARCH=x64 scripts/macos/make-dmg.sh
 ```
 
-The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/STEMDECK.app`. The DMG lands at `.build/macos-dist/STEMDECK-macOS-<arch>.dmg`.
+The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/STEMDECK Enhanced.app`. The DMG lands at `.build/macos-dist/STEMDECK-Enhanced-macOS-<arch>.dmg`.
 
 To run a fresh build directly without the DMG:
 
 ```sh
-open desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app
+open "desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK Enhanced.app"
 ```
 
 If macOS blocks the app with a Gatekeeper prompt, run:
 
 ```sh
-xattr -dr com.apple.quarantine desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK.app
+xattr -dr com.apple.quarantine "desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/STEMDECK Enhanced.app"
 ```
 
-> **Note:** To test a clean first-launch during development, you can wipe previous app data first: `rm -rf ~/Library/Application\ Support/StemDeck`. This is the legacy compatibility data path; don't do this on a real install.
+> **Note:** To test a clean first-launch during development, you can wipe previous app data first: `rm -rf ~/Library/Application\ Support/StemDeck\ Enhanced`. Don't do this on a real install.
 
 ---
 
@@ -215,7 +213,7 @@ Python 3.12 or newer, `ffmpeg` on your PATH, and [uv](https://github.com/astral-
 #### macOS / Linux (one-shot)
 
 ```sh
-git clone https://github.com/stemdeckapp/stemdeck stemdeck && cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck stemdeck-enhanced && cd stemdeck-enhanced
 ./run.sh setup     # installs ffmpeg + uv, runs uv sync
 ./run.sh start
 ```
@@ -231,7 +229,7 @@ Install prerequisites:
 - [ffmpeg](https://ffmpeg.org/download.html) — `winget install Gyan.FFmpeg` (or Chocolatey: `choco install ffmpeg`)
 
 ```powershell
-git clone https://github.com/stemdeckapp/stemdeck stemdeck; cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck stemdeck-enhanced; cd stemdeck-enhanced
 uv sync
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
@@ -253,7 +251,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 #### Manual (any platform)
 
 ```sh
-git clone https://github.com/stemdeckapp/stemdeck stemdeck && cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck stemdeck-enhanced && cd stemdeck-enhanced
 uv sync
 uv run uvicorn app.main:app --reload
 ```
@@ -389,23 +387,23 @@ Job state is in-memory. Restart the server and the job list resets, but files pe
 
 ## Disclaimer
 
-STEMDECK is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
+STEMDECK Enhanced is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
 
 YouTube URL support is provided via [yt-dlp](https://github.com/yt-dlp/yt-dlp) as a convenience. Automated downloading may violate YouTube's Terms of Service. You, the user, are solely responsible for ensuring you have the right to process any audio you submit, complying with the terms of service of any site you download from, and respecting the copyright of the material you work with.
 
 You are also responsible for following the licenses of the underlying tools this project depends on (yt-dlp, Demucs, FFmpeg, PyTorch, and others listed in `pyproject.toml`).
 
-The author(s) of STEMDECK provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
+The author(s) of STEMDECK Enhanced provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
 
 ---
 
 ## License and Attribution
 
-STEMDECK is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
+STEMDECK Enhanced is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
 
 See [NOTICE](NOTICE) for the upstream attribution and modification notice. Third-party runtime dependencies are licensed by their respective authors; packaged builds include `THIRD_PARTY_NOTICES.txt` and generated dependency inventories where available.
 
-This repository is a modified fork, not an official upstream release. Apache-2.0 does not grant trademark rights, so public distributions should avoid implying upstream endorsement.
+This repository is an unofficial modified fork test build, not an official upstream release. It is not affiliated with or endorsed by the original StemDeck project. Apache-2.0 does not grant trademark rights, so public distributions should avoid implying upstream endorsement.
 
 ---
 
@@ -413,12 +411,8 @@ This repository is a modified fork, not an official upstream release. Apache-2.0
 
 | Platform | Link |
 |---|---|
-| GitHub | [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) |
-| Discord | [discord.gg/2MVsWqaPRe](https://discord.gg/2MVsWqaPRe) |
-| Reddit | [r/StemDeckApp](https://www.reddit.com/r/StemDeckApp/) |
-| Instagram | [@stemdeck](https://www.instagram.com/stemdeck) |
-| X | [@StemDeckApp](https://x.com/StemDeckApp) |
-| Website | [stemdeck.app](https://stemdeck.app) *(coming soon)* |
+| Fork GitHub | [bassmicrobe/stemdeck](https://github.com/bassmicrobe/stemdeck) |
+| Original project | [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) |
 
 ---
 
@@ -444,10 +438,10 @@ Issues, feature suggestions, and pull requests are welcome. See open issues for 
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=stemdeckapp%2Fstemdeck&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&legend=top-left" />
- </picture>
+<a href="https://www.star-history.com/?repos=bassmicrobe%2Fstemdeck&type=date&legend=top-left">
+  <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&legend=top-left" />
+   <img alt="Fork Star History Chart" src="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&legend=top-left" />
+  </picture>
 </a>

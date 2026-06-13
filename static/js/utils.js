@@ -1,7 +1,7 @@
 // ─── Persistent store (Tauri atomic JSON commands) ───
 //
 // Falls back to localStorage when running outside Tauri (browser dev mode).
-// The store is backed by ~/Documents/StemDeck/user-data.json on macOS —
+// The store is backed by ~/Documents/StemDeck Enhanced/user-data.json on macOS —
 // outside WebKit's reach, so WebView resets can never destroy user data.
 
 export async function storeGet(key, fallback = null) {
