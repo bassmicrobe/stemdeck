@@ -2,6 +2,7 @@ import {
   playBtn, loopBtn, multitrack, totalDuration, loopEnabled, loopStart, loopEnd,
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
   qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
+  stemDenoisePreset, stemDenoiseReady, denoiseSelect, setStemDenoisePreset,
 } from "./state.js";
 import { supportedStemNamesForQuality, syncStemNamesFromAPI } from "./constants.js";
 import { renderEmptyShell, buildStripStems, downloadCurrentMix, downloadAllStemsZip, downloadRegionMix, drawFooterPlaceholder } from "./player.js";
@@ -131,6 +132,13 @@ function wireQualitySelect() {
   });
 }
 
+function wireDenoiseSelect() {
+  if (!denoiseSelect) return;
+  denoiseSelect.addEventListener("change", () => {
+    setStemDenoisePreset(denoiseSelect.value);
+  });
+}
+
 // ─── Wire everything up ───
 
 syncStemNamesFromAPI().then(() => buildStripStems());
@@ -143,6 +151,7 @@ wireMixerToolbar();
 wireStemChoiceButtons();
 wireAllButton();
 wireQualitySelect();
+wireDenoiseSelect();
 wireFileDrop();
 wireAppShellControls();
 
@@ -150,7 +159,9 @@ wireAppShellControls();
   await runStoreMigrationIfNeeded();
   await stemSelectionReady;
   await qualityPresetReady;
+  await stemDenoiseReady;
   if (qualitySelect) qualitySelect.value = qualityPreset;
+  if (denoiseSelect) denoiseSelect.value = stemDenoisePreset;
   refreshStemChoiceVisuals();
   await initCatalog();
 })().catch(console.error);

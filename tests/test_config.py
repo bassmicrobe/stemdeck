@@ -141,8 +141,10 @@ def test_explicit_demucs_options_win_over_quality_preset(monkeypatch):
 def test_high_quality_preset_supports_four_stems():
     from app.core.config import (
         bass_repair_enabled_for_preset,
+        normalize_stem_denoise_preset,
         phase_repair_enabled_for_preset,
         phase_repair_max_blend_for_preset,
+        stem_denoise_filter_for_preset,
         stem_names_for_quality_preset,
         wav_codec_for_quality_preset,
     )
@@ -169,6 +171,11 @@ def test_high_quality_preset_supports_four_stems():
     assert phase_repair_max_blend_for_preset("standard") == 0.42
     assert phase_repair_max_blend_for_preset("high") == 0.65
     assert phase_repair_max_blend_for_preset("max") == 0.9
+    assert normalize_stem_denoise_preset("light") == "light"
+    assert normalize_stem_denoise_preset("STRONG") == "strong"
+    assert normalize_stem_denoise_preset("watery") == "off"
+    assert stem_denoise_filter_for_preset("off") is None
+    assert "afftdn=" in (stem_denoise_filter_for_preset("light") or "")
 
 
 def test_bass_repair_env_override(monkeypatch):

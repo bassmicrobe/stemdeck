@@ -39,6 +39,8 @@ def test_job_state_includes_repair_metrics():
         bass_repair_applied=True,
         phase_repair_applied=True,
         phase_repair_residual_ratio=0.37,
+        stem_denoise_preset="light",
+        stem_denoise_applied=True,
     )
 
     state = job.to_state()
@@ -46,3 +48,5 @@ def test_job_state_includes_repair_metrics():
     assert state["bass_repair_applied"] is True
     assert state["phase_repair_applied"] is True
     assert state["phase_repair_residual_ratio"] == 0.37
+    assert state["stem_denoise_preset"] == "light"
+    assert state["stem_denoise_applied"] is True

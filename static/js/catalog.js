@@ -304,6 +304,7 @@ function stateMetadataToTrack(state, fallbackTrack) {
     selectedStems: state.selected_stems || fallbackTrack.selectedStems,
     audioStems: state.stems || fallbackTrack.audioStems || [],
     qualityPreset: state.quality_preset || fallbackTrack.qualityPreset || "standard",
+    stemDenoisePreset: state.stem_denoise_preset || fallbackTrack.stemDenoisePreset || "off",
     duration: state.duration || fallbackTrack.duration,
     status: state.status || fallbackTrack.status,
     progressPercent: state.progress_percent ?? fallbackTrack.progressPercent ?? null,
@@ -322,6 +323,7 @@ function stateMetadataToTrack(state, fallbackTrack) {
     phaseRepairResidualRatio: state.phase_repair_residual_ratio
       ?? fallbackTrack.phaseRepairResidualRatio
       ?? null,
+    stemDenoiseApplied: state.stem_denoise_applied ?? fallbackTrack.stemDenoiseApplied ?? false,
     dynamicRange: state.dynamic_range ?? fallbackTrack.dynamicRange,
     tempoStability: state.tempo_stability ?? fallbackTrack.tempoStability,
     tags: state.tags ?? fallbackTrack.tags ?? [],
@@ -390,6 +392,10 @@ function deriveRepair(track) {
     } else {
       repairs.push("Phase");
     }
+  }
+  if (track?.stemDenoiseApplied) {
+    const preset = track.stemDenoisePreset === "strong" ? "Strong" : "Light";
+    repairs.push(`${preset} denoise`);
   }
   return repairs.length ? repairs.join(" + ") : "—";
 }
@@ -1938,6 +1944,7 @@ async function resyncLibrary() {
           title: t.title,
           stems: t.selectedStems,
           quality: t.qualityPreset,
+          denoise: t.stemDenoisePreset,
         });
         if (jobId) await waitForJobTerminal(jobId);
       }

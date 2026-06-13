@@ -270,6 +270,10 @@ input, textarea { font-family: inherit; }
   outline-offset: 2px;
 }
 
+.daw-denoise-section .daw-quality-select {
+  min-width: 118px;
+}
+
 /* Stem choice buttons */
 .stem-choice {
   height: 30px;

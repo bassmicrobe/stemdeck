@@ -178,6 +178,7 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         stems=stems,
         selected_stems=selected,
         quality_preset=str(meta.get("quality_preset") or "standard"),
+        stem_denoise_preset=str(meta.get("stem_denoise_preset") or "off"),
         mix_url=mix_url,
         created_at=job_dir.stat().st_mtime,
         title=meta.get("title"),
@@ -197,6 +198,7 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         bass_repair_applied=bool(meta.get("bass_repair_applied", False)),
         phase_repair_applied=bool(meta.get("phase_repair_applied", False)),
         phase_repair_residual_ratio=meta.get("phase_repair_residual_ratio"),
+        stem_denoise_applied=bool(meta.get("stem_denoise_applied", False)),
     )
 
 

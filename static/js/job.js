@@ -2,7 +2,7 @@ import {
   form, urlInput, submitBtn, errorEl, jobBox, jobTitleEl, jobStageEl,
   jobDetailEl, jobEtaEl, jobPercentEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
   eventSource, setEventSource, setCurrentJobId, currentJobId,
-  effectiveSelectedStems, qualityPreset, selectedStems,
+  effectiveSelectedStems, qualityPreset, selectedStems, stemDenoisePreset,
 } from "./state.js";
 import { destroyPlayer, wireUpAudio, setWaveformLoading, updateFooterTrack } from "./player.js";
 import { stagePhrases } from "./phrases.js";
@@ -170,6 +170,8 @@ function applyState(state, { focus = true } = {}) {
       bassRepairApplied: state.bass_repair_applied ?? false,
       phaseRepairApplied: state.phase_repair_applied ?? false,
       phaseRepairResidualRatio: state.phase_repair_residual_ratio ?? null,
+      stemDenoisePreset: state.stem_denoise_preset || "off",
+      stemDenoiseApplied: state.stem_denoise_applied ?? false,
       sourceUrl: jobSources.get(state.job_id) || state.source_url || urlInput.value,
       createdAt: state.created_at,
     });
@@ -449,12 +451,13 @@ function sanitizeFilename(name) {
 // import form's URL path). Used by the library "Sync again" auto-restore to
 // re-download + re-separate a track whose backend audio was swept. Takes over
 // the studio like a normal import. Returns the new job id, or null on failure.
-export async function importFromUrl(url, { title, stems, quality } = {}) {
+export async function importFromUrl(url, { title, stems, quality, denoise } = {}) {
   if (!url || url.startsWith("local:")) return null; // local files can't auto-restore
   reset();
   setSubmitProcessing(true);
   setWaveformLoading(true, "");
   const preset = quality || qualityPreset;
+  const denoisePreset = denoise || stemDenoisePreset;
   const stemSel = normalizeStemsForQuality(stems, preset);
 
   let jobId;
@@ -462,7 +465,12 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, stems: stemSel, quality_preset: preset }),
+      body: JSON.stringify({
+        url,
+        stems: stemSel,
+        quality_preset: preset,
+        stem_denoise: denoisePreset,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
@@ -485,6 +493,7 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
     stems: stemSel,
     selectedStems: stemSel,
     qualityPreset: preset,
+    stemDenoisePreset: denoisePreset,
     audioStems: [],
     status: "queued",
     progressPercent: 0,
@@ -499,6 +508,7 @@ export async function importFromUrl(url, { title, stems, quality } = {}) {
     bassRepairApplied: false,
     phaseRepairApplied: false,
     phaseRepairResidualRatio: null,
+    stemDenoiseApplied: false,
     sourceUrl: url,
   });
   setCurrentTrack(jobId);
@@ -530,6 +540,7 @@ export function wireJobForm() {
     const sourceUrl = file ? `local:${sanitized}` : urlInput.value;
     const displayTitle = sanitized ?? (urlInput.value || "Processing track");
     const preset = qualityPreset;
+    const denoisePreset = stemDenoisePreset;
     const stemSel = effectiveSelectedStems(preset);
 
     const postUrlText = document.getElementById("post-url-text");
@@ -548,6 +559,7 @@ export function wireJobForm() {
       fd.append("file", file);
       fd.append("stems", JSON.stringify(stemSel));
       fd.append("quality_preset", preset);
+      fd.append("stem_denoise", denoisePreset);
       fetchInit = { method: "POST", body: fd };
     } else {
       fetchInit = {
@@ -559,6 +571,7 @@ export function wireJobForm() {
           // "selected stems" track (mix.wav) at the end of the pipeline.
           stems: stemSel,
           quality_preset: preset,
+          stem_denoise: denoisePreset,
         }),
       };
     }
@@ -586,6 +599,7 @@ export function wireJobForm() {
       stems: stemSel,
       selectedStems: stemSel,
       qualityPreset: preset,
+      stemDenoisePreset: denoisePreset,
       audioStems: [],
       status: "queued",
       progressPercent: 0,
@@ -600,6 +614,7 @@ export function wireJobForm() {
       bassRepairApplied: false,
       phaseRepairApplied: false,
       phaseRepairResidualRatio: null,
+      stemDenoiseApplied: false,
       sourceUrl,
     });
     setCurrentTrack(jobId);

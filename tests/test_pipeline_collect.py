@@ -16,6 +16,7 @@ from app.pipeline.collect import (
     _blend_phase_residual,
     _write_bass_residual_candidate,
     compute_stem_peaks,
+    denoise_stem_outputs,
     make_selected_mix,
     repair_bass_dropouts,
     repair_phase_coherence,
@@ -213,6 +214,74 @@ def test_high_quality_mix_uses_float32_wav_codec(tmp_path, monkeypatch):
     assert out == stems_dir / "mix.wav"
     cmd = calls[0]
     assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+
+
+def test_denoise_stem_outputs_replaces_all_stems_after_success(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    for name in ("vocals", "drums"):
+        (stems_dir / f"{name}.wav").write_bytes(f"old-{name}".encode())
+    calls = []
+
+    def fake_run_ffmpeg(job, cmd):
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"clean")
+        return True
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    job = Job(id="abcdefabcdef", quality_preset="high", stem_denoise_preset="light")
+
+    assert denoise_stem_outputs(job, stems_dir, ["vocals", "drums"])
+
+    assert (stems_dir / "vocals.wav").read_bytes() == b"clean"
+    assert (stems_dir / "drums.wav").read_bytes() == b"clean"
+    assert len(calls) == 2
+    first = calls[0]
+    assert "afftdn=" in first[first.index("-filter:a") + 1]
+    assert first[first.index("-c:a") : first.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+    assert not list(stems_dir.glob("*.denoise.wav"))
+
+
+def test_denoise_stem_outputs_preserves_originals_on_failure(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    vocals = stems_dir / "vocals.wav"
+    drums = stems_dir / "drums.wav"
+    vocals.write_bytes(b"old-vocals")
+    drums.write_bytes(b"old-drums")
+
+    def fake_run_ffmpeg(job, cmd):
+        Path(cmd[-1]).write_bytes(b"partial")
+        return False
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "_run_ffmpeg", fake_run_ffmpeg)
+    job = Job(id="abcdefabcdef", stem_denoise_preset="strong")
+
+    assert not denoise_stem_outputs(job, stems_dir, ["vocals", "drums"])
+
+    assert vocals.read_bytes() == b"old-vocals"
+    assert drums.read_bytes() == b"old-drums"
+    assert not list(stems_dir.glob("*.denoise.wav"))
+
+
+def test_denoise_stem_outputs_noops_when_off(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    (stems_dir / "vocals.wav").write_bytes(b"wav")
+
+    import app.pipeline.collect as collect_mod
+
+    monkeypatch.setattr(
+        collect_mod,
+        "_run_ffmpeg",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected denoise")),
+    )
+
+    assert not denoise_stem_outputs(Job(id="abcdefabcdef"), stems_dir, ["vocals"])
 
 
 def test_bass_residual_candidate_subtracts_non_bass_stems(tmp_path, monkeypatch):

@@ -54,12 +54,14 @@ class Job:
     # download a single track containing just their chosen stems.
     selected_stems: list[str] = field(default_factory=list)
     quality_preset: str = "standard"
+    stem_denoise_preset: str = "off"
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
     demucs_gain_db: float | None = None  # reversible gain applied to the Demucs working copy
     bass_repair_applied: bool = False
     phase_repair_applied: bool = False
     phase_repair_residual_ratio: float | None = None
+    stem_denoise_applied: bool = False
     queue_position: int | None = None  # 1-based waiting position while status == queued
     queue_size: int = 0  # current number of queued jobs, for UI context
     error: str | None = None
@@ -112,11 +114,13 @@ class Job:
             "stems": self.stems,
             "selected_stems": self.selected_stems,
             "quality_preset": self.quality_preset,
+            "stem_denoise_preset": self.stem_denoise_preset,
             "mix_url": self.mix_url,
             "source_url": self.source_url,
             "bass_repair_applied": self.bass_repair_applied,
             "phase_repair_applied": self.phase_repair_applied,
             "phase_repair_residual_ratio": self.phase_repair_residual_ratio,
+            "stem_denoise_applied": self.stem_denoise_applied,
             "queue_position": self.queue_position,
             "queue_size": self.queue_size,
             "error": self.error,

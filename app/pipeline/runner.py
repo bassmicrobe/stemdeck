@@ -21,6 +21,7 @@ from app.pipeline.collect import (
     cleanup_source,
     collect,
     compute_stem_peaks,
+    denoise_stem_outputs,
     make_original_track,
     make_selected_mix,
     repair_bass_dropouts,
@@ -165,6 +166,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     restore_demucs_gain(job, stems_dir, found)
     job.bass_repair_applied = repair_bass_dropouts(job, source, stems_dir, found)
     repair_phase_coherence(job, source, job_dir, stems_dir, found)
+    job.stem_denoise_applied = denoise_stem_outputs(job, stems_dir, found)
     stabilize_stem_outputs(job, stems_dir, found)
     _check_cancel(job)
     job.stem_presence = compute_stem_presence(stems_dir, found)
@@ -223,10 +225,12 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "tempo_stability": job.tempo_stability,
         "stem_presence": job.stem_presence,
         "quality_preset": job.quality_preset,
+        "stem_denoise_preset": job.stem_denoise_preset,
         "demucs_gain_db": job.demucs_gain_db,
         "bass_repair_applied": job.bass_repair_applied,
         "phase_repair_applied": job.phase_repair_applied,
         "phase_repair_residual_ratio": job.phase_repair_residual_ratio,
+        "stem_denoise_applied": job.stem_denoise_applied,
         "tags": job.tags,
     }
     try:

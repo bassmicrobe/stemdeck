@@ -101,6 +101,18 @@
             </select>
           </label>
 
+          <div class="daw-composer-sep"></div>
+
+          <!-- Optional per-stem cleanup -->
+          <label class="daw-quality-section daw-denoise-section" for="stemDenoise">
+            <span class="daw-extract-label">Clean</span>
+            <select id="stemDenoise" class="daw-quality-select" aria-label="Per-stem noise removal">
+              <option value="off">Noise off</option>
+              <option value="light">Light denoise</option>
+              <option value="strong">Strong denoise</option>
+            </select>
+          </label>
+
           <!-- Process button -->
           <button id="submit" class="daw-process-btn" type="submit">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

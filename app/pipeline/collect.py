@@ -27,8 +27,10 @@ from app.core.config import (
     bass_repair_enabled_for_preset,
     demucs_settings_for_preset,
     ffmpeg_executable,
+    normalize_stem_denoise_preset,
     phase_repair_enabled_for_preset,
     phase_repair_max_blend_for_preset,
+    stem_denoise_filter_for_preset,
     wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
@@ -606,6 +608,65 @@ def repair_phase_coherence(
     finally:
         reference_path.unlink(missing_ok=True)
         for tmp in tmp_paths:
+            tmp.unlink(missing_ok=True)
+        _set(job, stage=old_stage)
+
+
+def denoise_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bool:
+    """Optionally denoise each separated stem with ffmpeg's afftdn filter.
+
+    The pass is all-or-nothing: all temporary denoised files must render before
+    any original stem is replaced. If ffmpeg cannot denoise a stem, the job
+    keeps the original separation and records stem_denoise_applied=False.
+    """
+    preset = normalize_stem_denoise_preset(job.stem_denoise_preset)
+    job.stem_denoise_preset = preset
+    filter_expr = stem_denoise_filter_for_preset(preset)
+    if not filter_expr:
+        return False
+
+    available = [name for name in stem_names if (stems_dir / f"{name}.wav").is_file()]
+    if not available:
+        return False
+
+    old_stage = job.stage_message
+    tmp_pairs: list[tuple[Path, Path]] = []
+    wav_codec = wav_codec_for_quality_preset(job.quality_preset)
+    _set(job, stage=f"Denoising stems ({preset})...")
+    try:
+        for name in available:
+            path = stems_dir / f"{name}.wav"
+            tmp = path.with_suffix(".denoise.wav")
+            tmp_pairs.append((path, tmp))
+            cmd = [
+                ffmpeg_executable(),
+                "-y",
+                "-nostdin",
+                "-loglevel",
+                "error",
+                "-i",
+                str(path),
+                "-filter:a",
+                filter_expr,
+                "-ar",
+                "44100",
+                "-ac",
+                "2",
+                "-c:a",
+                wav_codec,
+                str(tmp),
+            ]
+            if not _run_ffmpeg(job, cmd):
+                return False
+        for path, tmp in tmp_pairs:
+            tmp.replace(path)
+        logger.info("stem denoise %s applied for job %s", preset, job.id)
+        return True
+    except Exception:
+        logger.warning("stem denoise skipped for job %s", job.id, exc_info=True)
+        return False
+    finally:
+        for _, tmp in tmp_pairs:
             tmp.unlink(missing_ok=True)
         _set(job, stage=old_stage)
 

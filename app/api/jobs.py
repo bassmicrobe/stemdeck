@@ -21,6 +21,7 @@ from app.core.config import (
     ffmpeg_executable,
     ffprobe_executable,
     normalize_quality_preset,
+    normalize_stem_denoise_preset,
     stem_names_for_quality_preset,
 )
 from app.core.models import Job
@@ -144,6 +145,7 @@ class JobRequest(BaseModel):
     # clients pinning the old set.
     stems: list[str] | None = None
     quality_preset: str | None = None
+    stem_denoise: str | None = None
 
 
 @router.post("")
@@ -172,12 +174,14 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     quality_preset = normalize_quality_preset(payload.quality_preset or QUALITY_PRESET)
+    stem_denoise_preset = normalize_stem_denoise_preset(payload.stem_denoise)
     selected = _selected_stems_for_quality(payload.stems, quality_preset)
 
     job = Job(
         id=uuid.uuid4().hex[:12],
         selected_stems=selected,
         quality_preset=quality_preset,
+        stem_denoise_preset=stem_denoise_preset,
         source_url=url,
     )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
@@ -207,6 +211,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     upload = form.get("file")
     stems_raw = form.get("stems", "[]")
     quality_preset = normalize_quality_preset(str(form.get("quality_preset", QUALITY_PRESET)))
+    stem_denoise_preset = normalize_stem_denoise_preset(str(form.get("stem_denoise", "off")))
 
     if upload is None or not hasattr(upload, "filename"):
         raise HTTPException(status_code=422, detail="No file provided")
@@ -269,6 +274,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
         id=job_id,
         selected_stems=selected,
         quality_preset=quality_preset,
+        stem_denoise_preset=stem_denoise_preset,
         title=title,
         duration_sec=duration,
         source_url=local_source_url,

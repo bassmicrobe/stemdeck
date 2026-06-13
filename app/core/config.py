@@ -72,6 +72,7 @@ STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "ot
 JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 
 SUPPORTED_QUALITY_PRESETS = frozenset(("standard", "high", "max"))
+SUPPORTED_STEM_DENOISE_PRESETS = frozenset(("off", "light", "strong"))
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,11 @@ class DemucsSettings:
 def normalize_quality_preset(value: str | None) -> str:
     preset = (value or "").strip().lower()
     return preset if preset in SUPPORTED_QUALITY_PRESETS else "standard"
+
+
+def normalize_stem_denoise_preset(value: str | None) -> str:
+    preset = (value or "").strip().lower()
+    return preset if preset in SUPPORTED_STEM_DENOISE_PRESETS else "off"
 
 
 def stem_names_for_quality_preset(preset: str | None) -> tuple[str, ...]:
@@ -151,6 +157,20 @@ def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
 def wav_codec_for_quality_preset(preset: str | None) -> str:
     settings = demucs_settings_for_preset(preset)
     return "pcm_f32le" if settings.float32 else "pcm_s16le"
+
+
+_STEM_DENOISE_FILTERS = {
+    # Conservative broadband denoise. Safe for most stems, less likely to
+    # introduce watery FFT artifacts than heavy reduction.
+    "light": "afftdn=nr=8:nf=-55:rf=-45:tn=1:gs=8",
+    # Stronger cleanup for obviously noisy material; users can opt in when the
+    # artifact tradeoff is acceptable.
+    "strong": "afftdn=nr=14:nf=-50:rf=-38:tn=1:gs=12",
+}
+
+
+def stem_denoise_filter_for_preset(value: str | None) -> str | None:
+    return _STEM_DENOISE_FILTERS.get(normalize_stem_denoise_preset(value))
 
 
 def bass_repair_enabled_for_preset(preset: str | None) -> bool:

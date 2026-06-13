@@ -83,6 +83,24 @@ def test_post_accepts_quality_preset(client):
     assert _jobs[r.json()["job_id"]].quality_preset == "max"
 
 
+def test_post_accepts_stem_denoise_preset(client):
+    r = client.post(
+        "/api/jobs",
+        json={"url": "https://youtu.be/dQw4w9WgXcQ", "stem_denoise": "strong"},
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].stem_denoise_preset == "strong"
+
+
+def test_post_invalid_stem_denoise_falls_back_to_off(client):
+    r = client.post(
+        "/api/jobs",
+        json={"url": "https://youtu.be/dQw4w9WgXcQ", "stem_denoise": "destructive"},
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].stem_denoise_preset == "off"
+
+
 def test_quality_preset_filters_unsupported_stems(client):
     r = client.post(
         "/api/jobs",
@@ -251,6 +269,17 @@ def test_upload_accepts_quality_preset(upload_client):
     )
     assert r.status_code == 200
     assert _jobs[r.json()["job_id"]].quality_preset == "high"
+
+
+def test_upload_accepts_stem_denoise_preset(upload_client):
+    data = io.BytesIO(b"ID3" + b"\x00" * 128)
+    r = upload_client.post(
+        "/api/jobs",
+        data={"stem_denoise": "light"},
+        files={"file": ("my_track.mp3", data, "audio/mpeg")},
+    )
+    assert r.status_code == 200
+    assert _jobs[r.json()["job_id"]].stem_denoise_preset == "light"
 
 
 def test_upload_wav_returns_job_id(upload_client):

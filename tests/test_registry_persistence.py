@@ -72,6 +72,8 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
                 "bass_repair_applied": True,
                 "phase_repair_applied": True,
                 "phase_repair_residual_ratio": 0.37,
+                "stem_denoise_preset": "light",
+                "stem_denoise_applied": True,
             }
         ),
         encoding="utf-8",
@@ -87,6 +89,8 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     assert restored.bass_repair_applied is True
     assert restored.phase_repair_applied is True
     assert restored.phase_repair_residual_ratio == 0.37
+    assert restored.stem_denoise_preset == "light"
+    assert restored.stem_denoise_applied is True
 
 
 def test_restore_skips_orphan_without_metadata(tmp_path: Path):
