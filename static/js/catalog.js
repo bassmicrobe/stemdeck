@@ -1556,7 +1556,9 @@ const FALLBACK_VERSION = "0.1.0";
 let currentVersion = FALLBACK_VERSION;
 const REPO_URL = "https://github.com/bassmicrobe/stemdeck";
 const RELEASES_URL = "https://github.com/bassmicrobe/stemdeck/releases";
-const RELEASES_API = "https://api.github.com/repos/bassmicrobe/stemdeck/releases/latest";
+// GitHub's /releases/latest endpoint ignores pre-releases. Enhanced test builds
+// are intentionally published as pre-releases, so read the release list instead.
+const RELEASES_API = "https://api.github.com/repos/bassmicrobe/stemdeck/releases?per_page=10";
 const DISMISSED_UPDATE_KEY = "stemdeck.dismissed_update";
 
 function normalizeVersion(value) {
@@ -1599,7 +1601,8 @@ async function checkForUpdate() {
     const res = await fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
     if (!res.ok) return;
     const data = await res.json();
-    const latest = normalizeVersion(data.tag_name);
+    const latestRelease = Array.isArray(data) ? data.find((release) => release?.tag_name) : data;
+    const latest = normalizeVersion(latestRelease?.tag_name);
     // Compare canonically so a PEP440 current version (0.7.0a9) matches the
     // release tag form (0.7.0-alpha.9) and we don't nag an already-current app.
     if (!latest || canonicalVersion(latest) === canonicalVersion(currentVersion)) return;
