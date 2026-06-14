@@ -35,6 +35,30 @@ def test_job_eta_resets_on_status_change_and_hides_when_done():
     assert state["eta_seconds"] is None
 
 
+def test_processing_timer_starts_independently_from_progress_updates():
+    job = Job(id="abcdefabcdef", status="queued", progress=0.0)
+
+    _set(job, status="processing", stage="Waiting for audio worker...")
+
+    assert job.processing_started_at is not None
+    assert job.progress_started_at is None
+    assert job.to_state()["processing_elapsed_seconds"] >= 0
+
+
+def test_terminal_job_elapsed_time_is_frozen():
+    job = Job(id="abcdefabcdef", status="processing", progress=0.5)
+    job.progress_started_at = time.time() - 20
+
+    _set(job, status="done", progress=1.0)
+    first = job.to_state()["processing_elapsed_seconds"]
+    time.sleep(0.01)
+    second = job.to_state()["processing_elapsed_seconds"]
+
+    assert job.completed_at is not None
+    assert first == second
+    assert 19 <= first <= 21
+
+
 def test_job_eta_uses_overall_progress_clock_after_status_change():
     job = Job(id="abcdefabcdef", status="processing", progress=0.5)
     job.progress_started_at = time.time() - 20
@@ -69,6 +93,9 @@ def test_pipeline_stage_progress_is_overall_and_monotonic():
     set_stage_progress(job, "collect", 0.0, status="processing", stage="Collecting stems")
     assert job.to_state()["progress_percent"] == 82
 
+    set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
+    assert job.to_state()["progress_percent"] == 96
+
 
 def test_job_state_includes_repair_metrics():
     job = Job(
@@ -78,6 +105,8 @@ def test_job_state_includes_repair_metrics():
         phase_repair_residual_ratio=0.37,
         stem_denoise_preset="light",
         stem_denoise_applied=True,
+        stem_gate_applied=True,
+        stem_gate_threshold_db=-54.0,
     )
 
     state = job.to_state()
@@ -87,3 +116,41 @@ def test_job_state_includes_repair_metrics():
     assert state["phase_repair_residual_ratio"] == 0.37
     assert state["stem_denoise_preset"] == "light"
     assert state["stem_denoise_applied"] is True
+    assert state["stem_gate_applied"] is True
+    assert state["stem_gate_threshold_db"] == -54.0
+
+
+def test_job_state_includes_detected_beat_times():
+    progression = [{"label": "C", "start": 0.0, "end": 2.0, "confidence": 0.9}]
+    job = Job(
+        id="abcdefabcdef",
+        bpm=128,
+        tempo_stability=92,
+        beat_times=[0.511, 0.976, 1.44],
+        chord_progression=progression,
+        chord_midi_url="/api/jobs/abcdefabcdef/chords.mid",
+    )
+
+    state = job.to_state()
+
+    assert state["bpm"] == 128
+    assert state["tempo_stability"] == 92
+    assert state["beat_times"] == [0.511, 0.976, 1.44]
+    assert state["chord_progression"] == progression
+    assert state["chord_midi_url"] == "/api/jobs/abcdefabcdef/chords.mid"
+
+
+def test_job_state_includes_profile_identity():
+    job = Job(
+        id="abcdefabcdef",
+        selected_stems=["vocals", "bass"],
+        quality_preset="max",
+        stem_denoise_preset="strong",
+        demucs_device="mps",
+        demucs_device_resolved="mps",
+    )
+
+    state = job.to_state()
+
+    assert state["profile_key"] == "quality=max|denoise=strong|device=mps:mps|stems=vocals,bass"
+    assert state["profile_label"] == "Max / Strong denoise / Apple GPU / Vocals+Bass"

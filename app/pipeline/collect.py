@@ -6,6 +6,7 @@ import logging
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,11 @@ from app.core.config import (
     JOB_TTL_SECONDS,
     PHASE_REPAIR_FLOOR_DB,
     PHASE_REPAIR_MAX_BLEND,
+    STEM_GATE_ATTACK_MS,
+    STEM_GATE_HOLD_MS,
+    STEM_GATE_RELEASE_MS,
+    STEM_GATE_THRESHOLD_DB,
+    STEM_GATE_WINDOW_MS,
     STEM_NAMES,
     STEM_POST_LIMITER_PEAK,
     TIMEOUT_FFMPEG,
@@ -31,6 +37,7 @@ from app.core.config import (
     phase_repair_enabled_for_preset,
     phase_repair_max_blend_for_preset,
     stem_denoise_filter_for_preset,
+    stem_gate_enabled_for_preset,
     wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
@@ -38,6 +45,7 @@ from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
 from app.core.registry import set_proc
+from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.collect")
 
@@ -102,11 +110,25 @@ def collect(job: Job, stems_root: Path, job_dir: Path) -> list[str]:
     target_dir = job_dir / "stems"
     target_dir.mkdir(exist_ok=True)
     found: list[str] = []
-    for name in STEM_NAMES:
+    existing = [name for name in STEM_NAMES if (stems_root / f"{name}.wav").exists()]
+    total = max(1, len(existing))
+    for idx, name in enumerate(existing):
         src = stems_root / f"{name}.wav"
-        if src.exists():
-            shutil.move(str(src), target_dir / f"{name}.wav")
-            found.append(name)
+        set_stage_progress(
+            job,
+            "collect",
+            idx / total,
+            stage=f"Collecting stem {idx + 1}/{total}: {name}",
+        )
+        shutil.move(str(src), target_dir / f"{name}.wav")
+        found.append(name)
+        set_stage_progress(
+            job,
+            "collect",
+            (idx + 1) / (total + 1),
+            stage=f"Collected stem {idx + 1}/{total}: {name}",
+        )
+    set_stage_progress(job, "collect", 0.92, stage="Cleaning separation workspace...")
     _rmtree(job_dir / demucs_settings_for_preset(job.quality_preset).model)
     if not found:
         raise RuntimeError("no stems produced by demucs")
@@ -131,10 +153,16 @@ def restore_demucs_gain(job: Job, stems_dir: Path, stem_names: list[str]) -> Non
     restore_db = -applied_gain_db
     old_stage = job.stage_message
     _set(job, stage="Restoring stem levels...")
-    for name in stem_names:
+    available = [name for name in stem_names if (stems_dir / f"{name}.wav").is_file()]
+    total = max(1, len(available))
+    for idx, name in enumerate(available):
         path = stems_dir / f"{name}.wav"
-        if not path.is_file():
-            continue
+        set_stage_progress(
+            job,
+            "restore_gain",
+            idx / total,
+            stage=f"Restoring stem levels {idx + 1}/{total}: {name}",
+        )
         tmp = path.with_suffix(".gain.wav")
         cmd = [
             ffmpeg_executable(),
@@ -154,6 +182,12 @@ def restore_demucs_gain(job: Job, stems_dir: Path, stem_names: list[str]) -> Non
             tmp.unlink(missing_ok=True)
             raise RuntimeError(f"ffmpeg gain restore failed for {name}")
         tmp.replace(path)
+        set_stage_progress(
+            job,
+            "restore_gain",
+            (idx + 1) / total,
+            stage=f"Restored stem levels {idx + 1}/{total}: {name}",
+        )
     _set(job, stage=old_stage)
 
 
@@ -240,6 +274,7 @@ def _blend_bass_dropout_repair(
     max_blend: float = BASS_REPAIR_MAX_BLEND,
     trigger_ratio: float = BASS_REPAIR_TRIGGER_RATIO,
     subtype: str = "FLOAT",
+    progress_callback: Callable[[float], None] | None = None,
 ) -> bool:
     """Blend low-passed residual into bass only where the bass stem drops out.
 
@@ -265,6 +300,8 @@ def _blend_bass_dropout_repair(
             return False
 
         channels = bass_file.channels
+        total_frames = max(1, bass_file.frames)
+        processed_frames = 0
         window = max(128, int(bass_file.samplerate * 0.028))
         smooth = max(64, int(bass_file.samplerate * 0.012))
         short_gap = max(16, int(bass_file.samplerate * (BASS_REPAIR_SHORT_GAP_MS / 1000)))
@@ -309,6 +346,9 @@ def _blend_bass_dropout_repair(
                 repaired = bass_block + (residual_block * weight[:, None])
                 repaired = _soft_limit_block(repaired)
                 out_file.write(repaired)
+                processed_frames += len(bass_block)
+                if progress_callback is not None:
+                    progress_callback(min(1.0, processed_frames / total_frames))
 
     return changed
 
@@ -412,11 +452,21 @@ def repair_bass_dropouts(job: Job, source: Path, stems_dir: Path, stem_names: li
     try:
         if not _write_bass_residual_candidate(job, source, stems_dir, stem_names, residual_path):
             return False
+        set_stage_progress(job, "bass_repair", 0.35, stage="Blending bass repair...")
         subtype = (
             "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
         )
         if not _blend_bass_dropout_repair(
-            stems_dir / "bass.wav", residual_path, repaired_path, subtype=subtype
+            stems_dir / "bass.wav",
+            residual_path,
+            repaired_path,
+            subtype=subtype,
+            progress_callback=lambda fraction: set_stage_progress(
+                job,
+                "bass_repair",
+                0.35 + (0.6 * fraction),
+                stage=f"Blending bass repair {round(fraction * 100)}%",
+            ),
         ):
             return False
         repaired_path.replace(stems_dir / "bass.wav")
@@ -471,6 +521,7 @@ def _blend_phase_residual(
     max_blend: float = PHASE_REPAIR_MAX_BLEND,
     floor_db: float = PHASE_REPAIR_FLOOR_DB,
     subtype: str = "FLOAT",
+    progress_callback: Callable[[float], None] | None = None,
 ) -> PhaseRepairResult:
     """Distribute source-minus-stem-sum residual back into active stems.
 
@@ -491,6 +542,8 @@ def _blend_phase_residual(
         reference_file = stack.enter_context(sf.SoundFile(reference_path))
         samplerate = reference_file.samplerate
         channels = reference_file.channels
+        total_frames = max(1, reference_file.frames)
+        processed_frames = 0
 
         stem_files: list[sf.SoundFile] = []
         for name in stem_names:
@@ -557,6 +610,9 @@ def _blend_phase_residual(
                 out_files[idx].write(repaired)
             after_residual = reference - repaired_sum
             after_power += float(np.sum(after_residual * after_residual, dtype=np.float64))
+            processed_frames += frames
+            if progress_callback is not None:
+                progress_callback(min(1.0, processed_frames / total_frames))
 
     ratio = after_power / before_power if before_power > 1e-18 else None
     return PhaseRepairResult(changed, ratio)
@@ -583,6 +639,7 @@ def repair_phase_coherence(
     try:
         if not _write_phase_reference(job, source, reference_path):
             return False
+        set_stage_progress(job, "phase_repair", 0.25, stage="Blending phase correction...")
         subtype = (
             "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
         )
@@ -593,6 +650,12 @@ def repair_phase_coherence(
             tmp_paths,
             max_blend=phase_repair_max_blend_for_preset(job.quality_preset),
             subtype=subtype,
+            progress_callback=lambda fraction: set_stage_progress(
+                job,
+                "phase_repair",
+                0.25 + (0.7 * fraction),
+                stage=f"Blending phase correction {round(fraction * 100)}%",
+            ),
         )
         job.phase_repair_residual_ratio = result.residual_ratio
         if not result.changed:
@@ -634,10 +697,17 @@ def denoise_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bo
     wav_codec = wav_codec_for_quality_preset(job.quality_preset)
     _set(job, stage=f"Denoising stems ({preset})...")
     try:
-        for name in available:
+        total = max(1, len(available))
+        for idx, name in enumerate(available):
             path = stems_dir / f"{name}.wav"
             tmp = path.with_suffix(".denoise.wav")
             tmp_pairs.append((path, tmp))
+            set_stage_progress(
+                job,
+                "denoise",
+                idx / total,
+                stage=f"Denoising stem {idx + 1}/{total}: {name}",
+            )
             cmd = [
                 ffmpeg_executable(),
                 "-y",
@@ -658,12 +728,190 @@ def denoise_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bo
             ]
             if not _run_ffmpeg(job, cmd):
                 return False
+            set_stage_progress(
+                job,
+                "denoise",
+                (idx + 1) / total,
+                stage=f"Denoised stem {idx + 1}/{total}: {name}",
+            )
         for path, tmp in tmp_pairs:
             tmp.replace(path)
         logger.info("stem denoise %s applied for job %s", preset, job.id)
         return True
     except Exception:
         logger.warning("stem denoise skipped for job %s", job.id, exc_info=True)
+        return False
+    finally:
+        for _, tmp in tmp_pairs:
+            tmp.unlink(missing_ok=True)
+        _set(job, stage=old_stage)
+
+
+def _iter_true_runs(mask: np.ndarray):
+    if mask.size == 0:
+        return
+    padded = np.concatenate(([False], mask.astype(bool, copy=False), [False]))
+    changes = np.diff(padded.astype(np.int8))
+    starts = np.flatnonzero(changes == 1)
+    ends = np.flatnonzero(changes == -1)
+    yield from zip(starts, ends, strict=False)
+
+
+def _gate_gain_from_mask(
+    active: np.ndarray,
+    *,
+    window_ms: int = STEM_GATE_WINDOW_MS,
+    hold_ms: int = STEM_GATE_HOLD_MS,
+    attack_ms: int = STEM_GATE_ATTACK_MS,
+    release_ms: int = STEM_GATE_RELEASE_MS,
+) -> np.ndarray:
+    """Build per-envelope-frame gain so gate edges fade instead of clicking."""
+    if active.size == 0:
+        return np.array([], dtype=np.float32)
+    active = active.astype(bool, copy=False)
+    expanded = active.copy()
+    hold_frames = max(0, int(np.ceil(hold_ms / max(1, window_ms))))
+    if hold_frames:
+        for start, end in _iter_true_runs(active):
+            expanded[max(0, start - hold_frames) : min(active.size, end + hold_frames)] = True
+
+    gain = np.zeros(active.size, dtype=np.float32)
+    attack_frames = max(1, int(np.ceil(attack_ms / max(1, window_ms))))
+    release_frames = max(1, int(np.ceil(release_ms / max(1, window_ms))))
+    for start, end in _iter_true_runs(expanded):
+        gain[start:end] = 1.0
+        attack_start = max(0, start - attack_frames)
+        if start > attack_start:
+            fade = np.linspace(0.0, 1.0, start - attack_start, endpoint=False, dtype=np.float32)
+            gain[attack_start:start] = np.maximum(gain[attack_start:start], fade)
+        release_end = min(active.size, end + release_frames)
+        if release_end > end:
+            fade = np.linspace(1.0, 0.0, release_end - end, endpoint=False, dtype=np.float32)
+            gain[end:release_end] = np.maximum(gain[end:release_end], fade)
+    return gain
+
+
+def _read_gate_envelope(path: Path, frame_len: int) -> np.ndarray:
+    envelopes: list[np.ndarray] = []
+    blocksize = max(frame_len, frame_len * 512)
+    with sf.SoundFile(path) as src:
+        while True:
+            block = src.read(blocksize, dtype="float32", always_2d=True)
+            if block.size == 0:
+                break
+            remainder = len(block) % frame_len
+            if remainder:
+                pad = np.zeros((frame_len - remainder, block.shape[1]), dtype=np.float32)
+                block = np.vstack((block, pad))
+            frames = block.reshape(-1, frame_len, block.shape[1])
+            rms = np.sqrt(np.mean(frames * frames, axis=(1, 2), dtype=np.float64) + 1e-12)
+            envelopes.append(rms.astype(np.float32))
+    if not envelopes:
+        return np.array([], dtype=np.float32)
+    return np.concatenate(envelopes)
+
+
+def _write_gated_stem(
+    path: Path,
+    out_path: Path,
+    *,
+    threshold_db: float = STEM_GATE_THRESHOLD_DB,
+    subtype: str = "FLOAT",
+) -> bool:
+    threshold = 10 ** (threshold_db / 20)
+    with sf.SoundFile(path) as src:
+        samplerate = src.samplerate
+        channels = src.channels
+        frame_len = max(64, int(samplerate * (STEM_GATE_WINDOW_MS / 1000)))
+
+    envelope = _read_gate_envelope(path, frame_len)
+    if envelope.size == 0:
+        return False
+    active = envelope >= threshold
+    gain = _gate_gain_from_mask(active)
+    if gain.size == 0 or float(np.min(gain, initial=1.0)) >= 0.999:
+        return False
+
+    blocksize = max(frame_len, frame_len * 512)
+    cursor = 0
+    with (
+        sf.SoundFile(path) as src,
+        sf.SoundFile(
+            out_path,
+            mode="w",
+            samplerate=samplerate,
+            channels=channels,
+            subtype=subtype,
+        ) as out,
+    ):
+        while True:
+            block = src.read(blocksize, dtype="float32", always_2d=True)
+            if block.size == 0:
+                break
+            start_frame = cursor // frame_len
+            end_frame = min(gain.size, (cursor + len(block) + frame_len - 1) // frame_len)
+            frame_gain = np.repeat(gain[start_frame:end_frame], frame_len)
+            offset = cursor - (start_frame * frame_len)
+            sample_gain = frame_gain[offset : offset + len(block)]
+            if sample_gain.size < len(block):
+                sample_gain = np.pad(
+                    sample_gain,
+                    (0, len(block) - sample_gain.size),
+                    constant_values=float(gain[-1]),
+                )
+            out.write((block * sample_gain[:, None]).astype(np.float32, copy=False))
+            cursor += len(block)
+    return True
+
+
+def gate_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bool:
+    """Mute near-silent stem bleed without shortening any stem files.
+
+    The gate is deliberately post-separation and timeline-preserving: it zeros
+    quiet regions with short fades, rather than removing samples. That keeps all
+    stems aligned for playback/export while reducing residual hiss and bleed.
+    """
+    if not stem_gate_enabled_for_preset(job.quality_preset):
+        return False
+
+    available = [name for name in stem_names if (stems_dir / f"{name}.wav").is_file()]
+    if not available:
+        return False
+
+    old_stage = job.stage_message
+    tmp_pairs: list[tuple[Path, Path]] = []
+    subtype = "FLOAT" if wav_codec_for_quality_preset(job.quality_preset) == "pcm_f32le" else "PCM_16"
+    _set(job, stage="Gating near-silent stem bleed...")
+    try:
+        total = max(1, len(available))
+        for idx, name in enumerate(available):
+            path = stems_dir / f"{name}.wav"
+            tmp = path.with_suffix(".gate.wav")
+            set_stage_progress(
+                job,
+                "gate",
+                idx / total,
+                stage=f"Gating stem {idx + 1}/{total}: {name}",
+            )
+            if _write_gated_stem(path, tmp, threshold_db=STEM_GATE_THRESHOLD_DB, subtype=subtype):
+                tmp_pairs.append((path, tmp))
+            else:
+                tmp.unlink(missing_ok=True)
+            set_stage_progress(
+                job,
+                "gate",
+                (idx + 1) / total,
+                stage=f"Checked stem gate {idx + 1}/{total}: {name}",
+            )
+        if not tmp_pairs:
+            return False
+        for path, tmp in tmp_pairs:
+            tmp.replace(path)
+        job.stem_gate_threshold_db = STEM_GATE_THRESHOLD_DB
+        logger.info("stem gate applied to %s stem(s) for job %s", len(tmp_pairs), job.id)
+        return True
+    except Exception:
+        logger.warning("stem gate skipped for job %s", job.id, exc_info=True)
         return False
     finally:
         for _, tmp in tmp_pairs:

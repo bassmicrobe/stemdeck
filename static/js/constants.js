@@ -6,7 +6,7 @@ export let TRACK_NAMES = ["original", ...STEM_NAMES];
 const FOUR_STEM_NAMES = ["vocals", "drums", "bass", "other"];
 
 export function supportedStemNamesForQuality(qualityPreset = "standard") {
-  return qualityPreset === "high" || qualityPreset === "max" ? FOUR_STEM_NAMES : STEM_NAMES;
+  return ["high", "max", "ultra"].includes(qualityPreset) ? FOUR_STEM_NAMES : STEM_NAMES;
 }
 
 export async function syncStemNamesFromAPI() {

@@ -75,6 +75,8 @@ const _MIGRATE_KEYS = [
   "stemdeck.deleted_jobs",
   "stemdeck:selected-stems",
   "stemdeck:quality-preset",
+  "stemdeck:stem-denoise",
+  "stemdeck:demucs-device",
 ];
 
 // One-time bootstrap: copy localStorage → store for existing users.
@@ -136,6 +138,17 @@ export function fmtTickLabel(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60).toString().padStart(2, "0");
   return `${m}:${sec}`;
+}
+
+export function fmtBeatGrid(beatTimes, durationSec = null) {
+  const beats = Array.isArray(beatTimes)
+    ? beatTimes.map(Number).filter((t) => Number.isFinite(t) && t >= 0)
+    : [];
+  if (!beats.length) return "—";
+  const lastBeat = beats[beats.length - 1];
+  const capped = Number.isFinite(durationSec) && durationSec > lastBeat + 5;
+  const suffix = capped ? ` · first ${fmtTime(lastBeat)}` : "";
+  return `${beats.length} beat${beats.length === 1 ? "" : "s"}${suffix}`;
 }
 
 export const $ = (id) => document.getElementById(id);

@@ -3,9 +3,18 @@ import {
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
   qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
   stemDenoisePreset, stemDenoiseReady, denoiseSelect, setStemDenoisePreset,
+  demucsDevicePreset, demucsDeviceReady, demucsDeviceSelect, setDemucsDevicePreset,
 } from "./state.js";
 import { supportedStemNamesForQuality, syncStemNamesFromAPI } from "./constants.js";
-import { renderEmptyShell, buildStripStems, downloadCurrentMix, downloadAllStemsZip, downloadRegionMix, drawFooterPlaceholder } from "./player.js";
+import {
+  renderEmptyShell,
+  buildStripStems,
+  downloadChordMidi,
+  downloadCurrentMix,
+  downloadAllStemsZip,
+  downloadRegionMix,
+  drawFooterPlaceholder,
+} from "./player.js";
 import { wireJobForm, showError } from "./job.js";
 import { wireTransportButtons } from "./transport.js";
 import { togglePlayPause, updateLoopRegionVisual } from "./transport.js";
@@ -139,6 +148,38 @@ function wireDenoiseSelect() {
   });
 }
 
+async function refreshDeviceSelectAvailability() {
+  if (!demucsDeviceSelect) return;
+  try {
+    const res = await fetch("/api/health");
+    if (!res.ok) return;
+    const health = await res.json();
+    const available = new Set(health.demucs_available_devices || ["cpu"]);
+    const detected = health.demucs_device || "cpu";
+    for (const option of demucsDeviceSelect.options) {
+      if (option.value === "auto") {
+        option.textContent = `Auto (${detected.toUpperCase()})`;
+        option.disabled = false;
+      } else {
+        option.disabled = !available.has(option.value);
+      }
+    }
+    if (demucsDeviceSelect.value !== "auto" && !available.has(demucsDeviceSelect.value)) {
+      setDemucsDevicePreset("auto");
+      demucsDeviceSelect.value = "auto";
+    }
+  } catch (e) {
+    console.warn("[main] failed to refresh demucs device availability:", e);
+  }
+}
+
+function wireDeviceSelect() {
+  if (!demucsDeviceSelect) return;
+  demucsDeviceSelect.addEventListener("change", () => {
+    setDemucsDevicePreset(demucsDeviceSelect.value);
+  });
+}
+
 // ─── Wire everything up ───
 
 syncStemNamesFromAPI().then(() => buildStripStems());
@@ -152,6 +193,7 @@ wireStemChoiceButtons();
 wireAllButton();
 wireQualitySelect();
 wireDenoiseSelect();
+wireDeviceSelect();
 wireFileDrop();
 wireAppShellControls();
 
@@ -160,8 +202,11 @@ wireAppShellControls();
   await stemSelectionReady;
   await qualityPresetReady;
   await stemDenoiseReady;
+  await demucsDeviceReady;
   if (qualitySelect) qualitySelect.value = qualityPreset;
   if (denoiseSelect) denoiseSelect.value = stemDenoisePreset;
+  if (demucsDeviceSelect) demucsDeviceSelect.value = demucsDevicePreset;
+  await refreshDeviceSelectAvailability();
   refreshStemChoiceVisuals();
   await initCatalog();
 })().catch(console.error);
@@ -182,8 +227,9 @@ function wireFooterControls() {
   const fmtFlac  = document.getElementById("t-fmt-flac");
   const itemMix    = document.getElementById("t-export-mix");
   const itemStems  = document.getElementById("t-export-stems");
+  const itemChords = document.getElementById("t-export-chords");
   const itemRegion = document.getElementById("t-export-region");
-  const actionItems = () => [itemMix, itemStems, itemRegion];
+  const actionItems = () => [itemMix, itemStems, itemChords, itemRegion];
 
   let format = "wav";
   let busy = false;
@@ -216,6 +262,7 @@ function wireFooterControls() {
     if (exportLabel) exportLabel.textContent = "Export Mix";
     itemMix?.removeAttribute("aria-disabled");
     itemStems?.removeAttribute("aria-disabled");
+    itemChords?.removeAttribute("aria-disabled");
     updateLoopRegionVisual(); // restores the region item's disabled state
   }
 
@@ -257,6 +304,13 @@ function wireFooterControls() {
     e.stopPropagation();
     if (busy) return;
     downloadAllStemsZip(format);
+    flashBusy();
+  });
+
+  itemChords?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (busy) return;
+    if (!downloadChordMidi()) { showError("Chord MIDI is not available for this track yet."); return; }
     flashBusy();
   });
 
@@ -326,8 +380,8 @@ function wireFileDrop() {
   function applyFile(file) {
     if (!file) return;
     const lower = file.name.toLowerCase();
-    if (!lower.endsWith(".mp3") && !lower.endsWith(".wav") && !lower.endsWith(".flac")) {
-      showError("Only MP3, WAV, and FLAC files are supported.");
+    if (!lower.endsWith(".mp3") && !lower.endsWith(".wav") && !lower.endsWith(".flac") && !lower.endsWith(".m4a")) {
+      showError("Only MP3, WAV, FLAC, and M4A files are supported.");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {

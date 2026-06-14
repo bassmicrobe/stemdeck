@@ -66,13 +66,47 @@ def _detect_device() -> str:
     return "cpu"
 
 
+def _system_memory_gb() -> float | None:
+    try:
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        page_count = os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, OSError, ValueError):
+        return None
+    return (page_size * page_count) / (1024**3)
+
+
+def _detect_pipeline_concurrency(device: str) -> int:
+    """Choose a safe local pipeline parallelism level.
+
+    Demucs is the dominant memory/compute consumer. GPU backends are kept at
+    one job by default because concurrent model runs can exhaust unified/VRAM
+    memory quickly; roomy CPU-only machines can run two jobs in parallel.
+    """
+    raw = os.environ.get("STEMDECK_PIPELINE_CONCURRENCY", "").strip().lower()
+    if raw and raw != "auto":
+        try:
+            return max(1, min(4, int(raw)))
+        except ValueError:
+            pass
+
+    if device in {"cuda", "mps"}:
+        return 1
+
+    cpu_count = os.cpu_count() or 1
+    memory_gb = _system_memory_gb()
+    if cpu_count >= 12 and (memory_gb is None or memory_gb >= 24):
+        return 2
+    return 1
+
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = ROOT / "static"
 STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "other")
 JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 
-SUPPORTED_QUALITY_PRESETS = frozenset(("standard", "high", "max"))
+SUPPORTED_QUALITY_PRESETS = frozenset(("standard", "high", "max", "ultra"))
 SUPPORTED_STEM_DENOISE_PRESETS = frozenset(("off", "light", "strong"))
+SUPPORTED_DEMUCS_DEVICE_CHOICES = frozenset(("auto", "cpu", "mps", "cuda"))
 
 
 @dataclass(frozen=True)
@@ -97,9 +131,41 @@ def normalize_stem_denoise_preset(value: str | None) -> str:
     return preset if preset in SUPPORTED_STEM_DENOISE_PRESETS else "off"
 
 
+def normalize_demucs_device_choice(value: str | None) -> str:
+    choice = (value or "").strip().lower()
+    return choice if choice in SUPPORTED_DEMUCS_DEVICE_CHOICES else "auto"
+
+
+def available_demucs_devices() -> tuple[str, ...]:
+    """Return Torch devices this backend can actually run right now."""
+    devices: list[str] = ["cpu"]
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            devices.append("cuda")
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            devices.append("mps")
+    except ImportError:
+        pass
+    return tuple(devices)
+
+
+def demucs_device_choice_available(value: str | None) -> bool:
+    choice = normalize_demucs_device_choice(value)
+    return choice == "auto" or choice in available_demucs_devices()
+
+
+def resolve_demucs_device_choice(value: str | None) -> str:
+    choice = normalize_demucs_device_choice(value)
+    if choice == "auto":
+        return globals().get("DEMUCS_DEVICE") or _detect_device()
+    return choice
+
+
 def stem_names_for_quality_preset(preset: str | None) -> tuple[str, ...]:
     quality_preset = normalize_quality_preset(preset)
-    if quality_preset in ("high", "max"):
+    if quality_preset in ("high", "max", "ultra"):
         return ("vocals", "drums", "bass", "other")
     return STEM_NAMES
 
@@ -114,6 +180,8 @@ _QUALITY_DEFAULTS = {
         "pre_gain_db": 0.0,
         "float32": False,
         "clip_mode": None,
+        "overlap": 0.0,
+        "segment": 0.0,
     },
     # Slower, cleaner 4-stem separation. htdemucs_ft is Demucs' fine-tuned
     # model; shifts averages repeated runs and helps reduce random artifacts.
@@ -123,6 +191,8 @@ _QUALITY_DEFAULTS = {
         "pre_gain_db": -6.0,
         "float32": True,
         "clip_mode": "rescale",
+        "overlap": 0.0,
+        "segment": 0.0,
     },
     "max": {
         "model": "htdemucs_ft",
@@ -130,6 +200,20 @@ _QUALITY_DEFAULTS = {
         "pre_gain_db": -6.0,
         "float32": True,
         "clip_mode": "rescale",
+        "overlap": 0.0,
+        "segment": 0.0,
+    },
+    # Slowest local preset. Extra shift averaging and overlap can reduce
+    # random separation artifacts and segment-boundary roughness at the cost
+    # of noticeably longer extraction time.
+    "ultra": {
+        "model": "htdemucs_ft",
+        "shifts": 16,
+        "pre_gain_db": -8.0,
+        "float32": True,
+        "clip_mode": "rescale",
+        "overlap": 0.5,
+        "segment": 0.0,
     },
 }
 
@@ -149,8 +233,8 @@ def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
         clip_mode=_env_choice(
             "STEMDECK_DEMUCS_CLIP_MODE", quality["clip_mode"], {"rescale", "clamp", "none"}
         ),
-        overlap=max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", 0.0)),
-        segment=max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", 0.0)),
+        overlap=max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", float(quality["overlap"]))),
+        segment=max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", float(quality["segment"]))),
     )
 
 
@@ -179,7 +263,7 @@ def bass_repair_enabled_for_preset(preset: str | None) -> bool:
     The env var is intentionally global so packaged builds can force the
     behavior without changing per-job API shape.
     """
-    default = normalize_quality_preset(preset) in ("high", "max")
+    default = normalize_quality_preset(preset) in ("high", "max", "ultra")
     return _env_bool("STEMDECK_BASS_REPAIR", default)
 
 
@@ -190,7 +274,7 @@ def phase_repair_enabled_for_preset(preset: str | None) -> bool:
     and the original mix. The repair pass is slower, so keep it on the
     quality-first path unless explicitly overridden.
     """
-    default = normalize_quality_preset(preset) in ("high", "max")
+    default = normalize_quality_preset(preset) in ("high", "max", "ultra")
     return _env_bool("STEMDECK_PHASE_REPAIR", default)
 
 
@@ -198,6 +282,7 @@ _PHASE_REPAIR_DEFAULT_MAX_BLEND = {
     "standard": 0.42,
     "high": 0.65,
     "max": 0.90,
+    "ultra": 0.95,
 }
 
 
@@ -214,6 +299,11 @@ def phase_repair_max_blend_for_preset(preset: str | None) -> float:
     quality_preset = normalize_quality_preset(preset)
     default = _PHASE_REPAIR_DEFAULT_MAX_BLEND[quality_preset]
     return _clamp_phase_repair_blend(_env_float("STEMDECK_PHASE_REPAIR_MAX_BLEND", default))
+
+
+def stem_gate_enabled_for_preset(_preset: str | None) -> bool:
+    """Mute only near-silent stem bleed while preserving timeline alignment."""
+    return _env_bool("STEMDECK_STEM_GATE", True)
 
 
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
@@ -243,6 +333,7 @@ FFPROBE_BIN = _env_path(
 )
 DEMUCS_MODEL = _demucs_settings.model
 DEMUCS_DEVICE = _detect_device()
+PIPELINE_CONCURRENCY = _detect_pipeline_concurrency(DEMUCS_DEVICE)
 DEMUCS_SHIFTS = _demucs_settings.shifts
 DEMUCS_PRE_GAIN_DB = _demucs_settings.pre_gain_db
 DEMUCS_FLOAT32 = _demucs_settings.float32
@@ -259,6 +350,11 @@ BASS_REPAIR_SHORT_GAP_RATIO = max(
 PHASE_REPAIR_MAX_BLEND = phase_repair_max_blend_for_preset(QUALITY_PRESET)
 PHASE_REPAIR_FLOOR_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_PHASE_REPAIR_FLOOR_DB", -58.0)))
 STEM_POST_LIMITER_PEAK = min(0.999, max(0.5, _env_float("STEMDECK_STEM_POST_LIMITER_PEAK", 0.98)))
+STEM_GATE_THRESHOLD_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_STEM_GATE_THRESHOLD_DB", -54.0)))
+STEM_GATE_WINDOW_MS = max(5, _env_int("STEMDECK_STEM_GATE_WINDOW_MS", 20))
+STEM_GATE_HOLD_MS = max(0, _env_int("STEMDECK_STEM_GATE_HOLD_MS", 90))
+STEM_GATE_ATTACK_MS = max(1, _env_int("STEMDECK_STEM_GATE_ATTACK_MS", 8))
+STEM_GATE_RELEASE_MS = max(1, _env_int("STEMDECK_STEM_GATE_RELEASE_MS", 85))
 STEM_PREPROCESS_TARGET_I = _env_float("STEMDECK_PREPROCESS_TARGET_I", -18.0)
 STEM_PREPROCESS_TRUE_PEAK = min(
     -0.1, max(-6.0, _env_float("STEMDECK_PREPROCESS_TRUE_PEAK", -1.5))

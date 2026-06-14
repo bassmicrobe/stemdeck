@@ -161,6 +161,9 @@ def _recover_done_job(job_dir: Path) -> Job | None:
     mix_url = None
     if (stems_dir / "mix.wav").is_file():
         mix_url = f"/api/jobs/{job_dir.name}/stems/mix.wav"
+    chord_midi_url = None
+    if (stems_dir / "chords.mid").is_file():
+        chord_midi_url = f"/api/jobs/{job_dir.name}/chords.mid"
     selected = [stem["name"] for stem in stems if stem["name"] in STEM_NAMES] or list(STEM_NAMES)
     meta_path = job_dir / "metadata.json"
     if not meta_path.is_file():
@@ -176,9 +179,11 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         progress=1.0,
         stage_message="Done",
         stems=stems,
-        selected_stems=selected,
+        selected_stems=meta.get("selected_stems") or selected,
         quality_preset=str(meta.get("quality_preset") or "standard"),
         stem_denoise_preset=str(meta.get("stem_denoise_preset") or "off"),
+        demucs_device=str(meta.get("demucs_device") or "auto"),
+        demucs_device_resolved=str(meta.get("demucs_device_resolved") or ""),
         mix_url=mix_url,
         created_at=job_dir.stat().st_mtime,
         title=meta.get("title"),
@@ -192,13 +197,24 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         peak_db=meta.get("peak_db"),
         dynamic_range=meta.get("dynamic_range"),
         tempo_stability=meta.get("tempo_stability"),
+        beat_times=meta.get("beat_times") if isinstance(meta.get("beat_times"), list) else None,
+        chord_progression=meta.get("chord_progression")
+        if isinstance(meta.get("chord_progression"), list)
+        else None,
+        chord_midi_url=meta.get("chord_midi_url") or chord_midi_url,
         stem_presence=meta.get("stem_presence"),
         sections=meta.get("sections"),
         tags=meta.get("tags"),
+        source_url=meta.get("source_url"),
         bass_repair_applied=bool(meta.get("bass_repair_applied", False)),
         phase_repair_applied=bool(meta.get("phase_repair_applied", False)),
         phase_repair_residual_ratio=meta.get("phase_repair_residual_ratio"),
         stem_denoise_applied=bool(meta.get("stem_denoise_applied", False)),
+        stem_gate_applied=bool(meta.get("stem_gate_applied", False)),
+        stem_gate_threshold_db=meta.get("stem_gate_threshold_db"),
+        processing_started_at=meta.get("processing_started_at"),
+        completed_at=meta.get("completed_at"),
+        processing_elapsed_seconds=meta.get("processing_elapsed_seconds"),
     )
 
 

@@ -2,13 +2,21 @@ import {
   form, urlInput, submitBtn, errorEl, jobBox, jobTitleEl, jobStageEl,
   jobDetailEl, jobEtaEl, jobPercentEl, jobCancelBtn, progressEl, titleEl, bpmChip, keyChip,
   eventSource, setEventSource, setCurrentJobId, currentJobId,
-  effectiveSelectedStems, qualityPreset, selectedStems, stemDenoisePreset,
+  demucsDevicePreset, effectiveSelectedStems, qualityPreset, selectedStems, stemDenoisePreset,
 } from "./state.js";
 import { destroyPlayer, wireUpAudio, setWaveformLoading, updateFooterTrack } from "./player.js";
 import { stagePhrases } from "./phrases.js";
-import { addTrackToLibrary, setCurrentTrack, updateTrackStatus, applyStemPresenceCards } from "./catalog.js";
+import {
+  addTrackToLibrary,
+  applyStemPresenceCards,
+  getCurrentTrack,
+  isTrackPlayable,
+  setCurrentTrack,
+  updateTrackStatus,
+} from "./catalog.js";
 import { initSections } from "./sections.js";
 import { supportedStemNamesForQuality } from "./constants.js";
+import { fmtBeatGrid } from "./utils.js";
 
 // Playful stage label rotation (Claude-Code-style flair). The backend
 // emits truthful stage strings; we surface them in the small #job-detail
@@ -18,6 +26,9 @@ let phraseTimerId = null;
 let lastStatus = null;
 let jobPollTimerId = null;
 let activeJobSyncTimerId = null;
+let jobTimerId = null;
+let jobTimerState = null;
+let monitoredJobId = null;
 const renderedJobs = new Set();
 const jobSources = new Map();
 const activeJobIds = new Set();
@@ -40,6 +51,29 @@ function setSubmitProcessing(processing) {
   if (label) label.textContent = processing ? "Processing" : "Process";
 }
 
+function shouldForegroundNewJob() {
+  if (!jobBox.classList.contains("hidden")) return false;
+  return !isTrackPlayable(getCurrentTrack());
+}
+
+function showJobMonitor(jobId, status = "queued") {
+  monitoredJobId = jobId;
+  if (!isTrackPlayable(getCurrentTrack())) setCurrentTrack(jobId);
+  jobBox.classList.remove("hidden");
+  jobCancelBtn.classList.remove("hidden");
+  startPhraseRotation(status);
+  lastStatus = status;
+  connectEvents(jobId);
+}
+
+export function showJobProgress(jobId) {
+  if (!jobId) return;
+  showJobMonitor(jobId);
+  probeJob(jobId).catch((err) => {
+    console.warn("[job] could not open job monitor:", err);
+  });
+}
+
 function formatClock(seconds) {
   const n = Math.max(0, Math.round(Number(seconds) || 0));
   const h = Math.floor(n / 3600);
@@ -49,16 +83,95 @@ function formatClock(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function etaLabel(state, pct) {
-  if (TERMINAL_STATUSES.has(state.status)) return "";
-  if (state.status === "queued" && state.queue_position != null) {
-    return `Queue #${state.queue_position}${state.queue_size ? ` of ${state.queue_size}` : ""}`;
+function epochMs(seconds) {
+  const n = Number(seconds);
+  return Number.isFinite(n) && n > 0 ? n * 1000 : null;
+}
+
+function timerFromState(state, pct = null) {
+  const localNow = Date.now();
+  const serverNow = epochMs(state.server_time) ?? localNow;
+  return {
+    jobId: state.job_id,
+    status: state.status,
+    progressPercent: pct ?? Math.round(state.progress_percent ?? ((state.progress || 0) * 100)),
+    timerStartedAtMs: epochMs(state.timer_started_at ?? state.created_at),
+    processingStartedAtMs: epochMs(state.processing_started_at),
+    completedAtMs: epochMs(state.completed_at),
+    serverOffsetMs: serverNow - localNow,
+    etaSeconds: state.eta_seconds,
+    etaSampledAtMs: serverNow,
+    queuePosition: state.queue_position,
+    queueSize: state.queue_size,
+  };
+}
+
+function serverNowMs(timer) {
+  return Date.now() + (timer?.serverOffsetMs ?? 0);
+}
+
+function elapsedFrom(timer, startedAtMs) {
+  if (!startedAtMs) return null;
+  const endedAtMs = timer.completedAtMs ?? serverNowMs(timer);
+  return Math.max(0, (endedAtMs - startedAtMs) / 1000);
+}
+
+function etaFrom(timer) {
+  if (timer.etaSeconds == null) return null;
+  const elapsedSinceSample = Math.max(0, (serverNowMs(timer) - timer.etaSampledAtMs) / 1000);
+  return Math.max(0, Number(timer.etaSeconds) - elapsedSinceSample);
+}
+
+function timerLabel(timer) {
+  if (!timer || TERMINAL_STATUSES.has(timer.status)) return "";
+  if (timer.status === "queued") {
+    const waiting = elapsedFrom(timer, timer.timerStartedAtMs);
+    const waitingLabel = waiting != null ? `Waiting ${formatClock(waiting)}` : "Waiting";
+    if (timer.queuePosition != null) {
+      const queueLabel = `Queue #${timer.queuePosition}${timer.queueSize ? ` of ${timer.queueSize}` : ""}`;
+      return [queueLabel, waitingLabel].filter(Boolean).join(" · ");
+    }
+    return waitingLabel;
   }
-  if (state.eta_seconds != null) return `ETA ${formatClock(state.eta_seconds)}`;
-  if (state.status === "separating" && pct > 0 && pct < 100) return "ETA estimating...";
-  if (state.status === "queued") return "Waiting in queue";
-  const elapsed = state.total_elapsed_seconds ?? state.elapsed_seconds;
-  return elapsed != null ? `Elapsed ${formatClock(elapsed)}` : "";
+
+  const startedAtMs = timer.processingStartedAtMs ?? timer.timerStartedAtMs;
+  const elapsed = elapsedFrom(timer, startedAtMs);
+  const elapsedLabel = elapsed != null ? `Elapsed ${formatClock(elapsed)}` : "";
+  const eta = etaFrom(timer);
+  if (eta != null) {
+    return [elapsedLabel, `ETA ${formatClock(eta)}`].filter(Boolean).join(" · ");
+  }
+  if (timer.status === "separating" && timer.progressPercent > 0 && timer.progressPercent < 100) {
+    return [elapsedLabel, "ETA estimating..."].filter(Boolean).join(" · ");
+  }
+  return elapsedLabel;
+}
+
+function etaLabel(state, pct) {
+  return timerLabel(timerFromState(state, pct));
+}
+
+function renderJobTimer() {
+  if (!jobTimerState) return;
+  jobEtaEl.textContent = timerLabel(jobTimerState);
+}
+
+function syncJobTimer(state, pct) {
+  if (!state?.job_id || TERMINAL_STATUSES.has(state.status)) {
+    stopJobTimer();
+    return;
+  }
+  jobTimerState = timerFromState(state, pct);
+  renderJobTimer();
+  if (!jobTimerId) jobTimerId = setInterval(renderJobTimer, 1000);
+}
+
+function stopJobTimer() {
+  if (jobTimerId) {
+    clearInterval(jobTimerId);
+    jobTimerId = null;
+  }
+  jobTimerState = null;
 }
 
 function pickPhrase(status) {
@@ -122,8 +235,10 @@ export function reset() {
     setEventSource(null);
   }
   stopJobPolling();
+  stopJobTimer();
   stopPhraseRotation();
   lastStatus = null;
+  monitoredJobId = null;
   destroyPlayer();
   errorEl.classList.add("hidden");
   errorEl.textContent = "";
@@ -146,6 +261,13 @@ function channelForStatus(state) {
 }
 
 function applyState(state, { focus = true } = {}) {
+  const currentTrack = getCurrentTrack();
+  const ownsStudio = focus && (
+    currentJobId === state.job_id
+    || !isTrackPlayable(currentTrack)
+    || currentTrack?.id === state.job_id
+  );
+
   if (state.job_id) {
     addTrackToLibrary({
       id: state.job_id,
@@ -167,17 +289,35 @@ function applyState(state, { focus = true } = {}) {
       keyConfidence: state.key_confidence,
       lufs: state.lufs,
       peakDb: state.peak_db,
+      dynamicRange: state.dynamic_range,
+      tempoStability: state.tempo_stability,
+      beatTimes: state.beat_times ?? null,
+      chordProgression: state.chord_progression ?? null,
+      chordMidiUrl: state.chord_midi_url ?? null,
       stemPresence: state.stem_presence,
       bassRepairApplied: state.bass_repair_applied ?? false,
       phaseRepairApplied: state.phase_repair_applied ?? false,
       phaseRepairResidualRatio: state.phase_repair_residual_ratio ?? null,
       stemDenoisePreset: state.stem_denoise_preset || "off",
+      demucsDevice: state.demucs_device || "auto",
+      demucsDeviceResolved: state.demucs_device_resolved || "",
       stemDenoiseApplied: state.stem_denoise_applied ?? false,
+      stemGateApplied: state.stem_gate_applied ?? false,
+      stemGateThresholdDb: state.stem_gate_threshold_db ?? null,
+      profileKey: state.profile_key,
+      profileLabel: state.profile_label,
+      processingSeconds: state.processing_elapsed_seconds ?? state.total_elapsed_seconds ?? null,
+      processingStartedAt: state.processing_started_at ?? null,
+      timerStartedAt: state.timer_started_at ?? state.created_at ?? null,
+      completedAt: state.completed_at ?? null,
       sourceUrl: jobSources.get(state.job_id) || state.source_url || urlInput.value,
       createdAt: state.created_at,
     });
-    if (focus) setCurrentTrack(state.job_id);
+    if (focus && !isTrackPlayable(getCurrentTrack())) setCurrentTrack(state.job_id);
   }
+  const terminal = TERMINAL_STATUSES.has(state.status);
+  if (terminal) activeJobIds.delete(state.job_id);
+
   if (!focus) {
     if (state.status === "done") updateTrackStatus(state.job_id, "done");
     else if (state.status === "error") updateTrackStatus(state.job_id, "error");
@@ -186,18 +326,19 @@ function applyState(state, { focus = true } = {}) {
   }
   if (state.title) {
     jobTitleEl.textContent = state.title;
-    titleEl.textContent = state.title;
+    if (ownsStudio) titleEl.textContent = state.title;
   }
-  if (state.bpm) bpmChip.textContent = `${state.bpm} BPM`;
-  if (state.key) keyChip.textContent = state.key;
-  if (state.title || state.bpm || state.key || state.thumbnail) {
-    updateFooterTrack({
-      title: state.title,
-      thumbnail: state.thumbnail,
-      key: state.key,
-      bpm: state.bpm,
-      stemCount: state.stems ? state.stems.filter((s) => s.name !== "original").length : null,
-    });
+  if (ownsStudio && state.bpm) bpmChip.textContent = `${state.bpm} BPM`;
+  if (ownsStudio && state.key) keyChip.textContent = state.key;
+    if (ownsStudio && (state.title || state.bpm || state.key || state.thumbnail)) {
+      updateFooterTrack({
+        title: state.title,
+        thumbnail: state.thumbnail,
+        key: state.key,
+        bpm: state.bpm,
+        profileLabel: state.profile_label,
+        stemCount: state.stems ? state.stems.filter((s) => s.name !== "original").length : null,
+      });
   }
   const summaryKey = document.getElementById("summary-key");
   const summaryBpm = document.getElementById("summary-bpm");
@@ -208,18 +349,27 @@ function applyState(state, { focus = true } = {}) {
   const summaryLufs = document.getElementById("summary-lufs");
   const summaryPeak = document.getElementById("summary-peak");
   const summaryDuration = document.getElementById("summary-duration");
-  if (summaryKey && state.key) summaryKey.textContent = state.key;
-  if (summaryBpm && state.bpm) summaryBpm.textContent = String(state.bpm);
-  if (summaryScale && state.scale) summaryScale.textContent = state.scale;
-  if (summaryScaleName && state.scale) summaryScaleName.textContent = state.scale;
-  if (summaryLufs && state.lufs != null) summaryLufs.textContent = state.lufs.toFixed(1);
-  if (summaryPeak && state.peak_db != null) summaryPeak.textContent = `Peak ${state.peak_db.toFixed(1)} dB`;
-  if (summaryDuration && state.duration) {
+  const trackProcessed = document.getElementById("track-processed");
+  const trackBeats = document.getElementById("track-beats");
+  if (ownsStudio && summaryKey && state.key) summaryKey.textContent = state.key;
+  if (ownsStudio && summaryBpm && state.bpm) summaryBpm.textContent = String(state.bpm);
+  if (ownsStudio && summaryScale && state.scale) summaryScale.textContent = state.scale;
+  if (ownsStudio && summaryScaleName && state.scale) summaryScaleName.textContent = state.scale;
+  if (ownsStudio && summaryLufs && state.lufs != null) summaryLufs.textContent = state.lufs.toFixed(1);
+  if (ownsStudio && summaryPeak && state.peak_db != null) summaryPeak.textContent = `Peak ${state.peak_db.toFixed(1)} dB`;
+  if (ownsStudio && summaryDuration && state.duration) {
     const m = Math.floor(state.duration / 60);
     const s = Math.floor(state.duration % 60).toString().padStart(2, "0");
     summaryDuration.textContent = `${m.toString().padStart(2, "0")}:${s}`;
   }
-  if (summaryConfidence && state.key_confidence != null) {
+  if (ownsStudio && trackProcessed) {
+    const elapsed = state.processing_elapsed_seconds ?? state.total_elapsed_seconds;
+    trackProcessed.textContent = elapsed != null ? formatClock(elapsed) : "—";
+  }
+  if (ownsStudio && trackBeats) {
+    trackBeats.textContent = fmtBeatGrid(state.beat_times, state.duration);
+  }
+  if (ownsStudio && summaryConfidence && state.key_confidence != null) {
     const confidence = Math.max(0, Math.min(100, Number(state.key_confidence)));
     const confSpan = document.createElement("span");
     confSpan.textContent = `${confidence}%`;
@@ -233,20 +383,20 @@ function applyState(state, { focus = true } = {}) {
   const summaryDrLabel = document.getElementById("summary-dr-label");
   const summaryStability = document.getElementById("summary-stability");
   const summaryStabilityLabel = document.getElementById("summary-stability-label");
-  if (summaryDr && state.dynamic_range != null) summaryDr.textContent = String(state.dynamic_range);
-  if (summaryDrLabel && state.dynamic_range != null) {
+  if (ownsStudio && summaryDr && state.dynamic_range != null) summaryDr.textContent = String(state.dynamic_range);
+  if (ownsStudio && summaryDrLabel && state.dynamic_range != null) {
     const dr = state.dynamic_range;
     summaryDrLabel.textContent = dr < 7 ? "Compressed" : dr < 10 ? "Moderate" : dr < 14 ? "High" : "Wide";
   }
-  if (summaryStability && state.tempo_stability != null) {
+  if (ownsStudio && summaryStability && state.tempo_stability != null) {
     summaryStability.textContent = `${state.tempo_stability}%`;
     summaryStability.className = "meta-card-value" + (state.tempo_stability >= 80 ? " stability-high" : "");
   }
-  if (summaryStabilityLabel && state.tempo_stability != null) {
+  if (ownsStudio && summaryStabilityLabel && state.tempo_stability != null) {
     const s = state.tempo_stability;
     summaryStabilityLabel.textContent = s >= 90 ? "Very Stable" : s >= 70 ? "Stable" : s >= 50 ? "Moderate" : "Variable";
   }
-  if (state.stem_presence != null) {
+  if (ownsStudio && state.stem_presence != null) {
     applyStemPresenceCards(state.stem_presence);
   }
   // Stage label is owned by the phrase-rotation timer below; we don't
@@ -257,9 +407,9 @@ function applyState(state, { focus = true } = {}) {
   progressEl.value = pct;
   jobPercentEl.textContent = `${pct}%`;
   jobEtaEl.textContent = etaLabel(state, pct);
+  syncJobTimer(state, pct);
 
   // Cancel button is visible exactly while the job is in a non-terminal state.
-  const terminal = TERMINAL_STATUSES.has(state.status);
   jobCancelBtn.classList.toggle("hidden", terminal);
 
   if (state.status !== lastStatus) {
@@ -270,21 +420,30 @@ function applyState(state, { focus = true } = {}) {
 
   if (state.status === "error") {
     stopJobPolling();
+    stopJobTimer();
     updateTrackStatus(state.job_id, "error");
-    setWaveformLoading(false);
+    if (ownsStudio) setWaveformLoading(false);
     showError(state.error || "Unknown error");
     setSubmitProcessing(false);
   } else if (state.status === "cancelled") {
     stopJobPolling();
+    stopJobTimer();
     updateTrackStatus(state.job_id, "cancelled");
-    setWaveformLoading(false);
-    jobBox.classList.add("hidden");
+    if (ownsStudio) setWaveformLoading(false);
+    if (monitoredJobId === state.job_id) {
+      monitoredJobId = null;
+      jobBox.classList.add("hidden");
+    }
     setSubmitProcessing(false);
   } else if (state.status === "done") {
     stopJobPolling();
+    stopJobTimer();
     updateTrackStatus(state.job_id, "done");
-    jobBox.classList.add("hidden");
-    if (!renderedJobs.has(state.job_id)) {
+    if (monitoredJobId === state.job_id) {
+      monitoredJobId = null;
+      jobBox.classList.add("hidden");
+    }
+    if (ownsStudio && !renderedJobs.has(state.job_id)) {
       renderedJobs.add(state.job_id);
       wireUpAudio(
         state.job_id,
@@ -293,6 +452,11 @@ function applyState(state, { focus = true } = {}) {
         state.thumbnail,
         state.mix_url ?? null,
         state.title || "",
+        null,
+        state.profile_label || "",
+        state.profile_key || "",
+        state.beat_times || [],
+        state.chord_midi_url || null,
       );
       initSections(state.job_id, state.sections, state.duration || 0);
     }
@@ -364,6 +528,11 @@ function connectEvents(jobId) {
   let stopped = false;
 
   const open = () => {
+    if (monitoredJobId !== jobId) return;
+    if (eventSource) {
+      eventSource.close();
+      setEventSource(null);
+    }
     const es = new EventSource(`/api/jobs/${jobId}/events`);
     setEventSource(es);
 
@@ -374,6 +543,7 @@ function connectEvents(jobId) {
       // Defer by one tick so synchronous user event handlers (clicks,
       // input events) always complete before SSE state is applied.
       setTimeout(() => {
+        if (monitoredJobId !== jobId) return;
         applyState(s);
         if (TERMINAL_STATUSES.has(s.status)) {
           stopped = true;
@@ -385,6 +555,11 @@ function connectEvents(jobId) {
 
     es.onerror = async () => {
       if (stopped) return;
+      if (monitoredJobId !== jobId) {
+        stopped = true;
+        es.close();
+        return;
+      }
       es.close();
       setEventSource(null);
 
@@ -422,7 +597,7 @@ function connectEvents(jobId) {
 }
 
 async function cancelCurrentJob() {
-  const id = currentJobId;
+  const id = monitoredJobId;
   if (!id) return;
   jobCancelBtn.disabled = true;
   jobCancelBtn.textContent = "Cancelling…";
@@ -448,17 +623,22 @@ function sanitizeFilename(name) {
     .slice(0, 120);
 }
 
-// Programmatic URL import — re-uses the full studio/SSE pipeline (same as the
-// import form's URL path). Used by the library "Sync again" auto-restore to
-// re-download + re-separate a track whose backend audio was swept. Takes over
-// the studio like a normal import. Returns the new job id, or null on failure.
-export async function importFromUrl(url, { title, stems, quality, denoise } = {}) {
+// Programmatic URL import. Used by the library "Sync again" auto-restore to
+// re-download + re-separate a track whose backend audio was swept. If a
+// playable track is already selected, the restore runs in the background.
+export async function importFromUrl(url, { title, stems, quality, denoise, device } = {}) {
   if (!url || url.startsWith("local:")) return null; // local files can't auto-restore
-  reset();
+  const foreground = shouldForegroundNewJob();
+  if (foreground) {
+    reset();
+    setWaveformLoading(true, "");
+  } else {
+    errorEl.classList.add("hidden");
+  }
   setSubmitProcessing(true);
-  setWaveformLoading(true, "");
   const preset = quality || qualityPreset;
   const denoisePreset = denoise || stemDenoisePreset;
+  const devicePreset = device || demucsDevicePreset;
   const stemSel = normalizeStemsForQuality(stems, preset);
 
   let jobId;
@@ -471,19 +651,21 @@ export async function importFromUrl(url, { title, stems, quality, denoise } = {}
         stems: stemSel,
         quality_preset: preset,
         stem_denoise: denoisePreset,
+        demucs_device: devicePreset,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
     jobId = data.job_id;
   } catch (err) {
+    if (foreground) setWaveformLoading(false);
     showError(`Failed to restore track: ${err.message}`);
     setSubmitProcessing(false);
     return null;
   }
 
-  setCurrentJobId(jobId);
   jobSources.set(jobId, url);
+  activeJobIds.add(jobId);
   // Merges into the existing library entry by sourceUrl (replaceTrackId),
   // preserving its folder placement; status updates as SSE frames arrive.
   addTrackToLibrary({
@@ -495,6 +677,8 @@ export async function importFromUrl(url, { title, stems, quality, denoise } = {}
     selectedStems: stemSel,
     qualityPreset: preset,
     stemDenoisePreset: denoisePreset,
+    demucsDevice: devicePreset,
+    demucsDeviceResolved: "",
     audioStems: [],
     status: "queued",
     progressPercent: 0,
@@ -510,15 +694,15 @@ export async function importFromUrl(url, { title, stems, quality, denoise } = {}
     phaseRepairApplied: false,
     phaseRepairResidualRatio: null,
     stemDenoiseApplied: false,
+    stemGateApplied: false,
+    stemGateThresholdDb: null,
+    processingStartedAt: null,
+    timerStartedAt: null,
+    processingSeconds: null,
+    completedAt: null,
     sourceUrl: url,
   });
-  setCurrentTrack(jobId);
-
-  jobBox.classList.remove("hidden");
-  jobCancelBtn.classList.remove("hidden");
-  startPhraseRotation("queued");
-  lastStatus = "queued";
-  connectEvents(jobId);
+  showJobMonitor(jobId);
   syncActiveJobs();
   setSubmitProcessing(false);
   return jobId;
@@ -530,7 +714,9 @@ export function wireJobForm() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    reset();
+    const foreground = shouldForegroundNewJob();
+    if (foreground) reset();
+    else errorEl.classList.add("hidden");
     setSubmitProcessing(true);
 
     const fileInput = document.getElementById("fileInput");
@@ -542,15 +728,17 @@ export function wireJobForm() {
     const displayTitle = sanitized ?? (urlInput.value || "Processing track");
     const preset = qualityPreset;
     const denoisePreset = stemDenoisePreset;
+    const devicePreset = demucsDevicePreset;
     const stemSel = effectiveSelectedStems(preset);
 
     const postUrlText = document.getElementById("post-url-text");
     if (postUrlText) postUrlText.textContent = displayTitle;
 
-    // Show overlay immediately for both paths. File uploads show "Uploading…"
-    // in the overlay phrase until the fetch completes and SSE takes over.
-    setWaveformLoading(true, file ? "Uploading…" : "");
-    if (file) {
+    // If no playable track is loaded yet, keep the empty studio in a loading
+    // state. The job monitor itself is non-modal, so queueing never blocks
+    // library browsing, playback, export, or adding another track.
+    if (foreground) setWaveformLoading(true, file ? "Uploading…" : "");
+    if (file && foreground) {
       lastStatus = "queued";
     }
 
@@ -561,6 +749,7 @@ export function wireJobForm() {
       fd.append("stems", JSON.stringify(stemSel));
       fd.append("quality_preset", preset);
       fd.append("stem_denoise", denoisePreset);
+      fd.append("demucs_device", devicePreset);
       fetchInit = { method: "POST", body: fd };
     } else {
       fetchInit = {
@@ -573,6 +762,7 @@ export function wireJobForm() {
           stems: stemSel,
           quality_preset: preset,
           stem_denoise: denoisePreset,
+          demucs_device: devicePreset,
         }),
       };
     }
@@ -584,14 +774,17 @@ export function wireJobForm() {
       if (!res.ok) throw new Error(data.detail || res.statusText);
       jobId = data.job_id;
     } catch (err) {
-      if (file) jobBox.classList.add("hidden");
+      if (foreground) {
+        setWaveformLoading(false);
+        if (file) jobBox.classList.add("hidden");
+      }
       showError(`Failed to start job: ${err.message}`);
       setSubmitProcessing(false);
       return;
     }
 
-    setCurrentJobId(jobId);
     jobSources.set(jobId, sourceUrl);
+    activeJobIds.add(jobId);
     addTrackToLibrary({
       id: jobId,
       title: displayTitle,
@@ -601,6 +794,8 @@ export function wireJobForm() {
       selectedStems: stemSel,
       qualityPreset: preset,
       stemDenoisePreset: denoisePreset,
+      demucsDevice: devicePreset,
+      demucsDeviceResolved: "",
       audioStems: [],
       status: "queued",
       progressPercent: 0,
@@ -616,17 +811,16 @@ export function wireJobForm() {
       phaseRepairApplied: false,
       phaseRepairResidualRatio: null,
       stemDenoiseApplied: false,
+      stemGateApplied: false,
+      stemGateThresholdDb: null,
+      processingStartedAt: null,
+      timerStartedAt: null,
+      processingSeconds: null,
+      completedAt: null,
       sourceUrl,
     });
-    setCurrentTrack(jobId);
 
-    // Show the progress overlay immediately; SSE frames update percent + ETA.
-    jobBox.classList.remove("hidden");
-    jobCancelBtn.classList.remove("hidden");
-    startPhraseRotation("queued");
-    lastStatus = "queued";
-
-    connectEvents(jobId);
+    showJobMonitor(jobId);
     syncActiveJobs();
     setSubmitProcessing(false);
   });

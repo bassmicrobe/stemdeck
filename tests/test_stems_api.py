@@ -67,6 +67,7 @@ def test_serves_done_job_stem(client, tmp_path):
     assert r.status_code == 200
     assert r.content == b"RIFF1234"
     assert r.headers["content-type"] == "audio/wav"
+    assert "stems_Standard_Noise_off_Auto_All_6_stem_vocals.wav" in r.headers["content-disposition"]
 
 
 # --- peaks endpoint ---
@@ -118,6 +119,31 @@ def test_peaks_rejects_malformed_job_id(client):
         assert r.status_code == 404, f"id {bad_id!r} should 404"
 
 
+def test_chord_midi_returns_file_for_done_job(client, tmp_path):
+    job = Job(id="abcdefabcda1", status="done", title="Chord Song")
+    _jobs[job.id] = job
+    stems_dir = tmp_path / job.id / "stems"
+    stems_dir.mkdir(parents=True, exist_ok=True)
+    (stems_dir / "chords.mid").write_bytes(b"MThd1234")
+
+    r = client.get(f"/api/jobs/{job.id}/chords.mid")
+
+    assert r.status_code == 200
+    assert r.content == b"MThd1234"
+    assert "Chord_Song" in r.headers["content-disposition"]
+    assert r.headers["content-disposition"].endswith('_chords.mid"')
+
+
+def test_chord_midi_404_when_missing(client, tmp_path):
+    job = Job(id="abcdefabcda2", status="done")
+    _jobs[job.id] = job
+    (tmp_path / job.id / "stems").mkdir(parents=True, exist_ok=True)
+
+    r = client.get(f"/api/jobs/{job.id}/chords.mid")
+
+    assert r.status_code == 404
+
+
 # ── Export All Stems (.zip) ──
 
 
@@ -136,11 +162,14 @@ def test_all_stems_zip_all_when_no_subset(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/zip"
-    assert "My_Song_Live_stems.zip" in r.headers["content-disposition"]
+    assert "My_Song_Live_Standard_Noise_off_Auto_All_6_stem_stems.zip" in r.headers["content-disposition"]
 
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["bass.wav", "drums.wav", "vocals.wav"]
+    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "bass.wav", "drums.wav", "vocals.wav"]
     assert zf.read("vocals.wav") == b"RIFFvocals"
+    manifest = zf.read("STEMDECK_PROFILE.txt").decode()
+    assert "Profile: Standard / Noise off / Auto / All 6-stem" in manifest
+    assert "Exported stems: vocals, drums, bass" in manifest
 
 
 def test_all_stems_zip_only_active_subset(client, tmp_path):
@@ -157,7 +186,8 @@ def test_all_stems_zip_only_active_subset(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?stems=vocals,bass")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["bass.wav", "vocals.wav"]
+    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "bass.wav", "vocals.wav"]
+    assert "Exported stems: vocals, bass" in zf.read("STEMDECK_PROFILE.txt").decode()
 
 
 def test_all_stems_zip_rejects_unknown_stem(client, tmp_path):
@@ -229,7 +259,7 @@ def test_all_stems_zip_mp3(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?format=mp3")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert zf.namelist() == ["vocals.mp3"]
+    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "vocals.mp3"]
     assert len(zf.read("vocals.mp3")) > 0
 
 
@@ -328,6 +358,7 @@ def test_mixdown_wav_happy(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,0.500")
     assert r.status_code == 200
     assert r.headers["content-type"] == "audio/wav"
+    assert "Track_Standard_Noise_off_All_6_stem_mix.wav" in r.headers["content-disposition"]
     assert r.content[:4] == b"RIFF"
 
 
@@ -376,6 +407,7 @@ def test_mixdown_rejects_unknown_ext_still(client):
 def test_mixdown_wav_codec_follows_quality_preset():
     assert _mixdown_codec_args("wav", "standard") == ["-c:a", "pcm_s16le", "-f", "wav"]
     assert _mixdown_codec_args("wav", "max") == ["-c:a", "pcm_f32le", "-f", "wav"]
+    assert _mixdown_codec_args("wav", "ultra") == ["-c:a", "pcm_f32le", "-f", "wav"]
     assert _mixdown_codec_args("flac", "max") == ["-c:a", "flac", "-f", "flac"]
 
 
@@ -389,5 +421,5 @@ def test_all_stems_zip_flac(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?format=flac")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert zf.namelist() == ["vocals.flac"]
+    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "vocals.flac"]
     assert zf.read("vocals.flac")[:4] == b"fLaC"

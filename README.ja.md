@@ -1,6 +1,6 @@
 # STEMDECK Enhanced 日本語 README
 
-STEMDECK Enhanced は、音源をローカル環境で stem 分離するためのデスクトップ/ローカルWebアプリです。MP3、WAV、FLAC、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他などの stem に分離します。処理は基本的にユーザーのマシン上で完結し、音源をクラウドへアップロードしない設計です。
+STEMDECK Enhanced は、音源をローカル環境で stem 分離するためのデスクトップ/ローカルWebアプリです。MP3、WAV、FLAC、M4A、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他などの stem に分離します。処理は基本的にユーザーのマシン上で完結し、音源をクラウドへアップロードしない設計です。
 
 このリポジトリは、元の StemDeck プロジェクトをベースにした非公式 fork test build です。元プロジェクトと本 fork は Apache License 2.0 のもとで配布されます。再配布時は `LICENSE` と `NOTICE` を同梱し、元プロジェクトの表示と本 fork の変更点を保持してください。本 fork は変更版であり、元プロジェクトの公式リリースではありません。元プロジェクトとは提携しておらず、元プロジェクトによる承認や推奨を受けたものでもありません。
 
@@ -20,9 +20,15 @@ Apache License 2.0 は商標権の利用許諾を自動的に与えるもので�
 - アプリ名と表示を `STEMDECK Enhanced` として整理し、非公式 fork test build であることを明示。
 - Neon 系のUI、スマホ向けレスポンシブ調整、進捗バー視認性改善。
 - ジョブキュー、キャンセル、進捗率、残り推定時間表示を強化。
+- 複数曲キュー中も、完了済みの選択曲を前面に残して試聴やダウンロードを続けられるバックグラウンド抽出に対応。
+- 同じ曲を `Quality` / `Device` / `Clean` / 選択stem の組み合わせごとに別プロファイルとして複数回抽出できるように対応。画面表示、ダウンロードファイル名、stem ZIP内の `STEMDECK_PROFILE.txt` で設定を確認可能。
+- クライアントマシンのCPU/GPU/メモリ状況に応じて、重い解析・stem分離パイプラインの同時実行数を自動判定。
+- ジョブごとに `Auto` / `CPU` / `Apple GPU(MPS)` / `NVIDIA CUDA` の処理デバイスを選択可能。
 - `ffprobe` がない環境でも `ffmpeg` fallback で duration を読めるよう改善。
 - `imageio-ffmpeg` を使った portable FFmpeg fallback を追加。
-- 高精度プリセット `High` / `Max` を追加し、`htdemucs_ft`、shift average、float32 出力を利用。
+- BPM、Tempo Stability、拍グリッド検出を追加。波形上に検出拍を表示し、曲ごとのメタデータとして保存。
+- 拍グリッド/chroma解析から白玉コード進行のMIDIを推定生成し、Exportメニューから `*_chords.mid` として書き出せるように追加。
+- 高精度プリセット `High` / `Max` / `Ultra` を追加し、`htdemucs_ft`、shift average、overlap、float32 出力を利用。
 - 音圧が高い音源向けに前処理、ゲイン復元、float32 維持、クリップ抑制を強化。
 - ベース欠け補正、stem 合計と原音の位相/残差補正を追加。
 - 分離後の各 stem に任意のノイズ除去 `Noise off` / `Light denoise` / `Strong denoise` を追加。
@@ -31,6 +37,8 @@ Apache License 2.0 は商標権の利用許諾を自動的に与えるもので�
 - macOS/Windows 配布向けに署名、Notarize、容量、ライセンス表記の確認導線を追加。
 
 ## 使い方
+
+詳しい操作方法は [MANUAL.ja.md](MANUAL.ja.md) にまとめています。
 
 ### ローカルWebとして起動
 
@@ -59,10 +67,46 @@ ARCH=arm64 scripts/macos/make-dmg.sh
 Windows 環境で:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portable.ps1 -StripVenv
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portable.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64.NVIDIA `
+  -StripVenv
 ```
 
-CPU版は `-CpuOnly` を付けます。
+CPU版は `-CpuOnly` とCPU用の `PackageName` を付けます。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portable.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64 `
+  -CpuOnly `
+  -StripVenv
+```
+
+### Windows installer
+
+Windows 用の `.exe` インストーラーは、完成した portable フォルダを Inno Setup 6 で包む方式です。Tauri単体の `msi` / `nsis` では、現状の Python runtime と backend 一式をそのまま含められないため、このリポジトリでは portable 生成後に installer 化します。
+
+```powershell
+# NVIDIA/CUDA版 portable + installer
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64.NVIDIA `
+  -StripVenv
+
+# CPU版 portable + installer
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64 `
+  -CpuOnly `
+  -StripVenv
+```
+
+生成物は `dist/STEMDECK-Enhanced-Windows-x64.NVIDIA-Setup.exe` または `dist/STEMDECK-Enhanced-Windows-x64-Setup.exe` です。インストール先は管理者権限なしで書き込みできる `%LocalAppData%\Programs\STEMDECK Enhanced` にしています。Start Menu ショートカット、任意のDesktopショートカット、アンインストーラーが作成されます。
+
+既に portable ZIP を作成済みの場合は、再ビルドせずに包めます。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64.NVIDIA `
+  -SkipPortableBuild
+```
 
 ## 初回セットアップ導線
 
@@ -72,10 +116,12 @@ CPU版は `-CpuOnly` を付けます。
 - workspace と data folder を作成。
 - FFmpeg / ffprobe を確認またはダウンロード。
 - Apple Silicon MPS または NVIDIA CUDA を検出し、必要ならGPU向け設定を行う。
+- 同時実行数は既定で自動判定される。MPS/CUDA ではメモリ安全性を優先して通常1本、CPUのみで十分なコアとメモリがある環境では2本まで並列実行する。必要なら `STEMDECK_PIPELINE_CONCURRENCY=1` から `4` で上書き可能。
+- 複数のローカルSTEMDECKバックエンドが同時に起動しても、`STEMDECK_PIPELINE_LOCK` の共有ロックで Demucs の同時実行を抑制する。
 - Demucs model は初回分離時にキャッシュされる。
 - セットアップ画面に runtime download サイズ、jobs/cache 使用量、data folder、ライセンス表記の案内を表示する。
 
-初回セットアップにはインターネット接続と数GB以上の空き容量が必要です。長尺音源や `High` / `Max` の float32 出力では、stem WAV と一時ファイルでさらに容量を使います。
+初回セットアップにはインターネット接続と数GB以上の空き容量が必要です。長尺音源や `High` / `Max` / `Ultra` の float32 出力では、stem WAV と一時ファイルでさらに容量を使います。
 
 ## 署名とNotarize
 
@@ -104,10 +150,12 @@ ARCH=arm64 scripts/macos/make-dmg.sh
 ```powershell
 $env:WINDOWS_SIGN_CERT_PATH = "C:\certs\stemdeck.pfx"
 $env:WINDOWS_SIGN_CERT_PASSWORD = "..."
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portable.ps1 -StripVenv
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64.NVIDIA `
+  -StripVenv
 ```
 
-署名証明書がない場合は無署名ZIPとして生成されます。公開配布では Authenticode 署名を推奨します。
+署名証明書がない場合は無署名ZIP/インストーラーとして生成されます。公開配布では Authenticode 署名を推奨します。`make-installer.ps1` は同じ証明書設定で `STEMDECK Enhanced.exe` と installer 本体の両方に署名します。
 
 ## 更新
 
@@ -125,7 +173,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-portabl
 - Demucs model cache: 初回利用時に数百MB規模。
 - 10分の stereo 16-bit WAV: 約101MiB。
 - 10分の stereo float32 WAV: 約202MiB。
-- `High` / `Max` では 4-stem float32 出力が中心になり、10分曲で stem だけでも約808MiB程度になります。
+- `High` / `Max` / `Ultra` では 4-stem float32 出力が中心になり、10分曲で stem だけでも約808MiB程度になります。
 - `Noise denoise` や phase/bass repair では一時WAVも作るため、長尺では数GBの作業領域を見てください。
 
 ## ライセンス上の注意

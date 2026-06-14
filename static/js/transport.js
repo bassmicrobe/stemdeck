@@ -54,7 +54,7 @@ function setPlayheadTime(sec) {
   updatePresencePlayhead(next);
 }
 
-export function buildRuler(durationSec) {
+export function buildRuler(durationSec, beatTimes = []) {
   rulerTime.innerHTML = "";
   wavesGrid.innerHTML = "";
   const marker = document.createElement("div");
@@ -79,6 +79,16 @@ export function buildRuler(durationSec) {
     grid.style.left = `${leftPct}%`;
     wavesGrid.appendChild(grid);
   }
+  const beats = Array.isArray(beatTimes) ? beatTimes : [];
+  beats.forEach((beat, idx) => {
+    const t = Number(beat);
+    if (!Number.isFinite(t) || t < 0 || t > durationSec) return;
+    const line = document.createElement("div");
+    line.className = `beat-grid-line${idx % 4 === 0 ? " beat-grid-line-strong" : ""}`;
+    line.style.left = `${(t / durationSec) * 100}%`;
+    line.setAttribute("aria-hidden", "true");
+    wavesGrid.appendChild(line);
+  });
 }
 
 export function updatePlayheadMarker(currentSec) {

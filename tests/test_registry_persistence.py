@@ -65,6 +65,7 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     stems_dir.mkdir(parents=True)
     (stems_dir / "vocals.wav").write_bytes(b"RIFF")
     (stems_dir / "drums.wav").write_bytes(b"RIFF")
+    (stems_dir / "chords.mid").write_bytes(b"MThd")
     (job_dir / "metadata.json").write_text(
         json.dumps(
             {
@@ -74,6 +75,17 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
                 "phase_repair_residual_ratio": 0.37,
                 "stem_denoise_preset": "light",
                 "stem_denoise_applied": True,
+                "stem_gate_applied": True,
+                "stem_gate_threshold_db": -54.0,
+                "beat_times": [0.5, 1.0, 1.5],
+                "chord_progression": [
+                    {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
+                ],
+                "selected_stems": ["vocals"],
+                "source_url": "local:Test Song.wav",
+                "processing_started_at": 1_699_999_876.6,
+                "completed_at": 1_700_000_000.0,
+                "processing_elapsed_seconds": 123.4,
             }
         ),
         encoding="utf-8",
@@ -91,6 +103,18 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     assert restored.phase_repair_residual_ratio == 0.37
     assert restored.stem_denoise_preset == "light"
     assert restored.stem_denoise_applied is True
+    assert restored.stem_gate_applied is True
+    assert restored.stem_gate_threshold_db == -54.0
+    assert restored.beat_times == [0.5, 1.0, 1.5]
+    assert restored.chord_progression == [
+        {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
+    ]
+    assert restored.chord_midi_url == "/api/jobs/abcdefabcdee/chords.mid"
+    assert restored.selected_stems == ["vocals"]
+    assert restored.source_url == "local:Test Song.wav"
+    assert restored.processing_started_at == 1_699_999_876.6
+    assert restored.completed_at == 1_700_000_000.0
+    assert restored.processing_elapsed_seconds == 123.4
 
 
 def test_restore_skips_orphan_without_metadata(tmp_path: Path):

@@ -8,6 +8,7 @@ export const urlInput = $("url");
 export const submitBtn = $("submit");
 export const qualitySelect = $("qualityPreset");
 export const denoiseSelect = $("stemDenoise");
+export const demucsDeviceSelect = $("demucsDevice");
 
 export const playBtn = $("t-play");
 export const playMiniBtn = $("t-play-mini");
@@ -81,8 +82,10 @@ export let loopEnd = 0;
 const _STEM_SEL_KEY = "stemdeck:selected-stems";
 const _QUALITY_PRESET_KEY = "stemdeck:quality-preset";
 const _STEM_DENOISE_KEY = "stemdeck:stem-denoise";
-const QUALITY_PRESETS = new Set(["standard", "high", "max"]);
+const _DEMUCS_DEVICE_KEY = "stemdeck:demucs-device";
+const QUALITY_PRESETS = new Set(["standard", "high", "max", "ultra"]);
 const STEM_DENOISE_PRESETS = new Set(["off", "light", "strong"]);
+const DEMUCS_DEVICE_PRESETS = new Set(["auto", "cpu", "mps", "cuda"]);
 
 // Start with all stems selected (safe default). The async store load below
 // updates this binding once the store is available; ES module live bindings
@@ -108,6 +111,7 @@ export const stemSelectionReady = (async () => {
 
 export let qualityPreset = "standard";
 export let stemDenoisePreset = "off";
+export let demucsDevicePreset = "auto";
 
 export const qualityPresetReady = (async () => {
   try {
@@ -127,6 +131,15 @@ export const stemDenoiseReady = (async () => {
   } catch (e) { console.warn("[state] failed to load stem denoise preset:", e); }
 })();
 
+export const demucsDeviceReady = (async () => {
+  try {
+    const stored = await storeGet(_DEMUCS_DEVICE_KEY, null);
+    if (typeof stored === "string" && DEMUCS_DEVICE_PRESETS.has(stored)) {
+      demucsDevicePreset = stored;
+    }
+  } catch (e) { console.warn("[state] failed to load demucs device preset:", e); }
+})();
+
 export function setQualityPreset(value) {
   qualityPreset = QUALITY_PRESETS.has(value) ? value : "standard";
   storeSet(_QUALITY_PRESET_KEY, qualityPreset).catch((e) =>
@@ -138,6 +151,13 @@ export function setStemDenoisePreset(value) {
   stemDenoisePreset = STEM_DENOISE_PRESETS.has(value) ? value : "off";
   storeSet(_STEM_DENOISE_KEY, stemDenoisePreset).catch((e) =>
     console.warn("[state] failed to save stem denoise preset:", e)
+  );
+}
+
+export function setDemucsDevicePreset(value) {
+  demucsDevicePreset = DEMUCS_DEVICE_PRESETS.has(value) ? value : "auto";
+  storeSet(_DEMUCS_DEVICE_KEY, demucsDevicePreset).catch((e) =>
+    console.warn("[state] failed to save demucs device preset:", e)
   );
 }
 

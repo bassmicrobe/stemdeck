@@ -1,7 +1,7 @@
 param(
   [string]$Configuration = "release",
   [string]$OutputRoot    = "dist",
-  [string]$PackageName   = "STEMDECK-Enhanced-Windows-x64",
+  [string]$PackageName   = "STEMDECK-Enhanced-Windows-x64.NVIDIA",
   [string]$PackageVersion,
   [switch]$SkipTauriBuild,
   [switch]$CpuOnly,

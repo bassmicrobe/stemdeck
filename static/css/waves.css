@@ -689,6 +689,20 @@
   background: rgba(148, 163, 184, 0.14);
 }
 
+.waves-grid .beat-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(198, 255, 39, 0.28);
+  box-shadow: 0 0 10px rgba(198, 255, 39, 0.12);
+}
+
+.waves-grid .beat-grid-line-strong {
+  background: rgba(109, 255, 240, 0.42);
+  box-shadow: 0 0 12px rgba(109, 255, 240, 0.18);
+}
+
 #multitrack-container {
   width: 100%;
   position: relative;

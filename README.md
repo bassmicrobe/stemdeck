@@ -26,13 +26,13 @@
 
 STEMDECK Enhanced is an unofficial modified fork of [StemDeck](https://github.com/stemdeckapp/stemdeck). It is a test build for higher-quality local stem separation and is not an official upstream release, not affiliated with, and not endorsed by the original StemDeck project.
 
-Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and STEMDECK Enhanced splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
+Drop in an MP3, WAV, FLAC, or M4A file, or paste a YouTube URL, and STEMDECK Enhanced splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
 
-> **What is this?** STEMDECK Enhanced is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. STEMDECK Enhanced does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
+> **What is this?** STEMDECK Enhanced is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, FLAC, or M4A onto the import bar and go. YouTube support is a convenience for content you have the right to process. STEMDECK Enhanced does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
 
 > STEMDECK Enhanced is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, STEMDECK Enhanced has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
 
-日本語での概要、配布手順、ライセンス/NOTICE、そしてこの fork で加えた変更点は [README.ja.md](README.ja.md) にまとめています。
+日本語での概要、配布手順、ライセンス/NOTICE、そしてこの fork で加えた変更点は [README.ja.md](README.ja.md) にまとめています。操作マニュアルは [MANUAL.ja.md](MANUAL.ja.md) を参照してください。
 
 ![STEMDECK screenshot](imgs/screenshot/stemdeck.png)
 
@@ -54,11 +54,15 @@ STEMDECK Enhanced is free and **does not accept any money, sponsorship, or fundi
 
 **6-stem separation** via Demucs `htdemucs_6s`, with auto-detection of the best Torch device (CUDA on NVIDIA, MPS on Apple Silicon, CPU fallback).
 
-**YouTube and local file import.** Paste a YouTube URL or drop an MP3 or WAV directly onto the import bar.
+**YouTube and local file import.** Paste a YouTube URL or drop an MP3, WAV, FLAC, or M4A directly onto the import bar.
 
 **DAW-style waveform editor** with min/max sample rendering across all stems, shared normalization, zoom in/out/Fit, loop drag on the ruler, gold playhead overlay, and stem-aligned lanes.
 
 **Stem subset extraction.** Click stem chips to choose which stems to keep. Clicking from "all selected" snaps to "only this one"; subsequent clicks add or remove.
+
+**Multiple profiles per song.** Re-run the same source with different `Quality`, `Device`, `Clean`, or selected-stem settings and STEMDECK keeps each result as a separate profile in the library. Exported filenames include the profile, and stem ZIPs include `STEMDECK_PROFILE.txt`.
+
+**Device selection.** Choose `Auto`, `CPU`, Apple GPU (`mps`), or NVIDIA CUDA per job. Unavailable GPU options are disabled in the UI.
 
 **"Original" backing track.** When you pick a subset, a 7th lane contains the complement (full song minus selected stems), perfect for A/B reference without doubling.
 
@@ -68,7 +72,9 @@ STEMDECK Enhanced is free and **does not accept any money, sponsorship, or fundi
 
 **Live VU meters** per stem. Post-gain RMS via Web Audio analysers with peak hold and slow falloff.
 
-**Song analysis** including BPM (librosa beat tracker), key, scale, and confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and sample peak in dBFS.
+**Song analysis** including BPM and beat grid timestamps (librosa beat tracker, first 180 seconds), key, scale, and confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and sample peak in dBFS.
+
+**Chord MIDI guide export.** STEMDECK estimates beat-aligned chord labels from chroma, merges them into sustained 4-beat "white note" chords, and exports a Standard MIDI file from the Export menu.
 
 **Cancellable jobs.** Cancel mid-pipeline and the runner terminates the active subprocess immediately, deletes the partial job dir, and returns to ready.
 
@@ -90,7 +96,7 @@ STEMDECK Enhanced is not trying to compete with commercial stem-separation produ
 | **Data retention** | You control it; delete anytime | Governed by their privacy policy and retention period |
 | **Stem model** | Demucs `htdemucs_6s` (open source, Meta AI) | Proprietary models, regularly updated, generally higher quality |
 | **Stem count** | 6 (vocals, drums, bass, guitar, piano, other) | Up to 10 depending on service and plan |
-| **Input formats** | YouTube URL, MP3, WAV | MP3, WAV, FLAC, M4A, and more depending on service |
+| **Input formats** | YouTube URL, MP3, WAV, FLAC, M4A | MP3, WAV, FLAC, M4A, and more depending on service |
 | **Processing speed** | Depends on your hardware; fast with a GPU, slow on CPU only | Fast regardless of your hardware (runs on their servers) |
 | **Batch processing** | One job at a time | Yes, on paid plans |
 | **Mobile app** | No | iOS and Android |
@@ -126,6 +132,21 @@ macOS may show a Gatekeeper prompt on first open — right-click the app and cho
 
 Extract the zip anywhere, run `STEMDECK Enhanced.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
 
+Windows installers are generated by wrapping the completed portable folder with Inno Setup 6:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64.NVIDIA `
+  -StripVenv
+
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName STEMDECK-Enhanced-Windows-x64 `
+  -CpuOnly `
+  -StripVenv
+```
+
+The installer lands in `dist/*-Setup.exe`, installs per-user under `%LocalAppData%\Programs\STEMDECK Enhanced`, creates Start Menu/Desktop shortcut entries, and includes `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.txt`.
+
 ### Release Signing / Notarization
 
 Local builds are unsigned unless signing credentials are provided. Release scripts support optional signing without storing secrets in the repository:
@@ -134,6 +155,7 @@ Local builds are unsigned unless signing credentials are provided. Release scrip
 - macOS DMG signing: set `APPLE_SIGNING_IDENTITY` before `scripts/macos/make-dmg.sh`.
 - macOS notarization: set `APPLE_NOTARIZE=1` and either `APPLE_NOTARY_KEYCHAIN_PROFILE` or `APPLE_ID`, `APPLE_TEAM_ID`, and `APPLE_APP_SPECIFIC_PASSWORD` before `scripts/macos/make-dmg.sh`.
 - Windows executable signing: set `WINDOWS_SIGN_CERT_PATH` and optionally `WINDOWS_SIGN_CERT_PASSWORD`, `WINDOWS_SIGNTOOL_PATH`, and `WINDOWS_TIMESTAMP_URL` before `scripts/windows/make-portable.ps1`.
+- Windows installer signing: use the same variables before `scripts/windows/make-installer.ps1`; the script signs both `STEMDECK Enhanced.exe` and the generated installer when credentials are present.
 
 Unsigned internal builds are acceptable for local testing, but public macOS builds should be Developer ID signed and notarized. Public Windows builds should be Authenticode signed when possible.
 
@@ -158,7 +180,7 @@ The desktop shell is intentionally thin. The Python runtime, FFmpeg/ffprobe, and
 
 <br>
 
-STEMDECK Enhanced is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+STEMDECK Enhanced is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra), Meta AI's open-source neural stem separation models. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
 *Thanks to the creators and maintainers of all the open-source libraries that make STEMDECK Enhanced possible.*
 
@@ -282,12 +304,13 @@ runtime fall back to an `imageio-ffmpeg` binary automatically.
 ## How to Use
 
 1. On the import bar, click stem chips to choose which stems to extract (defaults to all 6).
-2. Paste a YouTube URL **or** drop an MP3/WAV file, then click **Process**.
+2. Paste a YouTube URL **or** drop an MP3/WAV/FLAC/M4A file, then click **Process**.
 3. Wait through `Uploading...` / `Downloading...` → `Analyzing...` → `Separating...` → `Mixing tracks...`.
-4. When done, the studio dashboard appears. If you picked a subset, the first lane is **Original** (full song minus your selection); the rest are your isolated stems.
-5. Mix: **Play/Pause/Stop** controls the master transport. **M** mutes a stem, **S** solos it (additive; multiple solos stay audible), **Monitor** solos only that stem and clears others. The volume fader moves 1:1 with drag; double-click resets to 0 dB; `Shift+wheel` gives coarse adjustment and plain wheel gives fine. The **Reset**, **Mute**, and **Solo** toolbar buttons act on all stems at once.
-6. Drag on the ruler to define a loop region; click `Loop` to enable. Use `+` / `-` / `Fit` or `Ctrl/Cmd+wheel` to zoom.
-7. **Download Mix** in the footer gives you a WAV of your selected stems summed together.
+4. You can add multiple tracks to the queue. Once a completed track is selected, later jobs continue in the background so preview and downloads stay available.
+5. When done, the studio dashboard appears. If you picked a subset, the first lane is **Original** (full song minus your selection); the rest are your isolated stems.
+6. Mix: **Play/Pause/Stop** controls the master transport. **M** mutes a stem, **S** solos it (additive; multiple solos stay audible), **Monitor** solos only that stem and clears others. The volume fader moves 1:1 with drag; double-click resets to 0 dB; `Shift+wheel` gives coarse adjustment and plain wheel gives fine. The **Reset**, **Mute**, and **Solo** toolbar buttons act on all stems at once.
+7. Drag on the ruler to define a loop region; click `Loop` to enable. Use `+` / `-` / `Fit` or `Ctrl/Cmd+wheel` to zoom.
+8. **Download Mix** in the footer gives you a WAV of your selected stems summed together.
 
 **Keyboard shortcuts:** `Space` play/pause · `[` seek -5s · `]` seek +5s · `L` loop · `I` loop in · `O` loop out
 
@@ -297,21 +320,23 @@ runtime fall back to an `imageio-ffmpeg` binary automatically.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, or `max`. `high` / `max` use slower Demucs settings and preserve 32-bit float WAV output. |
+| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, `max`, or `ultra`. `high` / `max` / `ultra` use slower Demucs settings and preserve 32-bit float WAV output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
-| `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` use `htdemucs_ft` unless overridden. |
+| `STEMDECK_PIPELINE_CONCURRENCY` | auto | Heavy analysis/separation jobs to run in parallel. Auto keeps CUDA/MPS at `1` for memory safety and uses `2` only on roomy CPU-only machines. Set `1`-`4` to override. |
+| `STEMDECK_PIPELINE_LOCK` | system temp file | Cross-process lock file used to prevent multiple local STEMDECK backends from running Demucs at the same time. |
+| `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` / `ultra` use `htdemucs_ft` unless overridden. |
 | `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages. Higher is slower and can reduce artifacts. |
 | `STEMDECK_DEMUCS_PRE_GAIN_DB` | preset-dependent | Optional input gain before Demucs. Negative values such as `-6` can help very loud masters separate more cleanly. |
 | `STEMDECK_DEMUCS_FLOAT32` | preset-dependent | Write Demucs stems as 32-bit float WAVs when truthy. |
 | `STEMDECK_DEMUCS_CLIP_MODE` | preset-dependent | Demucs output clipping mode: `rescale`, `clamp`, or `none`. |
 | `STEMDECK_DEMUCS_OVERLAP` | `0` | Optional Demucs segment overlap override. `0` leaves the Demucs default untouched. |
 | `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
-| `STEMDECK_BASS_REPAIR` | `high`/`max`: on, `standard`: off | Repair short bass dropouts after separation by blending a low-frequency residual from the original mix. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_BASS_REPAIR` | `high`/`max`/`ultra`: on, `standard`: off | Repair short bass dropouts after separation by blending a low-frequency residual from the original mix. Set `0` to disable or `1` to force-enable. |
 | `STEMDECK_BASS_REPAIR_LOW_PASS_HZ` | `180` | Low-pass cutoff used for the bass residual candidate. |
 | `STEMDECK_BASS_REPAIR_TRIGGER_RATIO` | `1.9` | How much stronger the residual must be than the bass stem before repair blends in. Higher is more conservative. |
 | `STEMDECK_BASS_REPAIR_MAX_BLEND` | `0.65` | Maximum amount of residual blended into detected bass dropouts. |
-| `STEMDECK_PHASE_REPAIR` | `high`/`max`: on, `standard`: off | Repair stem-sum phase/residual mismatch against the original source. Set `0` to disable or `1` to force-enable. |
-| `STEMDECK_PHASE_REPAIR_MAX_BLEND` | `standard`: `0.42`, `high`: `0.65`, `max`: `0.90` | Maximum source-minus-stem-sum residual blended back into active stems. Higher reconstructs the source more strongly but can increase bleed. |
+| `STEMDECK_PHASE_REPAIR` | `high`/`max`/`ultra`: on, `standard`: off | Repair stem-sum phase/residual mismatch against the original source. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_PHASE_REPAIR_MAX_BLEND` | `standard`: `0.42`, `high`: `0.65`, `max`: `0.90`, `ultra`: `0.95` | Maximum source-minus-stem-sum residual blended back into active stems. Higher reconstructs the source more strongly but can increase bleed. |
 | `STEMDECK_PHASE_REPAIR_FLOOR_DB` | `-58` | Residual floor below which phase repair stays inactive. Lower values are less conservative. |
 | `STEMDECK_JOBS_DIR` | `./jobs` | Where job directories land. |
 | `STEMDECK_DATA_DIR` | (none) | Portable mode root; sets all sub-dirs below to live inside it. |

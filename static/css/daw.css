@@ -945,24 +945,33 @@ input, textarea { font-family: inherit; }
   overflow: hidden;
 }
 
-/* ── Job progress overlay ── */
+/* ── Non-blocking job progress HUD ── */
 .job {
   position: fixed;
-  inset: 0;
+  right: clamp(16px, 2vw, 30px);
+  bottom: clamp(92px, 12vh, 132px);
+  width: min(560px, calc(100vw - 32px));
   z-index: 1000;
   background:
-    radial-gradient(circle at 50% 42%, rgba(234,255,50,0.18), transparent 32%),
-    radial-gradient(circle at 41% 56%, rgba(47,255,227,0.2), transparent 42%),
-    radial-gradient(circle at 60% 60%, rgba(255,61,139,0.14), transparent 46%),
-    rgba(0, 4, 7, 0.88);
-  backdrop-filter: blur(10px) saturate(1.24);
-  -webkit-backdrop-filter: blur(10px) saturate(1.24);
+    radial-gradient(circle at 18% 0%, rgba(234,255,50,0.22), transparent 34%),
+    radial-gradient(circle at 88% 100%, rgba(255,61,139,0.18), transparent 42%),
+    linear-gradient(145deg, rgba(9,32,39,0.96), rgba(2,8,12,0.96));
+  border: 1px solid rgba(118,255,240,0.5);
+  border-radius: 24px;
+  backdrop-filter: blur(14px) saturate(1.28);
+  -webkit-backdrop-filter: blur(14px) saturate(1.28);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 32px;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 18px 20px 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 0 0 1px rgba(234,255,50,0.08),
+    0 18px 48px rgba(0,0,0,0.46),
+    0 0 36px rgba(47,255,227,0.25),
+    0 0 62px rgba(234,255,50,0.12);
 }
 /* Neon ambient glow -- matches the wave-loading-overlay aesthetic */
 .job::before {
@@ -973,55 +982,54 @@ input, textarea { font-family: inherit; }
   background:
     linear-gradient(90deg, rgba(47,255,227,0.1) 1px, transparent 1px),
     linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px);
-  background-size: 30px 30px;
+  background-size: 24px 24px;
+  border-radius: inherit;
+  opacity: 0.55;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(circle at center, #000 0 48%, transparent 76%);
-  mask-image: radial-gradient(circle at center, #000 0 48%, transparent 76%);
+  -webkit-mask-image: linear-gradient(90deg, #000, transparent 82%);
+  mask-image: linear-gradient(90deg, #000, transparent 82%);
 }
 .job::after {
   content: "";
   position: absolute;
+  inset: 0;
   z-index: 1;
-  width: min(680px, calc(100vw - 32px));
-  min-height: min(360px, calc(100dvh - 48px));
-  border-radius: 28px;
-  border: 1px solid rgba(118,255,240,0.42);
+  border-radius: inherit;
+  border: 1px solid rgba(234,255,50,0.2);
   background:
-    linear-gradient(145deg, rgba(11,31,38,0.94), rgba(2,8,12,0.96)),
-    rgba(3, 12, 17, 0.96);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.11),
-    0 0 0 1px rgba(234,255,50,0.08),
-    0 26px 70px rgba(0,0,0,0.62),
-    0 0 44px rgba(47,255,227,0.28),
-    0 0 72px rgba(234,255,50,0.13);
+    linear-gradient(90deg, rgba(47,255,227,0.22), transparent 28%, transparent 72%, rgba(234,255,50,0.18));
   pointer-events: none;
 }
 .job > * {
   position: relative;
   z-index: 2;
-  width: min(560px, calc(100vw - 64px));
+  width: 100%;
 }
 .job.hidden { display: none !important; }
 .job-header {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  text-align: center;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
 }
 .job .title {
-  font-size: clamp(20px, 2.3vw, 30px);
+  min-width: 0;
+  font-size: clamp(15px, 1.4vw, 20px);
   font-weight: 800;
   color: var(--fg);
-  text-align: center;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-shadow:
     0 0 18px rgba(47,255,227,0.46),
     0 0 34px rgba(234,255,50,0.2);
 }
 .job-headline {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
@@ -1029,7 +1037,7 @@ input, textarea { font-family: inherit; }
 .job .stage {
   font-size: 14px;
   color: var(--fg-2);
-  text-align: center;
+  text-align: left;
 }
 .job .job-eta {
   font-family: var(--font-mono);
@@ -1084,10 +1092,10 @@ input, textarea { font-family: inherit; }
 .job .job-detail {
   font-size: 13px;
   color: var(--fg-2);
-  text-align: center;
+  text-align: left;
 }
 .job .job-progress-row {
-  width: min(560px, calc(100vw - 64px));
+  width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -1426,6 +1434,13 @@ input, textarea { font-family: inherit; }
 }
 .daw-label-title { font-size: 12px; font-weight: 600; }
 .daw-label-sub { font-size: 9px; }
+.daw-mixer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
 .daw-sections-header { justify-content: space-between; }
 .daw-sections-area {
   flex: 1;
@@ -1646,6 +1661,42 @@ input, textarea { font-family: inherit; }
 .stem-monitor { display: none; }
 .drag-handle { display: none; }
 .mini-meter { display: none; }
+
+.stem-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 176px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(112, 245, 225, 0.28);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(112, 245, 225, 0.14), rgba(213, 255, 74, 0.08)),
+    rgba(3, 18, 20, 0.78);
+  box-shadow: 0 0 18px rgba(112, 245, 225, 0.12);
+  color: var(--fg);
+  line-height: 1;
+}
+
+.stem-profile-badge span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.stem-profile-badge b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+}
 
 /* ── Mixer column (JS-built horizontal lanes) ── */
 .mixer-column {
@@ -2113,7 +2164,7 @@ input, textarea { font-family: inherit; }
 }
 .footer-track-body .daw-track-meta { flex: 1; min-width: 0; gap: 4px; }
 .footer-track .daw-track-details   { gap: 2px; }
-.footer-track .daw-detail-label    { font-size: 10px; width: 58px; }
+.footer-track .daw-detail-label    { font-size: 10px; width: 66px; }
 .footer-track .daw-detail-val      { font-size: 10px; }
 .footer-art {
   width: 44px; height: 44px; border-radius: 6px;
@@ -2578,6 +2629,23 @@ input, textarea { font-family: inherit; }
 
 /* ── Responsive: hide zoom in small windows ── */
 @media (max-width: 900px) {
+  .job {
+    left: 14px;
+    right: 14px;
+    bottom: 82px;
+    width: auto;
+    padding: 16px;
+    border-radius: 20px;
+  }
+  .job-header {
+    flex-direction: column;
+  }
+  .job .title {
+    white-space: normal;
+  }
+  .job .job-progress-row {
+    gap: 10px;
+  }
   .daw-info-row { flex-wrap: wrap; }
   .daw-track-card { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
   .stem-presence-panel { grid-template-columns: repeat(3, 1fr); }
@@ -2838,6 +2906,10 @@ input, textarea { font-family: inherit; }
     width: clamp(176px, 42vw, 230px);
   }
 
+  .stem-profile-badge {
+    max-width: 116px;
+  }
+
   .daw-sections-area,
   .daw-ruler-area,
   .daw-wave-panel {
@@ -3077,6 +3149,7 @@ input, textarea { font-family: inherit; }
   }
 
   .daw-label-sub,
+  .stem-profile-badge,
   .sections-save-indicator,
   .mx-val {
     display: none;

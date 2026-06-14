@@ -306,6 +306,11 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
         import numpy as np
 
         beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+        beat_times_list = [
+            round(float(t), 3)
+            for t in beat_times
+            if float(t) >= 0.0
+        ]
         if len(beat_times) > 2:
             intervals = np.diff(beat_times)
             mean_iv = float(intervals.mean())
@@ -323,6 +328,7 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
             peak_db=peak_db,
             dynamic_range=dynamic_range,
             tempo_stability=tempo_stability,
+            beat_times=beat_times_list,
             stage="Analysis complete",
         )
         set_stage_progress(job, "analyze", 1.0, stage="Analysis complete")

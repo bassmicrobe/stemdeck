@@ -108,6 +108,24 @@ async def get_stem_peaks(job_id: str) -> Response:
     )
 
 
+@router.get("/jobs/{job_id}/chords.mid")
+async def get_chord_midi(job_id: str) -> FileResponse:
+    """Download the estimated white-note chord progression as a Standard MIDI file."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
+    path = (JOBS_DIR / job_id / "stems" / "chords.mid").resolve()
+    if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
+        raise HTTPException(status_code=404, detail="chord midi not found")
+    return FileResponse(
+        path,
+        media_type="audio/midi",
+        filename=f"{_download_base(job)}_chords.mid",
+    )
+
+
 @router.api_route("/jobs/{job_id}/stems/{name}.wav", methods=["GET", "HEAD"], response_model=None)
 async def get_stem(
     job_id: str,
@@ -117,19 +135,18 @@ async def get_stem(
 ) -> FileResponse | StreamingResponse:
     """Download a WAV stem. Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
 
     if start is None and end is None:
-        return FileResponse(path, media_type="audio/wav", filename=f"{name}.wav")
+        return FileResponse(path, media_type="audio/wav", filename=_stem_download_filename(job, name, "wav"))
 
     if start is None or end is None or start >= end:
         raise HTTPException(
             status_code=422,
             detail="start and end are both required and start must be less than end",
         )
-
-    job = registry_get(job_id)
-    if job is None or job.status != "done":
-        raise HTTPException(status_code=404, detail="job not ready")
 
     cmd = [
         ffmpeg_executable(),
@@ -151,7 +168,7 @@ async def get_stem(
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type="audio/wav",
-        headers={"Content-Disposition": f'attachment; filename="{name}_region.wav"'},
+        headers={"Content-Disposition": f'attachment; filename="{_stem_download_filename(job, name, "wav", region=True)}"'},
     )
 
 
@@ -164,6 +181,9 @@ async def get_stem_mp3(
 ) -> StreamingResponse:
     """Stream a stem as MP3 (VBR ~190 kbps). Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
 
     if (start is None) != (end is None) or (start is not None and start >= end):
         raise HTTPException(
@@ -189,11 +209,10 @@ async def get_stem_mp3(
         "mp3",
         "pipe:1",
     ]
-    filename = f"{name}_region.mp3" if start is not None else f"{name}.mp3"
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type="audio/mpeg",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{_stem_download_filename(job, name, "mp3", region=start is not None)}"'},
     )
 
 
@@ -264,7 +283,7 @@ async def get_mixdown(
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="mixdown.{ext}"'},
+        headers={"Content-Disposition": f'attachment; filename="{_mixdown_filename(job, ext, region=start is not None)}"'},
     )
 
 
@@ -275,7 +294,56 @@ def _safe_title(title: str | None) -> str:
     return safe or "stems"
 
 
-def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> None:
+def _safe_profile(job) -> str:
+    safe = re.sub(r"[^a-zA-Z0-9]+", "_", job.profile_label())
+    safe = re.sub(r"_{2,}", "_", safe).strip("_")[:64].strip("_")
+    return safe
+
+
+def _download_base(job) -> str:
+    title = _safe_title(job.title)
+    profile = _safe_profile(job)
+    return f"{title}_{profile}" if profile else title
+
+
+def _stem_download_filename(job, name: str, ext: str, region: bool = False) -> str:
+    suffix = "_region" if region else ""
+    return f"{_download_base(job)}_{name}{suffix}.{ext}"
+
+
+def _mixdown_filename(job, ext: str, region: bool = False) -> str:
+    suffix = "region" if region else "mix"
+    return f"{_download_base(job)}_{suffix}.{ext}"
+
+
+def _stems_zip_filename(job) -> str:
+    return f"{_download_base(job)}_stems.zip"
+
+
+def _profile_manifest(job, stems: list[str], fmt: str) -> str:
+    return "\n".join(
+        [
+            "STEMDECK Enhanced extraction profile",
+            f"Title: {job.title or 'Untitled'}",
+            f"Job ID: {job.id}",
+            f"Profile: {job.profile_label()}",
+            f"Quality: {job.quality_preset}",
+            f"Clean: {job.stem_denoise_preset}",
+            "Stem gate: "
+            + (
+                f"on ({job.stem_gate_threshold_db:g} dB)"
+                if job.stem_gate_applied and job.stem_gate_threshold_db is not None
+                else ("on" if job.stem_gate_applied else "off")
+            ),
+            f"Selected stems: {', '.join(job.profile_stems())}",
+            f"Exported stems: {', '.join(stems)}",
+            f"Format: {fmt}",
+            "",
+        ]
+    )
+
+
+def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path, manifest: str) -> None:
     """Blocking: write the stems into a ZIP. WAV files are stored as-is; MP3 and
     FLAC are transcoded per stem via ffmpeg. ZIP_STORED throughout - audio doesn't
     meaningfully compress, and STORED keeps the build fast. Runs in a thread."""
@@ -283,6 +351,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> N
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
             for name, p in sources:
                 zf.write(p, arcname=f"{name}.wav")
+            zf.writestr("STEMDECK_PROFILE.txt", manifest)
         return
     encode = _ENCODE_ARGS[fmt]
     with tempfile.TemporaryDirectory() as td, zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
@@ -311,6 +380,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> N
                 tail = proc.stderr[-2000:].decode("utf-8", "replace")
                 raise RuntimeError(f"ffmpeg failed for {name}: {tail}")
             zf.write(out, arcname=f"{name}.{fmt}")
+        zf.writestr("STEMDECK_PROFILE.txt", manifest)
 
 
 @router.get("/jobs/{job_id}/stems/all.zip")
@@ -356,17 +426,17 @@ async def get_all_stems_zip(
     fd, tmp = tempfile.mkstemp(prefix="stemdeck_zip_", suffix=".zip")
     os.close(fd)
     tmp_path = Path(tmp)
+    manifest = _profile_manifest(job, [name for name, _ in sources], fmt)
     try:
-        await asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path)
+        await asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path, manifest)
     except Exception:
         tmp_path.unlink(missing_ok=True)
         logger.exception("failed to build stems zip for job %s", job_id)
         raise HTTPException(status_code=500, detail="failed to build archive") from None
 
-    filename = f"{_safe_title(job.title)}_stems.zip"
     return FileResponse(
         tmp_path,
         media_type="application/zip",
-        filename=filename,
+        filename=_stems_zip_filename(job),
         background=BackgroundTask(lambda: tmp_path.unlink(missing_ok=True)),
     )

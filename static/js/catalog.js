@@ -3,8 +3,8 @@ import { STEM_NAMES } from "./constants.js";
 import { wireUpAudio, updateFooterTrack } from "./player.js";
 import { initSections } from "./sections.js";
 import { bpmChip, keyChip, saveSelectedStems, selectedStems, titleEl } from "./state.js";
-import { showError, importFromUrl } from "./job.js";
-import { fmtTime, storeGet, storeSet } from "./utils.js";
+import { showError, importFromUrl, showJobProgress } from "./job.js";
+import { fmtBeatGrid, fmtTime, storeGet, storeSet } from "./utils.js";
 
 // Escape user-supplied strings before inserting into innerHTML.
 function esc(s) {
@@ -66,6 +66,31 @@ const RUNNING_STATUS_LABELS = {
   separating: "Separating",
   processing: "Processing",
 };
+const QUALITY_LABELS = {
+  standard: "Standard",
+  high: "High",
+  max: "Max",
+  ultra: "Ultra",
+};
+const DENOISE_LABELS = {
+  off: "Noise off",
+  light: "Light denoise",
+  strong: "Strong denoise",
+};
+const DEVICE_LABELS = {
+  auto: "Auto",
+  cpu: "CPU",
+  mps: "Apple GPU",
+  cuda: "NVIDIA CUDA",
+};
+const STEM_LABELS = {
+  vocals: "Vocals",
+  drums: "Drums",
+  bass: "Bass",
+  guitar: "Guitar",
+  piano: "Piano",
+  other: "Other",
+};
 const FOLDER_COLORS = ["#d8a84a", "#e85f6f", "#64c86f", "#4f9de8", "#a985f4"];
 const DEFAULT_FOLDER_COLOR = FOLDER_COLORS[0];
 const TRACK_DRAG_TYPE = "application/x-stemdeck-track";
@@ -117,6 +142,58 @@ function normalizeSource(value) {
   return s;
 }
 
+function stemNamesFromValue(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item : item?.name))
+    .filter((name) => STEM_NAMES.includes(name));
+}
+
+function trackProfileStems(track) {
+  const selected = stemNamesFromValue(track?.selectedStems);
+  const fallback = stemNamesFromValue(track?.stems).concat(stemNamesFromValue(track?.audioStems));
+  const source = selected.length ? selected : fallback;
+  const unique = new Set(source);
+  const ordered = STEM_NAMES.filter((name) => unique.has(name));
+  return ordered.length ? ordered : [...STEM_NAMES];
+}
+
+function trackProfileKey(track) {
+  if (track?.profileKey && String(track.profileKey).includes("|device=")) return track.profileKey;
+  const quality = String(track?.qualityPreset || "standard").toLowerCase();
+  const denoise = String(track?.stemDenoisePreset || "off").toLowerCase();
+  const device = String(track?.demucsDevice || "auto").toLowerCase();
+  const resolved = String(track?.demucsDeviceResolved || "auto").toLowerCase();
+  const stems = trackProfileStems(track).join(",");
+  return `quality=${quality}|denoise=${denoise}|device=${device}:${resolved}|stems=${stems}`;
+}
+
+function trackProfileLabel(track) {
+  if (track?.profileLabel && String(track?.profileKey || "").includes("|device=")) return track.profileLabel;
+  const qualityValue = String(track?.qualityPreset || "standard").toLowerCase();
+  const denoiseValue = String(track?.stemDenoisePreset || "off").toLowerCase();
+  const deviceValue = String(track?.demucsDevice || "auto").toLowerCase();
+  const resolvedValue = String(track?.demucsDeviceResolved || "").toLowerCase();
+  const stems = trackProfileStems(track);
+  const quality = QUALITY_LABELS[qualityValue] || track?.qualityPreset || "Standard";
+  const denoise = DENOISE_LABELS[denoiseValue] || track?.stemDenoisePreset || "Noise off";
+  const device = deviceValue === "auto" && resolvedValue
+    ? `Auto (${DEVICE_LABELS[resolvedValue] || resolvedValue.toUpperCase()})`
+    : (DEVICE_LABELS[deviceValue] || track?.demucsDevice || "Auto");
+  let stemsLabel;
+  if (stems.length === STEM_NAMES.length) {
+    stemsLabel = "All 6-stem";
+  } else if (
+    stems.length === 4
+    && ["vocals", "drums", "bass", "other"].every((name) => stems.includes(name))
+  ) {
+    stemsLabel = "4-stem";
+  } else {
+    stemsLabel = stems.map((name) => STEM_LABELS[name] || name).join("+");
+  }
+  return `${quality} / ${denoise} / ${device} / ${stemsLabel}`;
+}
+
 function normalizeSearch(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -132,18 +209,20 @@ function trackMatchesSearch(track) {
   return [
     track?.title,
     track?.channel,
+    trackProfileLabel(track),
     track?.sourceUrl,
     ...(track?.stems || []),
     ...(track?.tags || []),
   ].some((value) => String(value || "").toLowerCase().includes(q));
 }
 
-function findTrackBySource(sourceUrl, exceptId) {
-  const source = normalizeSource(sourceUrl);
+function findTrackBySourceProfile(candidate, exceptId) {
+  const source = normalizeSource(candidate?.sourceUrl);
   if (!source) return null;
+  const profile = trackProfileKey(candidate);
   for (const [id, track] of Object.entries(tracks)) {
     if (id === exceptId) continue;
-    if (normalizeSource(track.sourceUrl) === source) return id;
+    if (normalizeSource(track.sourceUrl) === source && trackProfileKey(track) === profile) return id;
   }
   return null;
 }
@@ -235,27 +314,45 @@ function saveState() {
 
 export function addTrackToLibrary(track) {
   // track: { id, title, channel, thumb, stems, status, sourceUrl }
-  const existingId = findTrackBySource(track.sourceUrl, track.id);
+  const normalizedTrack = {
+    ...track,
+    profileKey: track.profileKey || trackProfileKey(track),
+    profileLabel: track.profileLabel || trackProfileLabel(track),
+  };
+  const existingId = findTrackBySourceProfile(normalizedTrack, normalizedTrack.id);
   if (existingId) {
-    const trash = getTrashFolder();
-    const inTrash = trash?.items.includes(existingId);
-    if (inTrash) {
-      // Old track was trashed — delete it silently so the new import lands
-      // in the library instead of inheriting the trash placement.
-      delete tracks[existingId];
-      for (const f of folders) f.items = f.items.filter((id) => id !== existingId);
+    const existingTrack = tracks[existingId];
+    const incomingIsActive = PROCESSING_STATUSES.has(track.status);
+    const keepPlayableExisting = incomingIsActive && isTrackPlayable(existingTrack);
+    const keepCompletedDuplicate =
+      track.status === "done"
+      && isTrackPlayable(existingTrack)
+      && existingId !== track.id;
+    if (keepPlayableExisting || keepCompletedDuplicate) {
+      // Preserve the track the user can currently preview/export. The new
+      // extraction is added as a separate background job instead of replacing
+      // the playable entry mid-workflow.
     } else {
-      replaceTrackId(existingId, track.id);
+      const trash = getTrashFolder();
+      const inTrash = trash?.items.includes(existingId);
+      if (inTrash) {
+        // Old track was trashed — delete it silently so the new import lands
+        // in the library instead of inheriting the trash placement.
+        delete tracks[existingId];
+        for (const f of folders) f.items = f.items.filter((id) => id !== existingId);
+      } else {
+        replaceTrackId(existingId, track.id);
+      }
     }
   }
-  const existing = tracks[track.id] || {};
-  tracks[track.id] = {
+  const existing = tracks[normalizedTrack.id] || {};
+  tracks[normalizedTrack.id] = {
     ...existing,
-    ...track,
-    createdAt: existing.createdAt ?? track.createdAt ?? (Date.now() / 1000),
+    ...normalizedTrack,
+    createdAt: existing.createdAt ?? normalizedTrack.createdAt ?? (Date.now() / 1000),
     favorite: existing.favorite ?? false,
   };
-  const alreadyPlaced = folders.some((folder) => folder.items.includes(track.id));
+  const alreadyPlaced = folders.some((folder) => folder.items.includes(normalizedTrack.id));
   if (!alreadyPlaced) {
     // Put into first non-trash folder or create an "Unsorted" folder.
     let target = folders.find((folder) => folder.id !== TRASH_ID);
@@ -263,7 +360,7 @@ export function addTrackToLibrary(track) {
       target = makeFolder({ id: "f-unsorted", name: "Unsorted" });
       folders.unshift(target);
     }
-    target.items.unshift(track.id);
+    target.items.unshift(normalizedTrack.id);
   }
   saveState();
   render();
@@ -305,6 +402,10 @@ function stateMetadataToTrack(state, fallbackTrack) {
     audioStems: state.stems || fallbackTrack.audioStems || [],
     qualityPreset: state.quality_preset || fallbackTrack.qualityPreset || "standard",
     stemDenoisePreset: state.stem_denoise_preset || fallbackTrack.stemDenoisePreset || "off",
+    demucsDevice: state.demucs_device || fallbackTrack.demucsDevice || "auto",
+    demucsDeviceResolved: state.demucs_device_resolved || fallbackTrack.demucsDeviceResolved || "",
+    profileKey: state.profile_key || fallbackTrack.profileKey,
+    profileLabel: state.profile_label || fallbackTrack.profileLabel,
     duration: state.duration || fallbackTrack.duration,
     status: state.status || fallbackTrack.status,
     progressPercent: state.progress_percent ?? fallbackTrack.progressPercent ?? null,
@@ -324,8 +425,20 @@ function stateMetadataToTrack(state, fallbackTrack) {
       ?? fallbackTrack.phaseRepairResidualRatio
       ?? null,
     stemDenoiseApplied: state.stem_denoise_applied ?? fallbackTrack.stemDenoiseApplied ?? false,
+    stemGateApplied: state.stem_gate_applied ?? fallbackTrack.stemGateApplied ?? false,
+    stemGateThresholdDb: state.stem_gate_threshold_db ?? fallbackTrack.stemGateThresholdDb ?? null,
+    processingSeconds: state.processing_elapsed_seconds
+      ?? state.total_elapsed_seconds
+      ?? fallbackTrack.processingSeconds
+      ?? null,
+    processingStartedAt: state.processing_started_at ?? fallbackTrack.processingStartedAt ?? null,
+    timerStartedAt: state.timer_started_at ?? state.created_at ?? fallbackTrack.timerStartedAt ?? null,
+    completedAt: state.completed_at ?? fallbackTrack.completedAt ?? null,
     dynamicRange: state.dynamic_range ?? fallbackTrack.dynamicRange,
     tempoStability: state.tempo_stability ?? fallbackTrack.tempoStability,
+    beatTimes: state.beat_times ?? fallbackTrack.beatTimes ?? null,
+    chordProgression: state.chord_progression ?? fallbackTrack.chordProgression ?? null,
+    chordMidiUrl: state.chord_midi_url ?? fallbackTrack.chordMidiUrl ?? null,
     tags: state.tags ?? fallbackTrack.tags ?? [],
     sections: state.sections ?? fallbackTrack.sections ?? null,
     sourceUrl: state.source_url || fallbackTrack.sourceUrl,
@@ -336,20 +449,24 @@ function stateMetadataToTrack(state, fallbackTrack) {
 }
 
 function trackSubText(track, { inTrash = false } = {}) {
+  const profile = trackProfileLabel(track);
   if (inTrash) return "Removed";
+  if (track?.status === "unavailable") return [profile, "Audio unavailable"].filter(Boolean).join(" · ");
   if (track?.status === "queued") {
     if (track.queuePosition != null && track.queueSize) {
-      return `Queued #${track.queuePosition} of ${track.queueSize}`;
+      return [profile, `Queued #${track.queuePosition} of ${track.queueSize}`].filter(Boolean).join(" · ");
     }
-    return "Queued";
+    return [profile, "Queued"].filter(Boolean).join(" · ");
   }
   if (PROCESSING_STATUSES.has(track?.status)) {
     const label = RUNNING_STATUS_LABELS[track.status] || "Processing";
-    return track.progressPercent != null ? `${label} ${track.progressPercent}%` : label;
+    const progress = track.progressPercent != null ? `${label} ${track.progressPercent}%` : label;
+    const elapsed = track.processingSeconds != null ? fmtTime(Number(track.processingSeconds)) : "";
+    return [profile, progress, elapsed].filter(Boolean).join(" · ");
   }
   const duration = track.duration ? fmtTime(track.duration) : "";
   const stemCount = track.stems?.length ?? 0;
-  return [duration, `${stemCount} stem${stemCount !== 1 ? "s" : ""}`].filter(Boolean).join(" · ");
+  return [profile, duration, `${stemCount} stem${stemCount !== 1 ? "s" : ""}`].filter(Boolean).join(" · ");
 }
 
 function fmtExtracted(ts) {
@@ -397,6 +514,10 @@ function deriveRepair(track) {
     const preset = track.stemDenoisePreset === "strong" ? "Strong" : "Light";
     repairs.push(`${preset} denoise`);
   }
+  if (track?.stemGateApplied) {
+    const threshold = Number(track.stemGateThresholdDb);
+    repairs.push(Number.isFinite(threshold) ? `Gate ${threshold} dB` : "Gate");
+  }
   return repairs.length ? repairs.join(" + ") : "—";
 }
 
@@ -439,6 +560,7 @@ function applyTrackInfoToPanel(track) {
     thumbnail: track.thumb,
     key: track.key,
     bpm: track.bpm,
+    profileLabel: trackProfileLabel(track),
     stemCount: (track.audioStems || track.stems || []).filter((s) => (s.name ?? s) !== "original").length || null,
   });
   applyStemPresenceCards(track.stemPresence);
@@ -462,14 +584,24 @@ function applyTrackInfoToPanel(track) {
   if (summaryDuration) summaryDuration.textContent = track.duration ? fmtTime(track.duration) : "—";
 
   const trackExtracted = document.getElementById("track-extracted");
+  const trackProcessed = document.getElementById("track-processed");
+  const trackProfile = document.getElementById("track-profile");
   const trackSource = document.getElementById("track-source");
   const trackQuality = document.getElementById("track-quality");
   const trackRepair = document.getElementById("track-repair");
+  const trackBeats = document.getElementById("track-beats");
   const favBtn = document.getElementById("fav-btn");
-  if (trackExtracted) trackExtracted.textContent = fmtExtracted(track.createdAt);
+  if (trackExtracted) trackExtracted.textContent = fmtExtracted(track.completedAt ?? track.createdAt);
+  if (trackProcessed) {
+    trackProcessed.textContent = track.processingSeconds != null
+      ? fmtTime(Number(track.processingSeconds))
+      : "—";
+  }
+  if (trackProfile) trackProfile.textContent = trackProfileLabel(track);
   if (trackSource) trackSource.textContent = deriveSource(track.sourceUrl);
   if (trackQuality) trackQuality.textContent = deriveQuality(track.sourceUrl);
   if (trackRepair) trackRepair.textContent = deriveRepair(track);
+  if (trackBeats) trackBeats.textContent = fmtBeatGrid(track.beatTimes, track.duration);
   if (favBtn) {
     favBtn.classList.toggle("active", Boolean(track.favorite));
     favBtn.setAttribute("aria-pressed", String(Boolean(track.favorite)));
@@ -586,7 +718,10 @@ async function loadTrackIntoStudio(trackId) {
   // A reprocessing track may still carry the previous extraction's stems
   // (hadStoredAudio), but it isn't ready — loading it would replace the live
   // job-progress overlay with stale audio. Leave the progress UI in place.
-  if (PROCESSING_STATUSES.has(track.status)) return;
+  if (PROCESSING_STATUSES.has(track.status)) {
+    showJobProgress(trackId);
+    return;
+  }
   if (!track.audioStems?.length) return;
   if (track.status !== "done" && !hadStoredAudio) return;
   applyStoredStemSelection(track);
@@ -600,7 +735,19 @@ async function loadTrackIntoStudio(trackId) {
   }
 
   applyTrackInfoToPanel(track);
-  wireUpAudio(trackId, track.audioStems, track.duration || 0, track.thumb, track.mixUrl ?? null, track.title || "", peaksPromise);
+  wireUpAudio(
+    trackId,
+    track.audioStems,
+    track.duration || 0,
+    track.thumb,
+    track.mixUrl ?? null,
+    track.title || "",
+    peaksPromise,
+    trackProfileLabel(track),
+    trackProfileKey(track),
+    track.beatTimes || [],
+    track.chordMidiUrl || null,
+  );
   initSections(trackId, track.sections, track.duration || 0);
 }
 
@@ -610,6 +757,14 @@ export function setCurrentTrack(trackId) {
   for (const el of document.querySelectorAll(`.cat-item[data-id="${trackId}"]`)) el.classList.add("active");
   for (const el of document.querySelectorAll(".strip-thumb.active")) el.classList.remove("active");
   for (const el of document.querySelectorAll(`.strip-thumb[data-id="${trackId}"]`)) el.classList.add("active");
+}
+
+export function getCurrentTrack() {
+  return _currentTrackId ? tracks[_currentTrackId] || null : null;
+}
+
+export function isTrackPlayable(track) {
+  return track?.status === "done" && Boolean(track?.audioStems?.length);
 }
 
 // ─── Folder operations ───
@@ -1041,12 +1196,13 @@ function renderTrackItem(trackId, { inTrash = false } = {}) {
   el.dataset.id = trackId;
 
   const sub = trackSubText(track, { inTrash });
+  const channel = isUnavailable ? "Unavailable" : track.channel ?? "";
   el.innerHTML = `
     <div class="cat-thumb">${thumbHtml(track)}</div>
     <div class="cat-meta">
       <div class="cat-title">${esc(track.title ?? "Unknown track")}</div>
       <div class="cat-sub">
-        <span>${esc(track.channel ?? "")}</span>
+        <span>${esc(channel)}</span>
         <span class="dot">·</span>
         <span>${esc(sub)}</span>
       </div>
@@ -1747,6 +1903,48 @@ async function syncWithServer() {
   } catch (e) { console.warn("[catalog] failed to load jobs from backend:", e); }
 }
 
+async function syncActiveWithServer() {
+  try {
+    const res = await fetch("/api/jobs/active", { cache: "no-store" });
+    if (!res.ok) return;
+    const activeStates = await res.json();
+    const activeIds = new Set(activeStates.map((state) => state.job_id));
+    for (const state of activeStates) {
+      const track = stateMetadataToTrack(state, tracks[state.job_id] || { id: state.job_id });
+      track.id = state.job_id;
+      addTrackToLibrary(track);
+    }
+
+    let changed = false;
+    for (const [trackId, track] of Object.entries(tracks)) {
+      if (!PROCESSING_STATUSES.has(track.status) || activeIds.has(trackId)) continue;
+      try {
+        const probe = await fetch(`/api/jobs/${trackId}`, { cache: "no-store" });
+        if (probe.ok) {
+          tracks[trackId] = stateMetadataToTrack(await probe.json(), track);
+          changed = true;
+        } else if (probe.status === 404) {
+          tracks[trackId] = {
+            ...track,
+            channel: "Unavailable",
+            status: "unavailable",
+            progressPercent: null,
+            queuePosition: null,
+            queueSize: 0,
+          };
+          changed = true;
+        }
+      } catch {
+        // Keep the local state if the server is temporarily unreachable.
+      }
+    }
+    if (changed) {
+      saveState();
+      render();
+    }
+  } catch (e) { console.warn("[catalog] failed to sync active jobs:", e); }
+}
+
 // ─── Settings menu + Library editor ───
 
 let libraryEditor = null;
@@ -1948,6 +2146,7 @@ async function resyncLibrary() {
           stems: t.selectedStems,
           quality: t.qualityPreset,
           denoise: t.stemDenoisePreset,
+          device: t.demucsDevice,
         });
         if (jobId) await waitForJobTerminal(jobId);
       }
@@ -1993,4 +2192,5 @@ export async function initCatalog() {
 
   loadCurrentVersion().finally(checkForUpdate);
   syncWithServer();
+  syncActiveWithServer();
 }

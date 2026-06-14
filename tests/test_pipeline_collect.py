@@ -15,8 +15,10 @@ from app.pipeline.collect import (
     _blend_bass_dropout_repair,
     _blend_phase_residual,
     _write_bass_residual_candidate,
+    collect,
     compute_stem_peaks,
     denoise_stem_outputs,
+    gate_stem_outputs,
     make_selected_mix,
     repair_bass_dropouts,
     repair_phase_coherence,
@@ -93,6 +95,22 @@ def test_no_output_when_all_stems_missing(tmp_path):
     compute_stem_peaks(stems_dir, ["vocals", "drums"])
 
     assert not (stems_dir / "peaks.json").exists()
+
+
+def test_collect_reports_post_demucs_progress(tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    stems_root = tmp_path / "demucs-out"
+    stems_root.mkdir(parents=True)
+    for name in ("vocals", "drums", "bass"):
+        (stems_root / f"{name}.wav").write_bytes(b"wav")
+    job = Job(id="abcdefabcdef", progress=0.82)
+
+    found = collect(job, stems_root, job_dir)
+
+    assert found == ["vocals", "drums", "bass"]
+    assert job.progress > 0.82
+    assert job.stage_message == "Cleaning separation workspace..."
 
 
 def test_writes_atomically(tmp_path):
@@ -237,6 +255,7 @@ def test_denoise_stem_outputs_replaces_all_stems_after_success(tmp_path, monkeyp
 
     assert (stems_dir / "vocals.wav").read_bytes() == b"clean"
     assert (stems_dir / "drums.wav").read_bytes() == b"clean"
+    assert job.progress >= 0.95
     assert len(calls) == 2
     first = calls[0]
     assert "afftdn=" in first[first.index("-filter:a") + 1]
@@ -282,6 +301,43 @@ def test_denoise_stem_outputs_noops_when_off(tmp_path, monkeypatch):
     )
 
     assert not denoise_stem_outputs(Job(id="abcdefabcdef"), stems_dir, ["vocals"])
+
+
+def test_gate_stem_outputs_mutes_near_silent_regions_without_shortening(tmp_path):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    sr = 44100
+    t = np.arange(sr // 2, dtype=np.float32) / sr
+    quiet = np.full((sr // 2, 2), 1e-5, dtype=np.float32)
+    tone = (np.sin(2 * np.pi * 220 * t) * 0.2).astype(np.float32)
+    tone = np.column_stack((tone, tone))
+    samples = np.vstack((quiet, tone, quiet))
+    sf.write(stems_dir / "vocals.wav", samples, sr, subtype="FLOAT")
+
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
+    assert gate_stem_outputs(job, stems_dir, ["vocals"])
+
+    processed, out_sr = sf.read(stems_dir / "vocals.wav", dtype="float32", always_2d=True)
+    assert out_sr == sr
+    assert len(processed) == len(samples)
+    assert float(np.max(np.abs(processed[: sr // 4]), initial=0.0)) < 1e-6
+    assert float(np.mean(np.abs(processed[sr // 2 : sr]))) > 0.05
+    assert job.stem_gate_threshold_db == -54.0
+    assert job.progress >= 0.96
+
+
+def test_gate_stem_outputs_noops_when_disabled(tmp_path, monkeypatch):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    samples = np.full((1024, 2), 1e-5, dtype=np.float32)
+    sf.write(stems_dir / "vocals.wav", samples, 44100, subtype="FLOAT")
+    monkeypatch.setenv("STEMDECK_STEM_GATE", "0")
+
+    assert not gate_stem_outputs(Job(id="abcdefabcdef", quality_preset="high"), stems_dir, ["vocals"])
+
+    processed, _ = sf.read(stems_dir / "vocals.wav", dtype="float32", always_2d=True)
+    np.testing.assert_allclose(processed, samples, atol=1e-7)
 
 
 def test_bass_residual_candidate_subtracts_non_bass_stems(tmp_path, monkeypatch):

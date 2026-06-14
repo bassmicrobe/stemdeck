@@ -13,6 +13,8 @@ Notes
 
 - This is a portable folder, not an installer.
 - No Start Menu shortcut, service, or registry integration is created.
+- To create a Windows installer, build this portable package first and wrap it
+  with scripts/windows/make-installer.ps1 on a Windows machine with Inno Setup 6.
 - Public releases should Authenticode-sign STEMDECK Enhanced.exe when possible.
   Local unsigned zips are intended for development/internal testing.
 - Generated files stay under data/.

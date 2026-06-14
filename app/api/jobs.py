@@ -18,10 +18,14 @@ from app.core.config import (
     MAX_DURATION_SEC,
     MAX_PENDING_JOBS,
     QUALITY_PRESET,
+    available_demucs_devices,
+    demucs_device_choice_available,
     ffmpeg_executable,
     ffprobe_executable,
+    normalize_demucs_device_choice,
     normalize_quality_preset,
     normalize_stem_denoise_preset,
+    resolve_demucs_device_choice,
     stem_names_for_quality_preset,
 )
 from app.core.models import Job
@@ -39,7 +43,7 @@ router = APIRouter(tags=["jobs"])
 logger = logging.getLogger("stemdeck.api")
 
 ACTIVE_JOB_STATUSES = frozenset(("queued", "downloading", "analyzing", "separating", "processing"))
-_ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac"))
+_ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac", ".m4a"))
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 _WS_RE = re.compile(r"\s+")
 _FFMPEG_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)")
@@ -136,6 +140,17 @@ def _selected_stems_for_quality(stems: list[str] | None, quality_preset: str) ->
     return selected or list(allowed)
 
 
+def _device_choice_or_422(value: str | None) -> tuple[str, str]:
+    choice = normalize_demucs_device_choice(value)
+    if not demucs_device_choice_available(choice):
+        available = ", ".join(available_demucs_devices())
+        raise HTTPException(
+            status_code=422,
+            detail=f"Selected device '{choice}' is not available on this machine. Available: {available}",
+        )
+    return choice, resolve_demucs_device_choice(choice)
+
+
 class JobRequest(BaseModel):
     url: str
     # Subset of stems to include in the post-processing "selected mix"
@@ -146,6 +161,7 @@ class JobRequest(BaseModel):
     stems: list[str] | None = None
     quality_preset: str | None = None
     stem_denoise: str | None = None
+    demucs_device: str | None = None
 
 
 @router.post("")
@@ -175,6 +191,7 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
 
     quality_preset = normalize_quality_preset(payload.quality_preset or QUALITY_PRESET)
     stem_denoise_preset = normalize_stem_denoise_preset(payload.stem_denoise)
+    demucs_device, demucs_device_resolved = _device_choice_or_422(payload.demucs_device)
     selected = _selected_stems_for_quality(payload.stems, quality_preset)
 
     job = Job(
@@ -182,6 +199,8 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
         selected_stems=selected,
         quality_preset=quality_preset,
         stem_denoise_preset=stem_denoise_preset,
+        demucs_device=demucs_device,
+        demucs_device_resolved=demucs_device_resolved,
         source_url=url,
     )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
@@ -212,6 +231,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     stems_raw = form.get("stems", "[]")
     quality_preset = normalize_quality_preset(str(form.get("quality_preset", QUALITY_PRESET)))
     stem_denoise_preset = normalize_stem_denoise_preset(str(form.get("stem_denoise", "off")))
+    demucs_device, demucs_device_resolved = _device_choice_or_422(str(form.get("demucs_device", "auto")))
 
     if upload is None or not hasattr(upload, "filename"):
         raise HTTPException(status_code=422, detail="No file provided")
@@ -221,7 +241,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     if ext not in _ALLOWED_EXTS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unsupported file type '{ext}': only .mp3, .wav, and .flac are accepted",
+            detail=f"Unsupported file type '{ext}': only .mp3, .wav, .flac, and .m4a are accepted",
         )
 
     # Validate stems list from form field
@@ -275,6 +295,8 @@ async def _create_local_job(request: Request) -> dict[str, str]:
         selected_stems=selected,
         quality_preset=quality_preset,
         stem_denoise_preset=stem_denoise_preset,
+        demucs_device=demucs_device,
+        demucs_device_resolved=demucs_device_resolved,
         title=title,
         duration_sec=duration,
         source_url=local_source_url,

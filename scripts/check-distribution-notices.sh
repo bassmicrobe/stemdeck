@@ -54,7 +54,7 @@ require_text "packaging/windows/README-WINDOWS.txt" "not affiliated with or"
 require_text "packaging/macos/THIRD_PARTY_NOTICES.txt" "STEMDECK Enhanced"
 require_text "packaging/windows/THIRD_PARTY_NOTICES.txt" "STEMDECK Enhanced"
 
-for script in scripts/macos/make-app.sh scripts/macos/make-dmg.sh scripts/windows/make-portable.ps1; do
+for script in scripts/macos/make-app.sh scripts/macos/make-dmg.sh scripts/windows/make-portable.ps1 scripts/windows/make-installer.ps1; do
   require_text "$script" "LICENSE"
   require_text "$script" "NOTICE"
   require_text "$script" "THIRD_PARTY_NOTICES"
@@ -63,5 +63,6 @@ done
 require_text "scripts/macos/make-app.sh" "APPLE_SIGNING_IDENTITY"
 require_text "scripts/macos/make-dmg.sh" "APPLE_NOTARIZE"
 require_text "scripts/windows/make-portable.ps1" "WINDOWS_SIGN_CERT_PATH"
+require_text "scripts/windows/make-installer.ps1" "WINDOWS_SIGN_CERT_PATH"
 
 echo "distribution notice check: OK"

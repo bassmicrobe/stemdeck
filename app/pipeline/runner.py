@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import shutil
 import subprocess
+import tempfile
+import time
 from pathlib import Path
 
 from app.core.config import (
+    PIPELINE_CONCURRENCY,
     STEM_PREPROCESS_TARGET_I,
     STEM_PREPROCESS_TRUE_PEAK,
     TIMEOUT_FFMPEG,
@@ -17,11 +22,13 @@ from app.core.config import (
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
+from app.pipeline.chords import generate_chord_midi
 from app.pipeline.collect import (
     cleanup_source,
     collect,
     compute_stem_peaks,
     denoise_stem_outputs,
+    gate_stem_outputs,
     make_original_track,
     make_selected_mix,
     repair_bass_dropouts,
@@ -45,8 +52,83 @@ def _rmtree(path: Path) -> None:
         logger.warning("failed to remove %s", path, exc_info=True)
 
 
-# Only one heavy job runs at a time -- Demucs is GPU/CPU-hungry.
-_pipeline_lock = asyncio.Semaphore(1)
+# Limit heavy pipeline parallelism by detected local capacity inside one
+# backend process. A second file lock below also coordinates multiple local
+# STEMDECK backends, for example dev server + packaged desktop app.
+_pipeline_lock = asyncio.Semaphore(PIPELINE_CONCURRENCY)
+
+
+def _pipeline_lock_file() -> Path:
+    raw = os.environ.get("STEMDECK_PIPELINE_LOCK", "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return Path(tempfile.gettempdir()) / "stemdeck-pipeline.lock"
+
+
+@contextlib.contextmanager
+def _machine_pipeline_lock(job: Job):
+    path = _pipeline_lock_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+", encoding="utf-8") as lock_file:
+        _wait_for_machine_lock(job, lock_file)
+        try:
+            lock_file.seek(0)
+            lock_file.truncate()
+            lock_file.write(f"{os.getpid()} {job.id}\n")
+            lock_file.flush()
+            yield
+        finally:
+            _release_machine_lock(lock_file)
+
+
+def _wait_for_machine_lock(job: Job, lock_file) -> None:
+    waited = False
+    while True:
+        _check_cancel(job)
+        if _try_machine_lock(lock_file):
+            if waited:
+                logger.info("job %s acquired machine pipeline lock", job.id)
+            return
+        waited = True
+        if job.status == "queued":
+            _set(job, status="queued", stage="Waiting for local processing slot...")
+        time.sleep(1.0)
+
+
+def _try_machine_lock(lock_file) -> bool:
+    lock_file.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            return False
+
+    import fcntl
+
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
+
+
+def _release_machine_lock(lock_file) -> None:
+    lock_file.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            logger.warning("failed to release machine pipeline lock", exc_info=True)
+        return
+
+    import fcntl
+
+    fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def _check_cancel(job: Job) -> None:
@@ -192,6 +274,9 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     set_stage_progress(job, "denoise", 0.0, stage="Checking stem denoise...")
     job.stem_denoise_applied = denoise_stem_outputs(job, stems_dir, found)
     set_stage_progress(job, "denoise", 1.0, stage="Stem denoise complete")
+    set_stage_progress(job, "gate", 0.0, stage="Gating near-silent stem bleed...")
+    job.stem_gate_applied = gate_stem_outputs(job, stems_dir, found)
+    set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
     set_stage_progress(job, "stabilize", 0.0, stage="Stabilizing stems...")
     stabilize_stem_outputs(job, stems_dir, found)
     set_stage_progress(job, "stabilize", 1.0, stage="Stems stabilized")
@@ -199,6 +284,9 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     set_stage_progress(job, "presence", 0.0, stage="Measuring stem presence...")
     job.stem_presence = compute_stem_presence(stems_dir, found)
     set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
+    set_stage_progress(job, "chords", 0.0, stage="Estimating chord MIDI...")
+    generate_chord_midi(job, source, job_dir)
+    set_stage_progress(job, "chords", 1.0, stage="Chord MIDI ready")
     # Source (100-300 MB or the local upload) is no longer needed after
     # collect; delete it before the ffmpeg amix steps in case scratch space
     # is tight.
@@ -256,14 +344,28 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "peak_db": job.peak_db,
         "dynamic_range": job.dynamic_range,
         "tempo_stability": job.tempo_stability,
+        "beat_times": job.beat_times,
+        "chord_progression": job.chord_progression,
+        "chord_midi_url": job.chord_midi_url,
         "stem_presence": job.stem_presence,
+        "selected_stems": job.selected_stems,
         "quality_preset": job.quality_preset,
         "stem_denoise_preset": job.stem_denoise_preset,
+        "demucs_device": job.demucs_device,
+        "demucs_device_resolved": job.demucs_device_resolved,
+        "profile_key": job.profile_key(),
+        "profile_label": job.profile_label(),
+        "source_url": job.source_url,
         "demucs_gain_db": job.demucs_gain_db,
         "bass_repair_applied": job.bass_repair_applied,
         "phase_repair_applied": job.phase_repair_applied,
         "phase_repair_residual_ratio": job.phase_repair_residual_ratio,
         "stem_denoise_applied": job.stem_denoise_applied,
+        "stem_gate_applied": job.stem_gate_applied,
+        "stem_gate_threshold_db": job.stem_gate_threshold_db,
+        "processing_started_at": job.processing_started_at,
+        "completed_at": job.completed_at,
+        "processing_elapsed_seconds": job.processing_elapsed_seconds,
         "tags": job.tags,
     }
     try:
@@ -284,7 +386,7 @@ async def _run_async(
     thread, then handles success / cancel / error outcomes uniformly."""
     try:
         async with _pipeline_lock:
-            await asyncio.to_thread(blocking_fn, job, *fn_args, job_dir)
+            await asyncio.to_thread(_run_with_machine_lock, job, blocking_fn, *fn_args, job_dir)
     except Exception as e:
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
@@ -304,6 +406,12 @@ async def _run_async(
     _set(job, status="done", progress=1.0, stage="Done")
     _write_metadata(job, job_dir)
     persist_registry(jobs_dir)
+
+
+def _run_with_machine_lock(job: Job, blocking_fn, *fn_args: object) -> None:
+    *args, job_dir = fn_args
+    with _machine_pipeline_lock(job):
+        blocking_fn(job, *args, job_dir)
 
 
 async def run_pipeline(job: Job, url: str, jobs_dir: Path) -> None:

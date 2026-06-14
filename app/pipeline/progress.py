@@ -15,9 +15,11 @@ _STAGE_RANGES: dict[str, tuple[float, float]] = {
     "bass_repair": (0.86, 0.89),
     "phase_repair": (0.89, 0.92),
     "denoise": (0.92, 0.95),
-    "stabilize": (0.95, 0.965),
-    "presence": (0.965, 0.975),
-    "mix": (0.975, 0.99),
+    "gate": (0.95, 0.96),
+    "stabilize": (0.96, 0.97),
+    "presence": (0.97, 0.978),
+    "chords": (0.978, 0.985),
+    "mix": (0.985, 0.99),
     "peaks": (0.99, 0.995),
 }
 

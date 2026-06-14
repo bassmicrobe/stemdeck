@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from app.core.models import Job
+from app.pipeline import chords as chords_mod
+from app.pipeline.chords import ChordSegment, _varlen, generate_chord_midi, write_chord_midi
+
+
+def _read_varlen(data: bytes, offset: int) -> tuple[int, int]:
+    value = 0
+    while True:
+        byte = data[offset]
+        offset += 1
+        value = (value << 7) | (byte & 0x7F)
+        if byte < 0x80:
+            return value, offset
+
+
+def _last_midi_tick(data: bytes) -> int:
+    track_pos = data.index(b"MTrk")
+    length = int.from_bytes(data[track_pos + 4 : track_pos + 8], "big")
+    offset = track_pos + 8
+    end = offset + length
+    tick = 0
+    running_status = None
+    while offset < end:
+        delta, offset = _read_varlen(data, offset)
+        tick += delta
+        status = data[offset]
+        offset += 1
+        if status == 0xFF:
+            meta_type = data[offset]
+            offset += 1
+            size, offset = _read_varlen(data, offset)
+            offset += size
+            if meta_type == 0x2F:
+                return tick
+        elif status in (0xF0, 0xF7):
+            size, offset = _read_varlen(data, offset)
+            offset += size
+        else:
+            if status < 0x80:
+                if running_status is None:
+                    raise AssertionError("running status without previous status")
+                offset -= 1
+                status = running_status
+            else:
+                running_status = status
+            event_type = status & 0xF0
+            offset += 1 if event_type in (0xC0, 0xD0) else 2
+    return tick
+
+
+def test_varlen_encoding_matches_midi_spec():
+    assert _varlen(0) == b"\x00"
+    assert _varlen(127) == b"\x7f"
+    assert _varlen(128) == b"\x81\x00"
+    assert _varlen(480) == b"\x83\x60"
+
+
+def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
+    out = tmp_path / "chords.mid"
+    segments = [
+        ChordSegment("C", 0.0, 2.0, 0, (0, 4, 7), 0.9),
+        ChordSegment("Am", 2.0, 4.0, 9, (0, 3, 7), 0.8),
+    ]
+
+    write_chord_midi(out, segments, bpm=120, title="Guide")
+
+    data = out.read_bytes()
+    assert data.startswith(b"MThd")
+    assert b"MTrk" in data
+    assert b"Guide" in data
+    assert b"Am" in data
+    assert _last_midi_tick(data) == 3840
+
+
+def test_write_chord_midi_quantizes_detected_beats_as_quarter_notes(tmp_path: Path):
+    out = tmp_path / "quantized.mid"
+    segments = [
+        ChordSegment("C", 2.368, 4.226, 0, (0, 4, 7), 0.9, start_beat=0, end_beat=4),
+        ChordSegment("G", 4.226, 6.084, 7, (0, 4, 7), 0.8, start_beat=4, end_beat=8),
+    ]
+
+    write_chord_midi(out, segments, bpm=129, title="Quantized")
+
+    assert _last_midi_tick(out.read_bytes()) == 8 * 480
+
+
+def test_write_chord_midi_keeps_no_chord_time_on_grid(tmp_path: Path):
+    out = tmp_path / "no-chord-tail.mid"
+    segments = [
+        ChordSegment("C", 0.0, 1.0, 0, (0, 4, 7), 0.9, start_beat=0, end_beat=4),
+        ChordSegment("N.C.", 1.0, 2.0, None, (), 0.0, start_beat=4, end_beat=8),
+    ]
+
+    write_chord_midi(out, segments, bpm=120, title="No Chord Tail")
+
+    assert _last_midi_tick(out.read_bytes()) == 8 * 480
+
+
+def test_generate_chord_midi_sets_job_metadata(tmp_path: Path, monkeypatch):
+    segments = [ChordSegment("C", 0.0, 1.0, 0, (0, 4, 7), 0.9, start_beat=0, end_beat=4)]
+    monkeypatch.setattr(chords_mod, "detect_chord_segments", lambda *args, **kwargs: segments)
+    job = Job(id="abcdefabcdef", bpm=120, title="Song")
+    job_dir = tmp_path / job.id
+    source = job_dir / "source.wav"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"wav")
+
+    out = generate_chord_midi(job, source, job_dir)
+
+    assert out == job_dir / "stems" / "chords.mid"
+    assert out is not None and out.is_file()
+    assert job.chord_midi_url == f"/api/jobs/{job.id}/chords.mid"
+    assert job.chord_progression == [
+        {
+            "label": "C",
+            "start": 0.0,
+            "end": 1.0,
+            "start_beat": 0,
+            "end_beat": 4,
+            "confidence": 0.9,
+        }
+    ]

@@ -20,7 +20,7 @@ def test_build_demucs_command_includes_quality_flags(monkeypatch, tmp_path: Path
     )
 
     source = tmp_path / "source.demucs.wav"
-    cmd = separate.build_demucs_command(source, tmp_path, settings)
+    cmd = separate.build_demucs_command(source, tmp_path, settings, device="cpu")
 
     assert cmd[:6] == [separate.sys.executable, "-m", "demucs", "-n", "htdemucs_ft", "-d"]
     assert "cpu" in cmd

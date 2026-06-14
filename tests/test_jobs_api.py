@@ -77,10 +77,10 @@ def test_post_accepts_youtube_url(client):
 def test_post_accepts_quality_preset(client):
     r = client.post(
         "/api/jobs",
-        json={"url": "https://youtu.be/dQw4w9WgXcQ", "quality_preset": "max"},
+        json={"url": "https://youtu.be/dQw4w9WgXcQ", "quality_preset": "ultra"},
     )
     assert r.status_code == 200
-    assert _jobs[r.json()["job_id"]].quality_preset == "max"
+    assert _jobs[r.json()["job_id"]].quality_preset == "ultra"
 
 
 def test_post_accepts_stem_denoise_preset(client):
@@ -90,6 +90,53 @@ def test_post_accepts_stem_denoise_preset(client):
     )
     assert r.status_code == 200
     assert _jobs[r.json()["job_id"]].stem_denoise_preset == "strong"
+
+
+def test_post_accepts_demucs_device_choice(client):
+    r = client.post(
+        "/api/jobs",
+        json={"url": "https://youtu.be/dQw4w9WgXcQ", "demucs_device": "cpu"},
+    )
+    assert r.status_code == 200
+    job = _jobs[r.json()["job_id"]]
+    assert job.demucs_device == "cpu"
+    assert job.demucs_device_resolved == "cpu"
+
+
+def test_same_source_can_create_distinct_extraction_profiles(client):
+    url = "https://youtu.be/dQw4w9WgXcQ"
+    standard = client.post(
+        "/api/jobs",
+        json={
+            "url": url,
+            "quality_preset": "standard",
+            "stem_denoise": "off",
+            "demucs_device": "cpu",
+            "stems": ["vocals", "drums", "bass", "other"],
+        },
+    )
+    max_clean = client.post(
+        "/api/jobs",
+        json={
+            "url": url,
+            "quality_preset": "max",
+            "stem_denoise": "strong",
+            "demucs_device": "cpu",
+            "stems": ["vocals", "bass"],
+        },
+    )
+
+    assert standard.status_code == 200
+    assert max_clean.status_code == 200
+    first = _jobs[standard.json()["job_id"]]
+    second = _jobs[max_clean.json()["job_id"]]
+
+    assert first.id != second.id
+    assert first.source_url == second.source_url == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    assert first.demucs_device == "cpu"
+    assert first.demucs_device_resolved == "cpu"
+    assert first.profile_key() == "quality=standard|denoise=off|device=cpu:cpu|stems=vocals,drums,bass,other"
+    assert second.profile_key() == "quality=max|denoise=strong|device=cpu:cpu|stems=vocals,bass"
 
 
 def test_post_invalid_stem_denoise_falls_back_to_off(client):
@@ -300,6 +347,18 @@ def test_upload_flac_returns_job_id(upload_client):
     )
     assert r.status_code == 200
     assert "job_id" in r.json()
+
+
+def test_upload_m4a_returns_job_id(upload_client):
+    data = io.BytesIO(b"\x00\x00\x00\x18ftypM4A " + b"\x00" * 128)
+    r = upload_client.post(
+        "/api/jobs",
+        files={"file": ("my_track.m4a", data, "audio/mp4")},
+    )
+    assert r.status_code == 200
+    job = _jobs[r.json()["job_id"]]
+    assert job.title == "my_track"
+    assert job.source_url == "local:my_track"
 
 
 # ─── Sections endpoint ────────────────────────────────────────────────────────

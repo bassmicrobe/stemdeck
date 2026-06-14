@@ -27,7 +27,12 @@ _PCT_RE = re.compile(r"(\d{1,3})%")
 # while still catching genuine hangs (GPU deadlock, OOM stall, etc.).
 
 
-def build_demucs_command(source: Path, job_dir: Path, settings: DemucsSettings) -> list[str]:
+def build_demucs_command(
+    source: Path,
+    job_dir: Path,
+    settings: DemucsSettings,
+    device: str | None = None,
+) -> list[str]:
     cmd = [
         sys.executable,
         "-m",
@@ -35,7 +40,7 @@ def build_demucs_command(source: Path, job_dir: Path, settings: DemucsSettings) 
         "-n",
         settings.model,
         "-d",
-        DEMUCS_DEVICE,
+        device or DEMUCS_DEVICE,
     ]
     if settings.shifts > 0:
         cmd += ["--shifts", str(settings.shifts)]
@@ -55,7 +60,7 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
     set_stage_progress(job, "separate", 0.0, status="separating", stage="Separating stems...")
 
     settings = demucs_settings_for_preset(job.quality_preset)
-    cmd = build_demucs_command(source, job_dir, settings)
+    cmd = build_demucs_command(source, job_dir, settings, job.demucs_device_resolved or None)
     env = os.environ.copy()
     try:
         import certifi
