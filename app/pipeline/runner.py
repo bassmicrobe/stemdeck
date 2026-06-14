@@ -285,7 +285,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     job.stem_presence = compute_stem_presence(stems_dir, found)
     set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
     set_stage_progress(job, "chords", 0.0, stage="Estimating chord MIDI...")
-    generate_chord_midi(job, source, job_dir)
+    generate_chord_midi(job, source, job_dir, stems_dir=stems_dir)
     set_stage_progress(job, "chords", 1.0, stage="Chord MIDI ready")
     # Source (100-300 MB or the local upload) is no longer needed after
     # collect; delete it before the ffmpeg amix steps in case scratch space

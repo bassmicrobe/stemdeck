@@ -13,6 +13,12 @@ logger = logging.getLogger("stemdeck.chords")
 
 _PITCHES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 _TPB = 480
+_CHORD_STEM_WEIGHTS = {
+    "piano": 0.9,
+    "guitar": 0.85,
+    "other": 0.65,
+}
+_BASS_ROOT_BOOST = 0.22
 
 
 @dataclass(frozen=True)
@@ -25,6 +31,14 @@ class ChordSegment:
     confidence: float
     start_beat: int | None = None
     end_beat: int | None = None
+
+
+@dataclass(frozen=True)
+class _ChromaSource:
+    name: str
+    weight: float
+    chroma: np.ndarray
+    frame_times: np.ndarray
 
 
 _CHORD_TEMPLATES: tuple[tuple[str, tuple[int, ...], tuple[float, ...]], ...] = (
@@ -105,12 +119,105 @@ def _merge_segments(segments: list[ChordSegment]) -> list[ChordSegment]:
     return merged
 
 
+def _available_chord_source_paths(
+    source: Path, stems_dir: Path | None
+) -> tuple[list[tuple[str, Path, float]], Path | None]:
+    paths: list[tuple[str, Path, float]] = [("original", source, 1.0)]
+    bass_path: Path | None = None
+    if stems_dir is None:
+        return paths, bass_path
+    for name, weight in _CHORD_STEM_WEIGHTS.items():
+        path = stems_dir / f"{name}.wav"
+        if path.is_file():
+            paths.append((name, path, weight))
+    candidate_bass = stems_dir / "bass.wav"
+    if candidate_bass.is_file():
+        bass_path = candidate_bass
+    return paths, bass_path
+
+
+def _load_chroma_source(
+    path: Path,
+    *,
+    name: str,
+    weight: float,
+    end_time: float,
+    harmonic: bool,
+) -> _ChromaSource | None:
+    loaded = _load_audio_ffmpeg(path, sr=22050, duration=min(180.0, end_time + 1.0))
+    if loaded is None:
+        return None
+
+    import librosa
+
+    y, sr = loaded
+    if float(np.sqrt(np.mean(np.square(y)))) < 1e-6:
+        return None
+    hop_length = 512
+    y_chroma = librosa.effects.harmonic(y) if harmonic else y
+    chroma = librosa.feature.chroma_cqt(y=y_chroma, sr=sr, hop_length=hop_length)
+    frame_times = librosa.frames_to_time(np.arange(chroma.shape[1]), sr=sr, hop_length=hop_length)
+    return _ChromaSource(name=name, weight=weight, chroma=chroma, frame_times=frame_times)
+
+
+def _mean_normalized_chroma(source: _ChromaSource, start: float, end: float) -> np.ndarray | None:
+    mask = (source.frame_times >= start) & (source.frame_times < end)
+    if not np.any(mask):
+        return None
+    vector = np.asarray(source.chroma[:, mask].mean(axis=1), dtype=np.float32)
+    total = float(np.sum(vector))
+    if total <= 1e-8:
+        return None
+    return vector / total
+
+
+def _combine_segment_chroma(
+    chord_sources: list[_ChromaSource],
+    bass_source: _ChromaSource | None,
+    start: float,
+    end: float,
+) -> np.ndarray | None:
+    combined = np.zeros(12, dtype=np.float32)
+    total_weight = 0.0
+    for source in chord_sources:
+        vector = _mean_normalized_chroma(source, start, end)
+        if vector is None:
+            continue
+        weight = source.weight
+        if source.name != "original":
+            _, _, _, confidence = _score_chord(vector)
+            if confidence < 0.25:
+                continue
+            weight *= 0.35 + (0.65 * confidence)
+        combined += vector * weight
+        total_weight += weight
+
+    if total_weight <= 0:
+        return None
+    combined /= total_weight
+
+    if bass_source is not None:
+        bass_vector = _mean_normalized_chroma(bass_source, start, end)
+        if bass_vector is not None:
+            root = int(np.argmax(bass_vector))
+            ordered = np.sort(bass_vector)
+            strongest = float(ordered[-1])
+            runner_up = float(ordered[-2]) if len(ordered) > 1 else 0.0
+            if strongest >= 0.16 and strongest >= runner_up * 1.12:
+                clarity = min(1.0, max(0.0, (strongest - runner_up) * 4.0))
+                combined[root] += _BASS_ROOT_BOOST * clarity
+                combined /= float(np.sum(combined))
+
+    return combined
+
+
 def detect_chord_segments(
     source: Path,
     beat_times: list[float] | None,
     *,
     duration_sec: float | None = None,
     beats_per_chord: int = 4,
+    stems_dir: Path | None = None,
 ) -> list[ChordSegment]:
     """Estimate sustained chord labels between detected beats.
 
@@ -124,17 +231,20 @@ def detect_chord_segments(
     end_time = min(float(duration_sec or beat_times[-1]), beat_times[-1])
     if end_time <= 0:
         return []
-    loaded = _load_audio_ffmpeg(source, sr=22050, duration=min(180.0, end_time + 1.0))
-    if loaded is None:
+    chord_paths, bass_path = _available_chord_source_paths(source, stems_dir)
+    chord_sources = [
+        loaded
+        for name, path, weight in chord_paths
+        if (loaded := _load_chroma_source(path, name=name, weight=weight, end_time=end_time, harmonic=True))
+        is not None
+    ]
+    if not chord_sources:
         return []
-
-    import librosa
-
-    y, sr = loaded
-    hop_length = 512
-    y_harmonic = librosa.effects.harmonic(y)
-    chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, hop_length=hop_length)
-    frame_times = librosa.frames_to_time(np.arange(chroma.shape[1]), sr=sr, hop_length=hop_length)
+    bass_source = (
+        _load_chroma_source(bass_path, name="bass", weight=1.0, end_time=end_time, harmonic=False)
+        if bass_path is not None
+        else None
+    )
 
     beat_bounds = [float(t) for t in beat_times if 0 <= float(t) <= end_time]
     if len(beat_bounds) < 2:
@@ -152,10 +262,9 @@ def detect_chord_segments(
     for (start, start_beat), (end, end_beat) in zip(bounds, bounds[1:], strict=False):
         if end <= start:
             continue
-        mask = (frame_times >= start) & (frame_times < end)
-        if not np.any(mask):
+        vector = _combine_segment_chroma(chord_sources, bass_source, start, end)
+        if vector is None:
             continue
-        vector = np.asarray(chroma[:, mask].mean(axis=1), dtype=np.float32)
         label, root, intervals, confidence = _score_chord(vector)
         segments.append(
             ChordSegment(
@@ -234,9 +343,16 @@ def write_chord_midi(
     path.write_bytes(header + conductor + track)
 
 
-def generate_chord_midi(job: Job, source: Path, job_dir: Path) -> Path | None:
+def generate_chord_midi(
+    job: Job, source: Path, job_dir: Path, *, stems_dir: Path | None = None
+) -> Path | None:
     try:
-        segments = detect_chord_segments(source, job.beat_times, duration_sec=job.duration_sec)
+        segments = detect_chord_segments(
+            source,
+            job.beat_times,
+            duration_sec=job.duration_sec,
+            stems_dir=stems_dir or (job_dir / "stems"),
+        )
         if not segments:
             return None
         out = job_dir / "stems" / "chords.mid"

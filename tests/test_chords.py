@@ -2,9 +2,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from app.core.models import Job
 from app.pipeline import chords as chords_mod
-from app.pipeline.chords import ChordSegment, _varlen, generate_chord_midi, write_chord_midi
+from app.pipeline.chords import (
+    ChordSegment,
+    _available_chord_source_paths,
+    _ChromaSource,
+    _combine_segment_chroma,
+    _score_chord,
+    _varlen,
+    generate_chord_midi,
+    write_chord_midi,
+)
+
+
+def _fake_chroma_source(name: str, weight: float, notes: dict[int, float]) -> _ChromaSource:
+    chroma = np.zeros((12, 1), dtype=np.float32)
+    for note, value in notes.items():
+        chroma[note, 0] = value
+    return _ChromaSource(name=name, weight=weight, chroma=chroma, frame_times=np.array([0.5]))
 
 
 def _read_varlen(data: bytes, offset: int) -> tuple[int, int]:
@@ -71,6 +89,34 @@ def test_varlen_encoding_matches_midi_spec():
     assert _varlen(127) == b"\x7f"
     assert _varlen(128) == b"\x81\x00"
     assert _varlen(480) == b"\x83\x60"
+
+
+def test_available_chord_sources_prefer_harmonic_stems(tmp_path: Path):
+    source = tmp_path / "source.wav"
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    source.write_bytes(b"wav")
+    for name in ("piano", "guitar", "bass", "drums"):
+        (stems_dir / f"{name}.wav").write_bytes(b"wav")
+
+    chord_paths, bass_path = _available_chord_source_paths(source, stems_dir)
+
+    assert [name for name, _, _ in chord_paths] == ["original", "piano", "guitar"]
+    assert bass_path == stems_dir / "bass.wav"
+
+
+def test_combine_segment_chroma_uses_stems_and_bass_root_hint():
+    original = _fake_chroma_source("original", 1.0, {0: 0.7, 4: 0.8, 7: 0.6, 9: 0.4})
+    piano = _fake_chroma_source("piano", 0.9, {9: 1.0, 0: 0.82, 4: 0.72, 7: 0.42})
+    bass = _fake_chroma_source("bass", 1.0, {9: 1.0})
+
+    combined = _combine_segment_chroma([original, piano], bass, 0.0, 1.0)
+
+    assert combined is not None
+    label, root, _, confidence = _score_chord(combined)
+    assert label in {"Am", "Am7"}
+    assert root == 9
+    assert confidence > 0.8
 
 
 def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
