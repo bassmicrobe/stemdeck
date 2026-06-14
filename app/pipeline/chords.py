@@ -189,9 +189,15 @@ def write_chord_midi(
 ) -> None:
     tempo_bpm = max(30, min(240, int(bpm or 120)))
     tempo_us = int(round(60_000_000 / tempo_bpm))
+    conductor_events = bytearray()
+    conductor_events += _meta(0, 0x03, b"STEMDECK Tempo")
+    conductor_events += _meta(0, 0x51, tempo_us.to_bytes(3, "big"))
+    conductor_events += _meta(0, 0x58, bytes((4, 2, 24, 8)))  # 4/4, 24 MIDI clocks/click.
+    conductor_events += _meta(0, 0x01, f"BPM {tempo_bpm}".encode("ascii"))
+    conductor_events += _meta(0, 0x2F, b"")
+
     events = bytearray()
     events += _meta(0, 0x03, (title or "STEMDECK Chord Progression").encode("utf-8")[:120])
-    events += _meta(0, 0x51, tempo_us.to_bytes(3, "big"))
     events += _varlen(0) + bytes((0xC0, 0))  # Acoustic Grand Piano
 
     cursor_ticks = 0
@@ -221,10 +227,11 @@ def write_chord_midi(
             cursor_ticks = end_tick
     events += _meta(0, 0x2F, b"")
 
-    header = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big")
-    header += (1).to_bytes(2, "big") + _TPB.to_bytes(2, "big")
+    header = b"MThd" + (6).to_bytes(4, "big") + (1).to_bytes(2, "big")
+    header += (2).to_bytes(2, "big") + _TPB.to_bytes(2, "big")
+    conductor = b"MTrk" + len(conductor_events).to_bytes(4, "big") + bytes(conductor_events)
     track = b"MTrk" + len(events).to_bytes(4, "big") + bytes(events)
-    path.write_bytes(header + track)
+    path.write_bytes(header + conductor + track)
 
 
 def generate_chord_midi(job: Job, source: Path, job_dir: Path) -> Path | None:

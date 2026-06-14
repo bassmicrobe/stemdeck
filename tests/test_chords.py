@@ -17,27 +17,37 @@ def _read_varlen(data: bytes, offset: int) -> tuple[int, int]:
             return value, offset
 
 
-def _last_midi_tick(data: bytes) -> int:
-    track_pos = data.index(b"MTrk")
-    length = int.from_bytes(data[track_pos + 4 : track_pos + 8], "big")
-    offset = track_pos + 8
-    end = offset + length
+def _track_chunks(data: bytes) -> list[bytes]:
+    chunks: list[bytes] = []
+    offset = 14
+    while offset < len(data):
+        assert data[offset : offset + 4] == b"MTrk"
+        length = int.from_bytes(data[offset + 4 : offset + 8], "big")
+        start = offset + 8
+        chunks.append(data[start : start + length])
+        offset = start + length
+    return chunks
+
+
+def _last_track_tick(track: bytes) -> int:
+    offset = 0
+    end = len(track)
     tick = 0
     running_status = None
     while offset < end:
-        delta, offset = _read_varlen(data, offset)
+        delta, offset = _read_varlen(track, offset)
         tick += delta
-        status = data[offset]
+        status = track[offset]
         offset += 1
         if status == 0xFF:
-            meta_type = data[offset]
+            meta_type = track[offset]
             offset += 1
-            size, offset = _read_varlen(data, offset)
+            size, offset = _read_varlen(track, offset)
             offset += size
             if meta_type == 0x2F:
                 return tick
         elif status in (0xF0, 0xF7):
-            size, offset = _read_varlen(data, offset)
+            size, offset = _read_varlen(track, offset)
             offset += size
         else:
             if status < 0x80:
@@ -50,6 +60,10 @@ def _last_midi_tick(data: bytes) -> int:
             event_type = status & 0xF0
             offset += 1 if event_type in (0xC0, 0xD0) else 2
     return tick
+
+
+def _last_midi_tick(data: bytes) -> int:
+    return max(_last_track_tick(track) for track in _track_chunks(data))
 
 
 def test_varlen_encoding_matches_midi_spec():
@@ -70,9 +84,13 @@ def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
 
     data = out.read_bytes()
     assert data.startswith(b"MThd")
-    assert b"MTrk" in data
+    assert int.from_bytes(data[8:10], "big") == 1
+    assert int.from_bytes(data[10:12], "big") == 2
+    assert len(_track_chunks(data)) == 2
     assert b"Guide" in data
     assert b"Am" in data
+    assert b"\xff\x51\x03" in data
+    assert b"\xff\x58\x04\x04\x02\x18\x08" in data
     assert _last_midi_tick(data) == 3840
 
 
