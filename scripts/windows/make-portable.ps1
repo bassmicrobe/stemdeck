@@ -1,7 +1,7 @@
 param(
   [string]$Configuration = "release",
   [string]$OutputRoot    = "dist",
-  [string]$PackageName   = "STEMDECK-Enhanced-Windows-x64.NVIDIA",
+  [string]$PackageName   = "LayerLab-Windows-x64.NVIDIA",
   [string]$PackageVersion,
   [switch]$SkipTauriBuild,
   [switch]$CpuOnly,
@@ -25,7 +25,7 @@ $PythonExe = Join-Path $PythonDir "Scripts\python.exe"
 $BackendDir = Join-Path $Stage "backend"
 $DesktopDir = Join-Path $Root "desktop"
 $TauriDir = Join-Path $DesktopDir "src-tauri"
-$TargetExe = Join-Path $TauriDir "target\$Configuration\stemdeck.exe"
+$TargetExe = Join-Path $TauriDir "target\$Configuration\layerlab.exe"
 
 function Require-Command([string]$Name) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -134,7 +134,7 @@ function Assert-Fresh-TauriBuild {
   if ($newerSources.Count -gt 0) {
     $list = ($newerSources | Select-Object -First 8 | ForEach-Object { "  - $($_.FullName)" }) -join "`n"
     throw @"
--SkipTauriBuild would package a stale STEMDECK Enhanced.exe.
+-SkipTauriBuild would package a stale LayerLab.exe.
 
 The existing executable is older than desktop UI/Tauri source files:
 $list
@@ -293,8 +293,8 @@ if (-not (Test-Path $TargetExe)) {
   throw "Tauri executable not found at $TargetExe"
 }
 
-Copy-Item -Force $TargetExe (Join-Path $Stage "STEMDECK Enhanced.exe")
-Sign-FileIfConfigured (Join-Path $Stage "STEMDECK Enhanced.exe")
+Copy-Item -Force $TargetExe (Join-Path $Stage "LayerLab.exe")
+Sign-FileIfConfigured (Join-Path $Stage "LayerLab.exe")
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 $Hash = Get-FileHash -Algorithm SHA256 $ZipPath

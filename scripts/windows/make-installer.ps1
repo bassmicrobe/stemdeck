@@ -1,7 +1,7 @@
 param(
   [string]$Configuration = "release",
   [string]$OutputRoot    = "dist",
-  [string]$PackageName   = "STEMDECK-Enhanced-Windows-x64.NVIDIA",
+  [string]$PackageName   = "LayerLab-Windows-x64.NVIDIA",
   [string]$PackageVersion,
   [string]$PortableRoot,
   [string]$InnoSetupCompiler,
@@ -20,7 +20,7 @@ if ($env:OS -ne "Windows_NT") {
 }
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$Template = Join-Path $Root "packaging\windows\stemdeck-enhanced.iss"
+$Template = Join-Path $Root "packaging\windows\layerlab.iss"
 $InstallerOutputRoot = Join-Path $Root $OutputRoot
 
 function Get-PackageVersion {
@@ -119,7 +119,7 @@ if (-not $SkipPortableBuild) {
 }
 
 $PortableRoot = (Resolve-Path $PortableRoot).Path
-$exePath = Join-Path $PortableRoot "STEMDECK Enhanced.exe"
+$exePath = Join-Path $PortableRoot "LayerLab.exe"
 foreach ($required in @($exePath, (Join-Path $PortableRoot "LICENSE"), (Join-Path $PortableRoot "NOTICE"), (Join-Path $PortableRoot "THIRD_PARTY_NOTICES.txt"))) {
   if (-not (Test-Path $required)) {
     throw "Required portable artifact is missing: $required"

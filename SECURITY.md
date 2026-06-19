@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-STEMDECK Enhanced is an unofficial fork test build in active alpha. Only the
+LayerLab is an unofficial StemDeck fork test build in active alpha. Only the
 latest fork release receives security fixes - there are no long-term-support
 branches yet. Please update to the newest release before reporting an issue.
 
@@ -34,7 +34,7 @@ What to expect:
 
 ## Scope and threat model
 
-STEMDECK Enhanced is local-first and single-user by design: it runs on your own
+LayerLab is local-first and single-user by design: it runs on your own
 machine, has no authentication, and is same-origin only. Reports that it "has
 no login" or "no per-user access control" describe intended behavior, not
 vulnerabilities.
@@ -51,4 +51,4 @@ We are most interested in reports about:
 
 We will not pursue action against good-faith security research that respects
 user privacy and avoids data destruction or service disruption. Thank you for
-helping keep STEMDECK Enhanced users safe.
+helping keep LayerLab users safe.

@@ -1,6 +1,6 @@
-# Contributing to STEMDECK Enhanced
+# Contributing to LayerLab
 
-Thanks for your interest in STEMDECK Enhanced, an unofficial modified fork test
+Thanks for your interest in LayerLab, an unofficial modified StemDeck fork test
 build of StemDeck. Contributions of all kinds are welcome, whether you write
 code or not.
 
@@ -12,7 +12,7 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Ways to contribute
 
 - **Report a bug** - open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
-  Include your OS, the STEMDECK Enhanced version (Help icon -> About), and clear steps to reproduce.
+  Include your OS, the LayerLab version (Help icon -> About), and clear steps to reproduce.
 - **Suggest a feature** - open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
 - **Improve the docs** - fixes and clarifications to the README or these guides are always useful.
 - **Write code** - bug fixes and features. For anything large, please open an issue or a
@@ -77,7 +77,7 @@ New API endpoints and pipeline stages should come with tests under `tests/`. The
 
 ## License
 
-STEMDECK Enhanced is based on the original StemDeck project and is licensed
+LayerLab is based on the original StemDeck project and is licensed
 under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for upstream
 attribution and the modification notice. By contributing, you agree that your
 contributions are licensed under the same terms.
@@ -85,4 +85,4 @@ contributions are licensed under the same terms.
 ## Questions
 
 Open an issue on [this fork](https://github.com/bassmicrobe/stemdeck/issues).
-Thanks for helping make STEMDECK Enhanced better.
+Thanks for helping make LayerLab better.

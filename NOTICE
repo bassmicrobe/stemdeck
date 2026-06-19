@@ -1,6 +1,6 @@
-STEMDECK Enhanced
+LayerLab
 
-STEMDECK Enhanced is an unofficial modified fork test build based on the
+LayerLab is an unofficial modified fork test build based on the
 original StemDeck project.
 
 Original project:
@@ -14,12 +14,21 @@ Original license:
 
 Attribution:
   Portions of this software are based on StemDeck by the StemDeck contributors.
-  STEMDECK Enhanced retains the upstream Apache-2.0 license text and
+  LayerLab retains the upstream Apache-2.0 license text and
   attribution. This distribution is a modified fork and is not an official upstream release.
   It is not affiliated with or endorsed by the original StemDeck project.
 
+Commercial use:
+  Apache License 2.0 permits commercial use and redistribution when its
+  conditions are satisfied. This notice does not grant trademark rights or
+  permission to present this fork as an official StemDeck release, official
+  commercial offering, certified build, or upstream-supported product.
+  Distributors remain responsible for retaining LICENSE/NOTICE files and for
+  verifying the licenses of all third-party components included in their
+  specific artifacts.
+
 Modification notice:
-  This fork uses the visible product branding STEMDECK Enhanced and includes
+  This fork uses the visible product branding LayerLab and includes
   local changes for higher-quality stem separation, FFmpeg handling, UI
   styling, asynchronous queue handling, bass dropout repair, and
   phase-coherence repair. Additional changes include optional per-stem denoise,

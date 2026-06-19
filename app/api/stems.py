@@ -323,7 +323,7 @@ def _stems_zip_filename(job) -> str:
 def _profile_manifest(job, stems: list[str], fmt: str) -> str:
     return "\n".join(
         [
-            "STEMDECK Enhanced extraction profile",
+            "LayerLab extraction profile",
             f"Title: {job.title or 'Untitled'}",
             f"Job ID: {job.id}",
             f"Profile: {job.profile_label()}",
@@ -351,7 +351,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path, mani
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
             for name, p in sources:
                 zf.write(p, arcname=f"{name}.wav")
-            zf.writestr("STEMDECK_PROFILE.txt", manifest)
+            zf.writestr("LAYERLAB_PROFILE.txt", manifest)
         return
     encode = _ENCODE_ARGS[fmt]
     with tempfile.TemporaryDirectory() as td, zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
@@ -380,7 +380,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path, mani
                 tail = proc.stderr[-2000:].decode("utf-8", "replace")
                 raise RuntimeError(f"ffmpeg failed for {name}: {tail}")
             zf.write(out, arcname=f"{name}.{fmt}")
-        zf.writestr("STEMDECK_PROFILE.txt", manifest)
+        zf.writestr("LAYERLAB_PROFILE.txt", manifest)
 
 
 @router.get("/jobs/{job_id}/stems/all.zip")

@@ -1,15 +1,15 @@
-# STEMDECK Enhanced ユーザーマニュアル
+# LayerLab ユーザーマニュアル
 
-STEMDECK Enhanced は、音源をローカル環境で stem 分離するためのアプリです。MP3、WAV、FLAC、M4A、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他の stem に分離できます。
+LayerLab は、音源をローカル環境で stem 分離するためのアプリです。MP3、WAV、FLAC、M4A、または YouTube URL を入力し、ボーカル、ドラム、ベース、ギター、ピアノ、その他の stem に分離できます。
 
 このマニュアルは、アプリを使う人向けの操作ガイドです。開発、配布、署名、ライセンス詳細は [README.ja.md](README.ja.md) も参照してください。
 
 ## 重要な前提
 
-- STEMDECK Enhanced は [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) をベースにした非公式 fork test build です。
+- LayerLab は [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) をベースにした非公式 fork test build です。
 - 元プロジェクトの公式リリースではなく、元プロジェクトと提携・承認関係はありません。
 - 処理は基本的にローカルマシン上で完結します。音源をクラウドへアップロードする設計ではありません。
-- YouTube URL 入力は、処理する権利を持つコンテンツで使ってください。STEMDECK Enhanced はダウンローダーではなく stem 分離ツールです。
+- YouTube URL 入力は、処理する権利を持つコンテンツで使ってください。LayerLab はダウンローダーではなく stem 分離ツールです。
 - 再配布する場合は `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を同梱し、Apache License 2.0 と各依存関係のライセンス条件を確認してください。
 
 ## 起動方法
@@ -38,7 +38,7 @@ curl -s http://127.0.0.1:8765/api/health
 
 ### デスクトップ版
 
-macOS の場合は `.dmg` を開き、`STEMDECK Enhanced.app` を Applications にコピーして起動します。初回起動時に Python runtime、FFmpeg、ffprobe、必要なモデルを確認または取得します。
+macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピーして起動します。初回起動時に Python runtime、FFmpeg、ffprobe、必要なモデルを確認または取得します。
 
 初回セットアップにはインターネット接続と数GB程度の空き容量が必要です。Demucs model は初回分離時にキャッシュされ、2回目以降は再利用されます。
 
@@ -118,7 +118,7 @@ macOS の場合は `.dmg` を開き、`STEMDECK Enhanced.app` を Applications �
 | `NVIDIA CUDA` | NVIDIA GPU の CUDA を使用 | Windows/LinuxのCUDA環境向け |
 | `CPU` | GPUを使わずCPUで処理 | GPU不調時、比較検証、互換性重視 |
 
-`Device` はジョブごとに保存され、`Profile`、書き出しファイル名、stem ZIP内の `STEMDECK_PROFILE.txt` にも記録されます。同じ曲でもCPU版とGPU版を別プロファイルとして比較できます。
+`Device` はジョブごとに保存され、`Profile`、書き出しファイル名、stem ZIP内の `LAYERLAB_PROFILE.txt` にも記録されます。同じ曲でもCPU版とGPU版を別プロファイルとして比較できます。
 
 ## Clean設定
 
@@ -164,7 +164,7 @@ macOS の場合は `.dmg` を開き、`STEMDECK Enhanced.app` を Applications �
 - CPUのみで十分なコアとメモリがある場合: 最大2本
 - 手動上書き: `STEMDECK_PIPELINE_CONCURRENCY=1` から `4`
 
-複数のローカルSTEMDECKバックエンドが同時起動しても、`STEMDECK_PIPELINE_LOCK` によりDemucsの同時実行を抑制します。
+複数のローカルLayerLabバックエンドが同時起動しても、互換用の `STEMDECK_PIPELINE_LOCK` によりDemucsの同時実行を抑制します。
 
 ## キャンセル
 
@@ -198,7 +198,7 @@ macOS の場合は `.dmg` を開き、`STEMDECK Enhanced.app` を Applications �
 - 4拍単位の白玉コード進行をMIDIで書き出す
 - WAV / MP3 / FLAC などの形式を選ぶ
 
-書き出しファイル名には、曲名に加えて `Quality` / `Clean` / 選択stem のプロファイルが入ります。`Export All Stems` のZIPには `STEMDECK_PROFILE.txt` も同梱され、解凍後でも抽出設定を確認できます。
+書き出しファイル名には、曲名に加えて `Quality` / `Clean` / 選択stem のプロファイルが入ります。`Export All Stems` のZIPには `LAYERLAB_PROFILE.txt` も同梱され、解凍後でも抽出設定を確認できます。
 
 `Export Chord MIDI` は、拍グリッドとchroma解析から推定した補助用のコードMIDIです。完全な採譜ではありませんが、DAWでコード進行の下書きとして使える白玉MIDIを書き出します。
 
@@ -228,7 +228,7 @@ WAVは音質劣化が少ない一方、ファイルサイズが大きくなり�
 
 ローカルWeb版では、既定でリポジトリ内の `jobs/` に処理結果が保存されます。
 
-デスクトップ版では、アプリデータ領域と `Documents/StemDeck Enhanced` 系のフォルダを使います。実際の場所はセットアップ画面やアプリ内表示を確認してください。
+デスクトップ版では、アプリデータ領域と `Documents/LayerLab` 系のフォルダを使います。実際の場所はセットアップ画面やアプリ内表示を確認してください。
 
 長尺音源、`High` / `Max` / `Ultra`、float32 WAV、ノイズ除去、phase/bass repairでは一時ファイルも増えます。空き容量には余裕を持ってください。
 
@@ -242,7 +242,7 @@ WAVは音質劣化が少ない一方、ファイルサイズが大きくなり�
 - 音源の長さ
 - `Quality` 設定
 - `Clean` 設定
-- 他のSTEMDECKプロセスや音声処理プロセスの有無
+- 他のLayerLabプロセスや音声処理プロセスの有無
 
 Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucsを走らせると遅くなったり、止まって見える場合があります。共有ロックにより基本的には同時実行を避けます。
 
@@ -250,7 +250,7 @@ Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucs
 
 ### `ffprobe` が見つからない
 
-`ffprobe` がPATHにない場合でも、STEMDECK Enhanced は可能な範囲で `ffmpeg` fallback を使います。それでも失敗する場合は、FFmpeg/ffprobeをインストールするか、デスクトップ版の初回セットアップをやり直してください。
+`ffprobe` がPATHにない場合でも、LayerLab は可能な範囲で `ffmpeg` fallback を使います。それでも失敗する場合は、FFmpeg/ffprobeをインストールするか、デスクトップ版の初回セットアップをやり直してください。
 
 ### `Audio processing failed. Please try again.`
 
@@ -271,7 +271,7 @@ Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucs
 
 確認すること:
 
-- 他のSTEMDECK Enhanced.appや古い開発サーバーが起動していないか
+- 他のLayerLab.appや古い開発サーバーが起動していないか
 - Demucsプロセスが複数残っていないか
 - ディスク容量が不足していないか
 - `jobs/` に途中ファイルだけ残っていないか
@@ -352,11 +352,12 @@ Apple Siliconでは通常 `STEMDECK_DEMUCS_DEVICE` を指定しなくてもMPS�
 
 公開する場合は、配布ページとアプリ内説明で以下を明記してください。
 
-- STEMDECK Enhanced は非公式の変更版 fork test build であること
+- LayerLab は非公式の変更版 fork test build であること
 - 元プロジェクトの公式リリースではないこと
 - 元プロジェクトと提携・承認関係がないこと
 - Apache License 2.0 に基づく fork であること
 - Apache License 2.0 は商標権を自動許諾しないこと
+- Apache License 2.0 は商用利用・有償配布自体を禁止していないが、ライセンス条件、帰属表示、第三者依存のライセンス、商標・公式誤認回避は別途守る必要があること
 
 配布物には最低限以下を含めてください。
 
@@ -365,6 +366,46 @@ Apple Siliconでは通常 `STEMDECK_DEMUCS_DEVICE` を指定しなくてもMPS�
 - `THIRD_PARTY_NOTICES.txt`
 
 FFmpeg、PyTorch、Demucs、Tauri/Rust crate、Python runtime など、実際に同梱する依存関係のライセンスも最終配布物に合わせて確認してください。
+
+### 商用利用する場合の確認
+
+Apache License 2.0 の範囲では、商用利用、社内利用、有償配布、改変版の配布は可能です。ただし、以下のような形は避けてください。
+
+- 元プロジェクトの公式版や公式販売物のように見せる
+- 元プロジェクトから承認、提携、認定、サポートを受けているように見せる
+- `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を外して配布する
+- `StemDeck` / `STEMDECK` の名称やロゴを、出所説明を超えて独自商品の商標のように使う
+- FFmpeg、PyTorch、Demucs、yt-dlp などの同梱物のライセンス確認をせずに販売・再配布する
+- ユーザーが権利を持たない音源を処理できるサービスとして、著作権や利用規約の整理なしに公開する
+
+公開販売や法人向け提供をする場合は、最終的に配布するバイナリ、同梱runtime、モデル、FFmpeg build、更新方式を前提に、法律・ライセンスの専門家へ確認することを推奨します。
+
+## 品質評価ベンチマーク
+
+`scripts/benchmark_audio.py` を使うと、stem合計が原音にどれくらい近いかをJSONで確認できます。品質プリセット、denoise、phase repair、bass repairを比較する時の基準として使ってください。
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --source /path/to/original.wav \
+  --stems-dir jobs/<job-id>/stems \
+  --metadata jobs/<job-id>/metadata.json \
+  --out .build/benchmarks/<job-id>.json
+```
+
+`source.*` がまだ残っているジョブなら、以下だけでも測定できます。
+
+```sh
+uv run python scripts/benchmark_audio.py --job-dir jobs/<job-id>
+```
+
+主に見る値:
+
+- `residual_percent`: stem合計と原音の残差。小さいほど原音再構成に近い。
+- `correlation`: 原音とstem合計の相関。1に近いほど近い。
+- `stem_sum_clipping_percent`: stem合計で1.0を超えたサンプル割合。大きい場合は合成時のクリップに注意。
+- `chords.segment_count` / `chords.average_confidence`: コードMIDI生成の区間数と平均信頼度。
+
+注意: `residual_percent` が小さいほど常に「stem単体が良い」とは限りません。phase repairを強くすると原音再構成は改善しても、stem間の分離感や漏れとはトレードオフになる場合があります。
 
 ## 困った時の確認コマンド
 
@@ -391,7 +432,7 @@ uv run --extra dev pytest
 
 ## 変更履歴メモ
 
-このマニュアルは、STEMDECK Enhanced の以下の拡張を前提にしています。
+このマニュアルは、LayerLab の以下の拡張を前提にしています。
 
 - Neon UI
 - レスポンシブレイアウト
@@ -402,5 +443,6 @@ uv run --extra dev pytest
 - bass dropout repair
 - phase repair
 - stem denoise
+- 品質評価ベンチマーク
 - cross-process Demucs lock
 - portable FFmpeg fallback

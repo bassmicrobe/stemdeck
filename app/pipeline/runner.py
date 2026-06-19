@@ -54,7 +54,7 @@ def _rmtree(path: Path) -> None:
 
 # Limit heavy pipeline parallelism by detected local capacity inside one
 # backend process. A second file lock below also coordinates multiple local
-# STEMDECK backends, for example dev server + packaged desktop app.
+# LayerLab backends, for example dev server + packaged desktop app.
 _pipeline_lock = asyncio.Semaphore(PIPELINE_CONCURRENCY)
 
 

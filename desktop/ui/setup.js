@@ -128,7 +128,7 @@ async function installRuntimePack(appRoot) {
   if (!status.manifestReady) {
     throw Object.assign(
       new Error(`Python runtime not found under ${appRoot}.`),
-      { hint: "Try reinstalling STEMDECK. If the problem persists, check that your disk has at least 2 GB free." }
+      { hint: "Try reinstalling LayerLab. If the problem persists, check that your disk has at least 2 GB free." }
     );
   }
 
@@ -158,10 +158,10 @@ async function installRuntimePack(appRoot) {
         const pct = Math.min(100, Math.round((received / total) * 100));
         progressFill.style.width = `${pct}%`;
         progressFill.classList.remove("indeterminate");
-        setStatus(`Downloading STEMDECK Enhanced runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
+        setStatus(`Downloading LayerLab runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
       } else {
         progressFill.classList.add("indeterminate");
-        setStatus(`Downloading STEMDECK Enhanced runtime... ${mb} MB received`);
+        setStatus(`Downloading LayerLab runtime... ${mb} MB received`);
       }
     }
   );
@@ -185,7 +185,7 @@ async function installRuntimePack(appRoot) {
     }
     if (!verified) {
       progressWrap.classList.remove("hidden");
-      setStatus("Downloading STEMDECK Enhanced runtime...");
+      setStatus("Downloading LayerLab runtime...");
 
       // Reset stall baseline when network download is actually about to start (#150).
       lastProgressAt = Date.now();
@@ -210,7 +210,7 @@ async function installRuntimePack(appRoot) {
       // startProgressStatus is assigned after stallTimer creation; the closure
       // above captures stopSlowMsg by reference, so it sees the updated value.
       stopSlowMsg = startProgressStatus([
-        { afterSeconds: 0,  text: "Downloading STEMDECK Enhanced runtime..." },
+        { afterSeconds: 0,  text: "Downloading LayerLab runtime..." },
         { afterSeconds: 30, text: "Still downloading runtime... slow connection detected." },
         { afterSeconds: 90, text: "Still downloading... large file on a slow connection can take a few minutes." },
       ]);
@@ -227,10 +227,10 @@ async function installRuntimePack(appRoot) {
         if (stopSlowMsg) { stopSlowMsg(); }
       }
       progressWrap.classList.add("hidden");
-      setStatus("Verifying STEMDECK Enhanced runtime...");
+      setStatus("Verifying LayerLab runtime...");
       await invoke("verify_runtime_pack");
     }
-    setStatus("Installing STEMDECK Enhanced runtime...");
+    setStatus("Installing LayerLab runtime...");
     const installed = await invoke("extract_runtime_pack");
     if (!installed.runtimeReady) {
       throw Object.assign(
@@ -283,9 +283,9 @@ async function runSetup() {
         }
       }
       await runStep("backend", async () => {
-        setStatus("Runtime is ready. Starting STEMDECK Enhanced backend...");
+        setStatus("Runtime is ready. Starting LayerLab backend...");
         const backend = await invoke("start_backend");
-        setStatus("Opening STEMDECK Enhanced...");
+        setStatus("Opening LayerLab...");
         window.location.replace(backend.url);
       });
       return;
@@ -302,7 +302,7 @@ async function runSetup() {
         setStep("runtime", "error");
         throw Object.assign(
           new Error(`Python runtime setup failed under: ${runtime.dataDir}`),
-          { hint: "Check that your disk has at least 2 GB free and click Retry. If it keeps failing, try reinstalling STEMDECK." }
+          { hint: "Check that your disk has at least 2 GB free and click Retry. If it keeps failing, try reinstalling LayerLab." }
         );
       }
     }
@@ -401,9 +401,9 @@ async function runSetup() {
     setStatus("AI separation model will download on first use (~340 MB).");
 
     await runStep("backend", async () => {
-      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting STEMDECK Enhanced backend...");
+      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting LayerLab backend...");
       const backend = await invoke("start_backend");
-      setStatus("Opening STEMDECK Enhanced...");
+      setStatus("Opening LayerLab...");
       window.location.replace(backend.url);
     });
   } catch (error) {

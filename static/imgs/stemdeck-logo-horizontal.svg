@@ -1,6 +1,6 @@
 <svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">STEMDECK Horizontal Logo</title>
-  <desc id="desc">STEMDECK logo with golden waveform symbol and wordmark.</desc>
+  <title id="title">LayerLab Horizontal Logo</title>
+  <desc id="desc">LayerLab logo with golden waveform symbol and wordmark.</desc>
   <defs>
     <linearGradient id="gold" x1="82" y1="48" x2="282" y2="264" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FFE38A"/>
@@ -19,7 +19,7 @@
     <rect x="318" y="128" width="20" height="64" rx="10"/>
     <rect x="352" y="154" width="16" height="12" rx="6"/>
   </g>
-  <text x="430" y="178" font-family="Inter, Geist, Manrope, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-4" fill="#F4F6F8">Stem</text>
-  <text x="678" y="178" font-family="Inter, Geist, Manrope, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-4" fill="#F2B53D">Deck</text>
+  <text x="430" y="178" font-family="Inter, Geist, Manrope, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-4" fill="#F4F6F8">Layer</text>
+  <text x="700" y="178" font-family="Inter, Geist, Manrope, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-4" fill="#F2B53D">Lab</text>
   <text x="435" y="232" font-family="Inter, Geist, Manrope, Arial, sans-serif" font-size="28" font-weight="500" letter-spacing="11" fill="#7F8A94">POWERED STEM SEPARATION</text>
 </svg>

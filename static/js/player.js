@@ -731,7 +731,7 @@ function _profileSlug(label, key) {
 }
 
 function _exportBase() {
-  const title = _safeFilenamePart(_currentTitle, "stemdeck");
+  const title = _safeFilenamePart(_currentTitle, "layerlab");
   return _currentProfileSlug ? `${title}_${_currentProfileSlug}` : title;
 }
 

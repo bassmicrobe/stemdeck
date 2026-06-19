@@ -141,7 +141,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="STEMDECK Enhanced",
+    title="LayerLab",
     description="Paste a YouTube URL or upload an audio file, get audio stems split into a DAW-style player.",
     version=app_version(),
     lifespan=lifespan,
@@ -156,7 +156,7 @@ def health_root() -> dict[str, object]:
 @app.get("/api/health", tags=["health"])
 def health() -> dict[str, object]:
     return {
-        "name": "STEMDECK Enhanced",
+        "name": "LayerLab",
         "status": "ok",
         "version": app_version(),
         "ffmpeg_configured": ffmpeg_available(),

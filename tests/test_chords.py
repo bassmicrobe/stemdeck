@@ -10,8 +10,12 @@ from app.pipeline.chords import (
     ChordSegment,
     _available_chord_source_paths,
     _ChromaSource,
+    _combine_beatwise_chroma,
     _combine_segment_chroma,
+    _estimate_key_context,
+    _midi_text,
     _score_chord,
+    _select_chord_sequence,
     _varlen,
     generate_chord_midi,
     write_chord_midi,
@@ -23,6 +27,26 @@ def _fake_chroma_source(name: str, weight: float, notes: dict[int, float]) -> _C
     for note, value in notes.items():
         chroma[note, 0] = value
     return _ChromaSource(name=name, weight=weight, chroma=chroma, frame_times=np.array([0.5]))
+
+
+def _vector(notes: dict[int, float]) -> np.ndarray:
+    chroma = np.zeros(12, dtype=np.float32)
+    for note, value in notes.items():
+        chroma[note] = value
+    return chroma
+
+
+def _multi_frame_source(
+    name: str,
+    weight: float,
+    frames: list[dict[int, float]],
+    frame_times: list[float],
+) -> _ChromaSource:
+    chroma = np.zeros((12, len(frames)), dtype=np.float32)
+    for idx, notes in enumerate(frames):
+        for note, value in notes.items():
+            chroma[note, idx] = value
+    return _ChromaSource(name=name, weight=weight, chroma=chroma, frame_times=np.array(frame_times))
 
 
 def _read_varlen(data: bytes, offset: int) -> tuple[int, int]:
@@ -119,6 +143,62 @@ def test_combine_segment_chroma_uses_stems_and_bass_root_hint():
     assert confidence > 0.8
 
 
+def test_combine_beatwise_chroma_uses_bass_root_across_beats():
+    harmony = _multi_frame_source(
+        "piano",
+        1.25,
+        [
+            {0: 0.82, 4: 0.74, 7: 0.62, 9: 0.55},
+            {0: 0.80, 4: 0.70, 7: 0.60, 9: 0.58},
+            {0: 0.84, 4: 0.72, 7: 0.63, 9: 0.56},
+            {0: 0.78, 4: 0.69, 7: 0.59, 9: 0.60},
+        ],
+        [0.5, 1.5, 2.5, 3.5],
+    )
+    bass = _multi_frame_source(
+        "bass",
+        1.0,
+        [{9: 1.0}, {9: 0.9}, {9: 1.0}, {9: 0.92}],
+        [0.5, 1.5, 2.5, 3.5],
+    )
+
+    combined = _combine_beatwise_chroma([harmony], bass, [0, 1, 2, 3, 4], 0, 4)
+    assert combined is not None
+    label, root, _, confidence = _score_chord(combined)
+
+    assert label in {"Am", "Am7"}
+    assert root == 9
+    assert confidence > 0.75
+
+
+def test_estimate_key_context_returns_confident_minor_key():
+    vectors = [
+        _vector({2: 1.0, 5: 0.82, 9: 0.72}),
+        _vector({10: 1.0, 2: 0.82, 5: 0.72}),
+        _vector({9: 1.0, 0: 0.82, 4: 0.72}),
+    ]
+
+    assert _estimate_key_context(vectors) == (2, "minor")
+
+
+def test_select_chord_sequence_smooths_weak_same_root_variant():
+    c = _vector({0: 1.0, 4: 0.82, 7: 0.72})
+    noisy_same_root = _vector({7: 0.9, 11: 0.68, 2: 0.62, 0: 0.8, 4: 0.6})
+
+    selected = _select_chord_sequence([c, noisy_same_root, c])
+
+    assert [candidate.label for candidate in selected] == ["C", "C", "C"]
+
+
+def test_select_chord_sequence_keeps_strong_progression_change():
+    c = _vector({0: 1.0, 4: 0.82, 7: 0.72})
+    g = _vector({7: 1.0, 11: 0.82, 2: 0.72})
+
+    selected = _select_chord_sequence([c, g, c])
+
+    assert [candidate.label for candidate in selected] == ["C", "G", "C"]
+
+
 def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
     out = tmp_path / "chords.mid"
     segments = [
@@ -138,6 +218,22 @@ def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
     assert b"\xff\x51\x03" in data
     assert b"\xff\x58\x04\x04\x02\x18\x08" in data
     assert _last_midi_tick(data) == 3840
+
+
+def test_write_chord_midi_uses_ascii_safe_title_metadata(tmp_path: Path):
+    out = tmp_path / "multibyte-title.mid"
+    title = "譜医〜煌椰け(bassmicrobe remix)"
+    segments = [ChordSegment("C", 0.0, 2.0, 0, (0, 4, 7), 0.9)]
+
+    write_chord_midi(out, segments, bpm=120, title=title)
+
+    data = out.read_bytes()
+    assert title.encode("utf-8") not in data
+    assert b"bassmicrobe remix" in data
+
+
+def test_midi_text_falls_back_when_title_has_no_ascii():
+    assert _midi_text("曲名だけ", "LayerLab Chord Progression", 120) == b"LayerLab Chord Progression"
 
 
 def test_write_chord_midi_quantizes_detected_beats_as_quarter_notes(tmp_path: Path):

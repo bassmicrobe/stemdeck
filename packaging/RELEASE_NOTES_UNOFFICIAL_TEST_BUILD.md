@@ -1,4 +1,4 @@
-# STEMDECK Enhanced unofficial fork test build
+# LayerLab unofficial StemDeck fork test build
 
 This is an unofficial modified fork test build of StemDeck:
 https://github.com/stemdeckapp/stemdeck
@@ -9,10 +9,15 @@ the original StemDeck project.
 License: Apache License 2.0. This distribution includes LICENSE, NOTICE, and
 THIRD_PARTY_NOTICES.txt. Please review those files before redistribution.
 
+Apache License 2.0 permits commercial use and paid redistribution when its
+conditions are met. It does not grant trademark rights. Do not present this
+test build as an official StemDeck release, official commercial offering,
+certified build, or upstream-supported product.
+
 ## Assets
 
-- `STEMDECK-Enhanced-macOS-arm64.dmg`
-- `STEMDECK-Enhanced-runtime-macOS-arm64.tar.zst`
+- `LayerLab-macOS-arm64.dmg`
+- `LayerLab-runtime-macOS-arm64.tar.zst`
 - `SHA256SUMS-macOS-arm64.txt`
 
 ## Fork changes
@@ -42,3 +47,6 @@ THIRD_PARTY_NOTICES.txt. Please review those files before redistribution.
 
 Apache License 2.0 に基づき、配布物には LICENSE、NOTICE、
 THIRD_PARTY_NOTICES.txt を含めています。再配布前に必ず確認してください。
+Apache License 2.0 は商用利用や有償配布自体を禁止していませんが、
+商標権を自動許諾するものではありません。この test build を公式版、
+公式販売物、認定ビルド、元プロジェクトのサポート対象のように表示しないでください。

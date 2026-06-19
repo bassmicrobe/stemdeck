@@ -309,7 +309,7 @@ def stem_gate_enabled_for_preset(_preset: str | None) -> bool:
 _demucs_settings = demucs_settings_for_preset(QUALITY_PRESET)
 
 # Runtime knobs -- env-backed so Docker / desktop packaging / local dev can
-# tune without a code edit. STEMDECK_DATA_DIR is the portable app root for
+# tune without a code edit. STEMDECK_DATA_DIR is the legacy portable app root for
 # mutable runtime data; when unset, dev behavior remains the repo-local jobs/
 # folder.
 PORTABLE_DATA_DIR_ENABLED = bool(os.environ.get("STEMDECK_DATA_DIR", "").strip())

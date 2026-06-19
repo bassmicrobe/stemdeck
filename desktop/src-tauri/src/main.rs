@@ -203,7 +203,7 @@ fn main() {
             let data_dir = match local_data_dir() {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!("[stemdeck] could not resolve data_dir, skipping version check: {e}");
+                    eprintln!("[layerlab] could not resolve data_dir, skipping version check: {e}");
                     return Ok(());
                 }
             };
@@ -223,7 +223,7 @@ fn main() {
                 // cleanup — a missing version file would otherwise cause every launch
                 // to wipe WebKit data.
                 if let Err(e) = fs::write(&version_file, current) {
-                    eprintln!("[stemdeck] failed to write version file, skipping cleanup: {e}");
+                    eprintln!("[layerlab] failed to write version file, skipping cleanup: {e}");
                 }
             }
             let _ = app; // suppress unused warning
@@ -252,7 +252,7 @@ fn main() {
             mark_store_migration_done,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build STEMDECK Enhanced desktop app")
+        .expect("failed to build LayerLab desktop app")
         .run(|app_handle, event| match event {
             tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { .. },
@@ -266,23 +266,23 @@ fn main() {
         });
 }
 
-/// Returns ~/Documents/StemDeck Enhanced/, creating it if needed.
+/// Returns ~/Documents/LayerLab/, creating it if needed.
 /// All user-facing content (library metadata + stem audio) lives here so it is
 /// visible in Finder, eligible for iCloud backup, and survives app reinstalls.
 fn documents_stemdeck_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let documents = app.path().document_dir().map_err(|e| e.to_string())?;
-    let dir = documents.join("StemDeck Enhanced");
+    let dir = documents.join("LayerLab");
     fs::create_dir_all(&dir)
-        .map_err(|e| format!("failed to create ~/Documents/StemDeck Enhanced: {e}"))?;
+        .map_err(|e| format!("failed to create ~/Documents/LayerLab: {e}"))?;
     Ok(dir)
 }
 
-/// Returns ~/Documents/StemDeck Enhanced/user-data.json (library metadata store).
+/// Returns ~/Documents/LayerLab/user-data.json (library metadata store).
 fn documents_store_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(documents_stemdeck_dir(app)?.join("user-data.json"))
 }
 
-/// Returns ~/Documents/StemDeck Enhanced/jobs/ (stem audio files).
+/// Returns ~/Documents/LayerLab/jobs/ (stem audio files).
 /// Falls back to data_dir/jobs if document_dir is unavailable.
 fn documents_dir_for_jobs(app: &tauri::AppHandle) -> PathBuf {
     match documents_stemdeck_dir(app) {
@@ -370,10 +370,10 @@ fn mark_store_migration_done() {
     match local_data_dir() {
         Ok(d) => {
             if let Err(e) = fs::write(d.join("store_migration_done"), "") {
-                eprintln!("[stemdeck] failed to write migration flag: {e}");
+                eprintln!("[layerlab] failed to write migration flag: {e}");
             }
         }
-        Err(e) => eprintln!("[stemdeck] could not write migration flag: {e}"),
+        Err(e) => eprintln!("[layerlab] could not write migration flag: {e}"),
     }
 }
 
@@ -387,6 +387,8 @@ fn clear_webkit_data() {
         Err(_) => return,
     };
     let targets = [
+        format!("{home}/Library/WebKit/com.bassmicrobe.layerlab"),
+        // Legacy StemDeck fork identifiers are cleanup-only migration targets.
         format!("{home}/Library/WebKit/com.bassmicrobe.stemdeck.enhanced"),
         format!("{home}/Library/WebKit/app.stemdeck.desktop"),
         format!("{home}/Library/WebKit/stemdeck"),
@@ -394,7 +396,7 @@ fn clear_webkit_data() {
     for path in &targets {
         if let Err(e) = fs::remove_dir_all(path) {
             if e.kind() != std::io::ErrorKind::NotFound {
-                eprintln!("[stemdeck] WebKit cleanup failed for {path}: {e}");
+                eprintln!("[layerlab] WebKit cleanup failed for {path}: {e}");
             }
         }
     }
@@ -639,7 +641,7 @@ fn start_backend(
         let backend_dir = backend_dir(&root)?;
         let data_dir = local_data_dir()?;
         let python = python_path(&root).filter(|p| p.is_file()).ok_or_else(|| {
-            "Python runtime not found. Expected python/ or .venv/ under the STEMDECK app root."
+            "Python runtime not found. Expected python/ or .venv/ under the LayerLab app root."
                 .to_string()
         })?;
         patch_pyvenv_cfg(&python);
@@ -676,7 +678,7 @@ fn start_backend(
             cmd.env("PYTHONHOME", pythonhome);
         }
 
-        // Jobs (stem audio files) live in ~/Documents/StemDeck Enhanced/jobs/ so the user's
+        // Jobs (stem audio files) live in ~/Documents/LayerLab/jobs/ so the user's
         // library is visible in Finder, backed up by iCloud, and survives app reinstalls.
         let jobs_dir = documents_dir_for_jobs(&app_handle);
 
@@ -782,7 +784,7 @@ fn stop_backend_command(state: tauri::State<BackendState>) -> Result<(), String>
 
 /// Detects GPU hardware, installs CUDA torch if needed, and persists the chosen device.
 #[tauri::command]
-fn ensure_torch_device(state: tauri::State<BackendState>) -> Result<GpuSetup, String> {
+fn ensure_torch_device(_state: tauri::State<BackendState>) -> Result<GpuSetup, String> {
     let root = app_root()?;
     let data_dir = local_data_dir()?;
 
@@ -826,7 +828,7 @@ fn ensure_torch_device(state: tauri::State<BackendState>) -> Result<GpuSetup, St
         let setup = match detect_nvidia_gpu() {
             Some((gpu_name, cuda_version)) => {
                 let index_url = cuda_index_url(&cuda_version);
-                install_cuda_torch(&python, &index_url, &state)?;
+                install_cuda_torch(&python, &index_url, &_state)?;
                 let cuda_verified = verify_cuda_torch(&python);
                 GpuSetup {
                     gpu_detected: true,
@@ -1111,6 +1113,7 @@ fn python_stdlib_present(venv_root: &Path) -> bool {
 
 /// Maps known pip/OS failure patterns to actionable user messages.
 /// Pure function — caller is responsible for logging the raw stderr before calling.
+#[cfg(not(target_os = "macos"))]
 fn classify_cuda_install_error(stderr: &str) -> String {
     let lower = stderr.to_ascii_lowercase();
 
@@ -1128,7 +1131,7 @@ fn classify_cuda_install_error(stderr: &str) -> String {
     }
     if lower.contains("access is denied") || lower.contains("permissionerror") {
         return "CUDA install failed: permission denied — antivirus software may be blocking \
-                the install. Try adding STEMDECK to your AV exclusions and click Retry."
+                the install. Try adding LayerLab to your AV exclusions and click Retry."
             .to_string();
     }
     if lower.contains("could not connect") || lower.contains("connection timed out") {
@@ -1214,7 +1217,7 @@ fn install_cuda_torch(python: &Path, index_url: &str, state: &BackendState) -> R
             {
                 let _ = writeln!(
                     f,
-                    "[stemdeck] CUDA torch install failed. stderr:\n{}",
+                    "[layerlab] CUDA torch install failed. stderr:\n{}",
                     stderr.trim()
                 );
             }
@@ -1701,9 +1704,9 @@ fn decode_wav_sample(bytes: &[u8], format: WavFormat) -> Result<f32, String> {
     }
 }
 
-/// Returns the persistent user data directory for StemDeck Enhanced.
-/// On Windows: %LocalAppData%\StemDeck Enhanced
-/// On macOS: ~/Library/Application Support/StemDeck Enhanced
+/// Returns the persistent user data directory for LayerLab.
+/// On Windows: %LocalAppData%\LayerLab
+/// On macOS: ~/Library/Application Support/LayerLab
 /// On Linux: $XDG_DATA_HOME/stemdeck  or  ~/.local/share/stemdeck
 /// Can be overridden by STEMDECK_DATA_DIR for development.
 fn local_data_dir() -> Result<PathBuf, String> {
@@ -1714,7 +1717,7 @@ fn local_data_dir() -> Result<PathBuf, String> {
     {
         let base = env::var("LOCALAPPDATA")
             .map_err(|_| "LOCALAPPDATA environment variable not set".to_string())?;
-        Ok(PathBuf::from(base).join("StemDeck Enhanced"))
+        Ok(PathBuf::from(base).join("LayerLab"))
     }
     #[cfg(target_os = "macos")]
     {
@@ -1722,18 +1725,18 @@ fn local_data_dir() -> Result<PathBuf, String> {
         Ok(PathBuf::from(home)
             .join("Library")
             .join("Application Support")
-            .join("StemDeck Enhanced"))
+            .join("LayerLab"))
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         if let Ok(xdg) = env::var("XDG_DATA_HOME") {
-            return Ok(PathBuf::from(xdg).join("stemdeck-enhanced"));
+            return Ok(PathBuf::from(xdg).join("layerlab"));
         }
         let home = env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
         Ok(PathBuf::from(home)
             .join(".local")
             .join("share")
-            .join("stemdeck-enhanced"))
+            .join("layerlab"))
     }
 }
 
@@ -1744,7 +1747,7 @@ fn append_to_setup_log(data_dir: &Path, msg: &str) {
         let _ = fs::create_dir_all(p);
     }
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&log) {
-        let _ = writeln!(f, "[stemdeck] {msg}");
+        let _ = writeln!(f, "[layerlab] {msg}");
     }
 }
 
@@ -1829,7 +1832,7 @@ fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf 
         .clone()
         .or_else(|| manifest.runtime_url.rsplit('/').next().map(str::to_string))
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("STEMDECK-runtime-macOS-{}.tar.zst", manifest.arch));
+        .unwrap_or_else(|| format!("LayerLab-runtime-macOS-{}.tar.zst", manifest.arch));
     data_dir.join("downloads").join(name)
 }
 
@@ -2676,6 +2679,7 @@ fn update_setup_config<const N: usize>(
 /// Polls an already-spawned child until it exits or the timeout elapses.
 /// Mirrors command_output_with_timeout but accepts a pre-spawned Child so the
 /// caller can record the PID before waiting (e.g. to kill on window close).
+#[cfg(not(target_os = "macos"))]
 fn child_output_with_timeout(
     mut child: Child,
     timeout: Duration,
@@ -2834,7 +2838,7 @@ mod tests {
         let fake_webkit = tmp
             .path()
             .join("WebKit")
-            .join("com.bassmicrobe.stemdeck.enhanced");
+            .join("com.bassmicrobe.layerlab");
         // Never created → remove_dir_all should return NotFound, which we ignore.
         let result = fs::remove_dir_all(&fake_webkit);
         assert!(result.is_err());

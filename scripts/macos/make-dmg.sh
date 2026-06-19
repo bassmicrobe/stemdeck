@@ -7,12 +7,12 @@ VERSION="${VERSION#v}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/.build"
 DIST_DIR="${BUILD_DIR}/macos-dist"
-DMG_NAME="STEMDECK-Enhanced-macOS-${ARCH}.dmg"
+DMG_NAME="LayerLab-macOS-${ARCH}.dmg"
 DMG_PATH="${DIST_DIR}/${DMG_NAME}"
-DMG_RW_PATH="${DIST_DIR}/STEMDECK-Enhanced-macOS-${ARCH}.rw.dmg"
-RUNTIME_NAME="STEMDECK-Enhanced-runtime-macOS-${ARCH}.tar.zst"
+DMG_RW_PATH="${DIST_DIR}/LayerLab-macOS-${ARCH}.rw.dmg"
+RUNTIME_NAME="LayerLab-runtime-macOS-${ARCH}.tar.zst"
 RUNTIME_PATH="${BUILD_DIR}/${RUNTIME_NAME}"
-APP_BUNDLE_NAME="STEMDECK Enhanced.app"
+APP_BUNDLE_NAME="LayerLab.app"
 DMG_SIZE="${DMG_SIZE:-256m}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
@@ -57,7 +57,7 @@ hdiutil create \
   -size "$DMG_SIZE" \
   -type UDIF \
   -fs APFS \
-  -volname "STEMDECK Enhanced" \
+  -volname "LayerLab" \
   -ov \
   "$DMG_RW_PATH" >/dev/null
 

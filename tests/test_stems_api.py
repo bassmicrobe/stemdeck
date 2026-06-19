@@ -165,9 +165,9 @@ def test_all_stems_zip_all_when_no_subset(client, tmp_path):
     assert "My_Song_Live_Standard_Noise_off_Auto_All_6_stem_stems.zip" in r.headers["content-disposition"]
 
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "bass.wav", "drums.wav", "vocals.wav"]
+    assert sorted(zf.namelist()) == ["LAYERLAB_PROFILE.txt", "bass.wav", "drums.wav", "vocals.wav"]
     assert zf.read("vocals.wav") == b"RIFFvocals"
-    manifest = zf.read("STEMDECK_PROFILE.txt").decode()
+    manifest = zf.read("LAYERLAB_PROFILE.txt").decode()
     assert "Profile: Standard / Noise off / Auto / All 6-stem" in manifest
     assert "Exported stems: vocals, drums, bass" in manifest
 
@@ -186,8 +186,8 @@ def test_all_stems_zip_only_active_subset(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?stems=vocals,bass")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "bass.wav", "vocals.wav"]
-    assert "Exported stems: vocals, bass" in zf.read("STEMDECK_PROFILE.txt").decode()
+    assert sorted(zf.namelist()) == ["LAYERLAB_PROFILE.txt", "bass.wav", "vocals.wav"]
+    assert "Exported stems: vocals, bass" in zf.read("LAYERLAB_PROFILE.txt").decode()
 
 
 def test_all_stems_zip_rejects_unknown_stem(client, tmp_path):
@@ -259,7 +259,7 @@ def test_all_stems_zip_mp3(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?format=mp3")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "vocals.mp3"]
+    assert sorted(zf.namelist()) == ["LAYERLAB_PROFILE.txt", "vocals.mp3"]
     assert len(zf.read("vocals.mp3")) > 0
 
 
@@ -421,5 +421,5 @@ def test_all_stems_zip_flac(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip?format=flac")
     assert r.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(r.content))
-    assert sorted(zf.namelist()) == ["STEMDECK_PROFILE.txt", "vocals.flac"]
+    assert sorted(zf.namelist()) == ["LAYERLAB_PROFILE.txt", "vocals.flac"]
     assert zf.read("vocals.flac")[:4] == b"fLaC"

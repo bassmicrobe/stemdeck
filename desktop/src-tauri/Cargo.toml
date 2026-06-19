@@ -1,9 +1,9 @@
 [package]
-name = "stemdeck"
+name = "layerlab"
 # Placeholder — stamped from the git tag at build time (Woodpecker / make-app.sh). #169
 version = "0.0.0"
-description = "STEMDECK Enhanced desktop launcher"
-authors = ["STEMDECK Enhanced contributors"]
+description = "LayerLab desktop launcher"
+authors = ["LayerLab contributors"]
 edition = "2021"
 rust-version = "1.88"
 
