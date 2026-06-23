@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
 import logging
 import unicodedata
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
 
 import numpy as np
@@ -19,8 +21,11 @@ _CHORD_STEM_WEIGHTS = {
     "guitar": 1.10,
     "other": 0.55,
 }
-_BASS_ROOT_BOOST = 0.22
-_BASS_BLOCK_ROOT_BOOST = 0.36
+CHORD_MIDI_STYLES = ("auto", "triads", "sevenths")
+CHORD_MIDI_GRIDS = ("beat", "bar")
+_BASS_ROOT_BOOST = 0.16
+_BASS_BLOCK_ROOT_BOOST = 0.24
+_MIN_STABLE_CHORD_CONFIDENCE = 0.56
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,7 @@ _MINOR_KEY_PROFILE = np.asarray(
 )
 _DIATONIC_MAJOR = {0, 2, 4, 5, 7, 9, 11}
 _DIATONIC_MINOR = {0, 2, 3, 5, 7, 8, 10}
+_PITCH_TO_INDEX = {pitch: idx for idx, pitch in enumerate(_PITCHES)}
 
 
 def _varlen(value: int) -> bytes:
@@ -115,6 +121,171 @@ def _normalize_chroma(chroma: np.ndarray) -> np.ndarray | None:
     return chroma.astype(np.float32, copy=False) / total
 
 
+def normalize_chord_midi_style(value: str | None) -> str:
+    style = (value or "auto").strip().lower()
+    return style if style in CHORD_MIDI_STYLES else "auto"
+
+
+def normalize_chord_midi_grid(value: str | None) -> str:
+    grid = (value or "beat").strip().lower()
+    return grid if grid in CHORD_MIDI_GRIDS else "beat"
+
+
+def _split_chord_label(label: str | None) -> tuple[int | None, str]:
+    text = (label or "").strip()
+    if not text or text == "N.C.":
+        return None, ""
+    for pitch in sorted(_PITCH_TO_INDEX, key=len, reverse=True):
+        if text.startswith(pitch):
+            return _PITCH_TO_INDEX[pitch], text[len(pitch) :]
+    return None, ""
+
+
+def _segment_from_metadata(item: dict) -> ChordSegment | None:
+    if not isinstance(item, dict):
+        return None
+    label = str(item.get("label") or "N.C.")
+    root, suffix = _split_chord_label(label)
+    intervals = _intervals_for_suffix(suffix) if root is not None else ()
+    try:
+        start = float(item.get("start", 0.0))
+        end = float(item.get("end", start))
+        confidence = float(item.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        return None
+    start_beat = _optional_int(item.get("start_beat"))
+    end_beat = _optional_int(item.get("end_beat"))
+    if end <= start and (start_beat is None or end_beat is None or end_beat <= start_beat):
+        return None
+    return ChordSegment(label, start, end, root, intervals, confidence, start_beat, end_beat)
+
+
+def _optional_int(value: object) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _intervals_for_suffix(suffix: str) -> tuple[int, ...]:
+    if suffix == "m":
+        return (0, 3, 7)
+    if suffix == "7":
+        return (0, 4, 7, 10)
+    if suffix == "maj7":
+        return (0, 4, 7, 11)
+    if suffix == "m7":
+        return (0, 3, 7, 10)
+    if suffix == "sus2":
+        return (0, 2, 7)
+    if suffix == "sus4":
+        return (0, 5, 7)
+    if suffix == "dim":
+        return (0, 3, 6)
+    return (0, 4, 7)
+
+
+def chord_segments_from_metadata(progression: object) -> list[ChordSegment]:
+    if not isinstance(progression, list):
+        return []
+    segments = [_segment_from_metadata(item) for item in progression if isinstance(item, dict)]
+    return [segment for segment in segments if segment is not None]
+
+
+def _simple_chord_for_style(seg: ChordSegment, style: str) -> ChordSegment:
+    if seg.root is None or not seg.intervals:
+        return seg
+    root_name = _PITCHES[seg.root]
+    _, suffix = _split_chord_label(seg.label)
+    is_minor = suffix in {"m", "m7", "dim"}
+    is_seventh = suffix in {"7", "maj7", "m7"}
+    if style == "auto":
+        return seg
+    if style == "sevenths" and is_seventh:
+        return seg
+    label = f"{root_name}m" if is_minor else root_name
+    intervals = (0, 3, 7) if is_minor else (0, 4, 7)
+    return ChordSegment(
+        label,
+        seg.start,
+        seg.end,
+        seg.root,
+        intervals,
+        seg.confidence,
+        seg.start_beat,
+        seg.end_beat,
+    )
+
+
+def _quantize_segments_to_bars(segments: list[ChordSegment], beats_per_bar: int = 4) -> list[ChordSegment]:
+    usable = [seg for seg in segments if seg.start_beat is not None and seg.end_beat is not None]
+    if not usable:
+        return segments
+    first_beat = min(int(seg.start_beat) for seg in usable)
+    last_beat = max(int(seg.end_beat) for seg in usable)
+    bar_start = (first_beat // beats_per_bar) * beats_per_bar
+    quantized: list[ChordSegment] = []
+
+    def time_for_beat(beat: int) -> float:
+        for segment in usable:
+            seg_start = int(segment.start_beat)
+            seg_end = int(segment.end_beat)
+            if seg_start <= beat <= seg_end and seg_end > seg_start:
+                ratio = (beat - seg_start) / (seg_end - seg_start)
+                return segment.start + ((segment.end - segment.start) * ratio)
+        if beat <= first_beat:
+            return min(segment.start for segment in usable)
+        return max(segment.end for segment in usable)
+
+    for start in range(bar_start, last_beat, beats_per_bar):
+        end = start + beats_per_bar
+        overlaps: list[tuple[float, ChordSegment]] = []
+        for seg in usable:
+            overlap = max(0, min(end, int(seg.end_beat)) - max(start, int(seg.start_beat)))
+            if overlap > 0:
+                overlaps.append((float(overlap), seg))
+        if not overlaps:
+            continue
+        _, picked = max(overlaps, key=lambda item: (item[0], item[1].confidence))
+        quantized_end = min(end, last_beat)
+        quantized.append(
+            ChordSegment(
+                picked.label,
+                time_for_beat(start),
+                time_for_beat(quantized_end),
+                picked.root,
+                picked.intervals,
+                picked.confidence,
+                start,
+                quantized_end,
+            )
+        )
+    return _merge_segments(quantized)
+
+
+def prepare_chord_midi_segments(
+    segments: list[ChordSegment],
+    *,
+    style: str = "auto",
+    grid: str = "beat",
+) -> list[ChordSegment]:
+    normalized_style = normalize_chord_midi_style(style)
+    normalized_grid = normalize_chord_midi_grid(grid)
+    transformed = [_simple_chord_for_style(seg, normalized_style) for seg in segments]
+    transformed = _smooth_short_segments(_merge_segments(transformed))
+    if normalized_grid == "bar":
+        transformed = _quantize_segments_to_bars(transformed)
+    return _merge_segments(transformed)
+
+
+def _normalize_chroma_frames(chroma: np.ndarray) -> np.ndarray:
+    matrix = np.asarray(chroma, dtype=np.float32)
+    totals = matrix.sum(axis=0, keepdims=True)
+    return np.divide(matrix, totals, out=np.zeros_like(matrix), where=totals > 1e-8)
+
+
 def _template_vector(root: int, intervals: tuple[int, ...], weights: tuple[float, ...]) -> np.ndarray:
     template = np.zeros(12, dtype=np.float32)
     for interval, weight in zip(intervals, weights, strict=False):
@@ -146,23 +317,53 @@ def _estimate_key_context(vectors: list[np.ndarray]) -> tuple[int, str] | None:
 
 
 def _key_bias(root: int, intervals: tuple[int, ...], key_context: tuple[int, str] | None) -> float:
-    if key_context is None:
+    affinity = _key_affinity(root, intervals, key_context)
+    if affinity is None:
         return 0.0
-    tonic, mode = key_context
-    scale = _DIATONIC_MAJOR if mode == "major" else _DIATONIC_MINOR
-    tones = {((root + interval) - tonic) % 12 for interval in intervals}
-    if not tones:
-        return 0.0
-    affinity = sum(1 for tone in tones if tone in scale) / len(tones)
-    bias = (affinity - 0.5) * 0.028
+    tonic, _ = key_context or (0, "major")
+    bias = (affinity - 0.5) * 0.038
     root_degree = (root - tonic) % 12
     if root_degree == 0:
         bias += 0.008
     elif root_degree in {5, 7}:
         bias += 0.005
-    if affinity < 0.6:
-        bias -= 0.010
+    if affinity < 0.75:
+        bias -= 0.020
     return bias
+
+
+def _key_affinity(
+    root: int, intervals: tuple[int, ...], key_context: tuple[int, str] | None
+) -> float | None:
+    if key_context is None:
+        return None
+    tonic, mode = key_context
+    scale = _DIATONIC_MAJOR if mode == "major" else _DIATONIC_MINOR
+    tones = {((root + interval) - tonic) % 12 for interval in intervals}
+    if not tones:
+        return None
+    return sum(1 for tone in tones if tone in scale) / len(tones)
+
+
+def _parse_key_context(label: str | None) -> tuple[int, str] | None:
+    if not label:
+        return None
+    parts = label.strip().replace("major", "maj").replace("minor", "min").split()
+    if len(parts) < 2:
+        return None
+    root = parts[0].replace("♯", "#").replace("♭", "b")
+    flats = {
+        "Db": "C#",
+        "Eb": "D#",
+        "Gb": "F#",
+        "Ab": "G#",
+        "Bb": "A#",
+    }
+    root = flats.get(root, root)
+    mode = "minor" if parts[1].lower().startswith("min") else "major"
+    if root not in _PITCH_TO_INDEX:
+        return None
+    return _PITCH_TO_INDEX[root], mode
 
 
 def _rank_chord_candidates(
@@ -174,6 +375,12 @@ def _rank_chord_candidates(
     normalized = _normalize_chroma(chroma)
     if normalized is None:
         return [_ChordCandidate("N.C.", None, (), 0.0, 0.0)]
+    entropy = -float(np.sum(normalized * np.log2(np.maximum(normalized, 1e-8)))) / np.log2(12)
+    ordered_energy = np.sort(normalized)
+    strongest = float(ordered_energy[-1])
+    second = float(ordered_energy[-2]) if len(ordered_energy) > 1 else 0.0
+    if strongest < 0.115 and entropy > 0.92:
+        return [_ChordCandidate("N.C.", None, (), 0.0, 0.0)]
 
     scored: list[tuple[float, str, int, tuple[int, ...]]] = []
     for root in range(12):
@@ -183,6 +390,9 @@ def _rank_chord_candidates(
             off_energy = float(np.sum(normalized[template <= 0.001]))
             root_energy = float(normalized[root])
             fifth_energy = float(normalized[(root + 7) % 12])
+            third_energy = float(
+                max(normalized[(root + 3) % 12], normalized[(root + 4) % 12])
+            )
             score = (
                 support
                 + (0.20 * root_energy)
@@ -190,6 +400,30 @@ def _rank_chord_candidates(
                 - (0.12 * off_energy)
                 + _key_bias(root, intervals, key_context)
             )
+            if suffix in {"7", "maj7", "m7"}:
+                seventh_interval = 11 if suffix == "maj7" else 10
+                seventh_energy = float(normalized[(root + seventh_interval) % 12])
+                score -= 0.012 if suffix == "7" else 0.018
+                if seventh_energy < 0.055:
+                    score -= 0.045
+                else:
+                    score += min(0.014, seventh_energy * 0.12)
+            elif suffix in {"sus2", "sus4"}:
+                score -= 0.038
+                sus_interval = 2 if suffix == "sus2" else 5
+                sus_energy = float(normalized[(root + sus_interval) % 12])
+                if sus_energy < third_energy * 1.18:
+                    score -= 0.040
+            elif suffix == "dim":
+                score -= 0.045
+                if float(normalized[(root + 6) % 12]) < 0.070:
+                    score -= 0.040
+            affinity = _key_affinity(root, intervals, key_context)
+            if affinity is not None:
+                if suffix in {"dim", "sus2", "sus4"} and affinity < 0.99:
+                    score -= 0.040
+                elif suffix in {"7", "maj7", "m7"} and affinity < 0.75:
+                    score -= 0.020
             scored.append((score, f"{_PITCHES[root]}{suffix}", root, intervals))
 
     scored.sort(reverse=True)
@@ -208,7 +442,9 @@ def _rank_chord_candidates(
             )
         )
 
-    if not candidates or candidates[0].score < 0.055:
+    if not candidates or candidates[0].score < 0.062:
+        return [_ChordCandidate("N.C.", None, (), 0.0, 0.0)]
+    if entropy > 0.88 and candidates[0].confidence < 0.58 and strongest < second * 1.18:
         return [_ChordCandidate("N.C.", None, (), 0.0, 0.0)]
     return candidates
 
@@ -223,24 +459,26 @@ def _score_chord(chroma: np.ndarray) -> tuple[str, int | None, tuple[int, ...], 
 
 def _transition_bonus(prev: _ChordCandidate, current: _ChordCandidate) -> float:
     if prev.label == current.label:
-        return 0.020
+        return 0.026
     if prev.root is None or current.root is None:
         return -0.012
     if prev.root == current.root:
-        return 0.006
+        return 0.004
     motion = (current.root - prev.root) % 12
     if motion in {5, 7}:
         return 0.004
     penalty = -0.010
-    if current.confidence < 0.68:
-        penalty -= 0.010
+    if current.confidence < 0.72:
+        penalty -= 0.016
     return penalty
 
 
-def _select_chord_sequence(vectors: list[np.ndarray]) -> list[_ChordCandidate]:
+def _select_chord_sequence(
+    vectors: list[np.ndarray], key_context: tuple[int, str] | None = None
+) -> list[_ChordCandidate]:
     if not vectors:
         return []
-    key_context = _estimate_key_context(vectors)
+    key_context = key_context or _estimate_key_context(vectors)
     ranked = [_rank_chord_candidates(vector, key_context=key_context, limit=8) for vector in vectors]
     if len(ranked) == 1:
         return [ranked[0][0]]
@@ -299,14 +537,18 @@ def _merge_segments(segments: list[ChordSegment]) -> list[ChordSegment]:
 def _available_chord_source_paths(
     source: Path, stems_dir: Path | None
 ) -> tuple[list[tuple[str, Path, float]], Path | None]:
-    paths: list[tuple[str, Path, float]] = [("original", source, 0.85)]
+    paths: list[tuple[str, Path, float]]
     bass_path: Path | None = None
     if stems_dir is None:
-        return paths, bass_path
+        return [("original", source, 1.0)], bass_path
+    harmonic_paths: list[tuple[str, Path, float]] = []
     for name, weight in _CHORD_STEM_WEIGHTS.items():
         path = stems_dir / f"{name}.wav"
         if path.is_file():
-            paths.append((name, path, weight))
+            harmonic_paths.append((name, path, weight))
+    # Once harmonic stems exist, the full mix becomes a fallback reference only:
+    # vocals, drums, and effects often pollute chroma enough to hurt chord calls.
+    paths = [("original", source, 0.35 if harmonic_paths else 1.0), *harmonic_paths]
     candidate_bass = stems_dir / "bass.wav"
     if candidate_bass.is_file():
         bass_path = candidate_bass
@@ -333,6 +575,17 @@ def _load_chroma_source(
     hop_length = 512
     y_chroma = librosa.effects.harmonic(y) if harmonic else y
     chroma = librosa.feature.chroma_cqt(y=y_chroma, sr=sr, hop_length=hop_length)
+    try:
+        cens = librosa.feature.chroma_cens(y=y_chroma, sr=sr, hop_length=hop_length)
+    except Exception as exc:
+        logger.debug("chroma_cens unavailable for %s: %s", path, exc)
+    else:
+        frame_count = min(chroma.shape[1], cens.shape[1])
+        if frame_count > 0:
+            cqt = _normalize_chroma_frames(chroma[:, :frame_count])
+            cens = _normalize_chroma_frames(cens[:, :frame_count])
+            # CQT is more detailed; CENS is more stable against timbre/noise.
+            chroma = (0.68 * cqt) + (0.32 * cens)
     if chroma.shape[1] >= 3:
         chroma = (np.roll(chroma, 1, axis=1) + (2.0 * chroma) + np.roll(chroma, -1, axis=1)) / 4.0
         chroma[:, 0] = chroma[:, 1]
@@ -345,7 +598,18 @@ def _mean_normalized_chroma(source: _ChromaSource, start: float, end: float) -> 
     mask = (source.frame_times >= start) & (source.frame_times < end)
     if not np.any(mask):
         return None
-    vector = np.asarray(source.chroma[:, mask].mean(axis=1), dtype=np.float32)
+    frames = np.asarray(source.chroma[:, mask], dtype=np.float32)
+    frame_sums = frames.sum(axis=0, keepdims=True)
+    good = frame_sums[0] > 1e-8
+    if not np.any(good):
+        return None
+    normalized_frames = frames[:, good] / frame_sums[:, good]
+    mean = normalized_frames.mean(axis=1)
+    upper = np.quantile(normalized_frames, 0.72, axis=1)
+    median = np.median(normalized_frames, axis=1)
+    # Mean catches arpeggios, upper quantile catches chord tones that appear
+    # strongly on part of the bar, median suppresses one-frame melody spikes.
+    vector = np.asarray((0.56 * mean) + (0.30 * upper) + (0.14 * median), dtype=np.float32)
     total = float(np.sum(vector))
     if total <= 1e-8:
         return None
@@ -401,9 +665,64 @@ def _apply_bass_root_hint(
     if hint is None:
         return combined
     root, clarity = hint
-    combined[root] += boost * clarity
+    harmony_support = float(combined[root])
+    # Passing bass notes are common. Use bass as a strong hint only when the
+    # harmonic chroma also contains at least some evidence for that pitch.
+    support_scale = min(1.0, 0.30 + (harmony_support * 5.0))
+    combined[root] += boost * clarity * support_scale
     total = float(np.sum(combined))
     return combined / total if total > 0 else combined
+
+
+def _candidate_from_segment(seg: ChordSegment) -> _ChordCandidate:
+    return _ChordCandidate(seg.label, seg.root, seg.intervals, seg.confidence, seg.confidence)
+
+
+def _replace_segment_chord(seg: ChordSegment, chord: _ChordCandidate) -> ChordSegment:
+    return ChordSegment(
+        chord.label,
+        seg.start,
+        seg.end,
+        chord.root,
+        chord.intervals,
+        max(seg.confidence, chord.confidence),
+        seg.start_beat,
+        seg.end_beat,
+    )
+
+
+def _segment_beat_length(seg: ChordSegment) -> float:
+    if seg.start_beat is not None and seg.end_beat is not None:
+        return max(0.0, float(seg.end_beat - seg.start_beat))
+    return max(0.0, seg.end - seg.start)
+
+
+def _is_unstable_complex_label(label: str) -> bool:
+    return label.endswith(("dim", "sus2", "sus4", "maj7"))
+
+
+def _smooth_short_segments(segments: list[ChordSegment]) -> list[ChordSegment]:
+    if len(segments) < 3:
+        return segments
+    smoothed = list(segments)
+    for idx in range(1, len(smoothed) - 1):
+        current = smoothed[idx]
+        prev = smoothed[idx - 1]
+        nxt = smoothed[idx + 1]
+        if _segment_beat_length(current) > 1.01:
+            continue
+        if prev.label == nxt.label and current.confidence < 0.72:
+            smoothed[idx] = _replace_segment_chord(current, _candidate_from_segment(prev))
+            continue
+        if _is_unstable_complex_label(current.label):
+            neighbor = prev if prev.confidence >= nxt.confidence else nxt
+            smoothed[idx] = _replace_segment_chord(current, _candidate_from_segment(neighbor))
+            continue
+        if current.confidence >= _MIN_STABLE_CHORD_CONFIDENCE:
+            continue
+        neighbor = prev if prev.confidence >= nxt.confidence else nxt
+        smoothed[idx] = _replace_segment_chord(current, _candidate_from_segment(neighbor))
+    return _merge_segments(smoothed)
 
 
 def _combine_segment_chroma(
@@ -425,8 +744,11 @@ def _combine_beatwise_chroma(
     start_beat: int,
     end_beat: int,
 ) -> np.ndarray | None:
-    start_idx = max(0, min(int(start_beat), len(beat_bounds) - 1))
-    end_idx = max(start_idx + 1, min(int(end_beat), len(beat_bounds) - 1))
+    last_idx = len(beat_bounds) - 1
+    start_idx = max(0, min(int(start_beat), last_idx))
+    if start_idx >= last_idx:
+        return None
+    end_idx = max(start_idx + 1, min(int(end_beat), last_idx))
     start = beat_bounds[start_idx]
     end = beat_bounds[end_idx]
     whole = _combine_harmony_chroma(chord_sources, start, end)
@@ -481,15 +803,16 @@ def detect_chord_segments(
     beat_times: list[float] | None,
     *,
     duration_sec: float | None = None,
-    beats_per_chord: int = 4,
+    beats_per_chord: int = 1,
     stems_dir: Path | None = None,
+    key_context: tuple[int, str] | None = None,
 ) -> list[ChordSegment]:
-    """Estimate sustained chord labels between detected beats.
+    """Estimate sustained chord labels between detected quarter-note beats.
 
-    This is intentionally a lightweight guide-track generator, not a full
-    transcription engine. We average chroma between beats, classify simple
-    chord templates, then merge adjacent identical labels into long "white"
-    chords.
+    This is intentionally a guide-track generator, not a full polyphonic
+    transcription engine. We classify each beat window, smooth improbable
+    one-beat flips, then merge adjacent identical labels into sustained
+    chord blocks on the DAW grid.
     """
     if not beat_times or len(beat_times) < 2:
         return []
@@ -540,7 +863,7 @@ def detect_chord_segments(
             continue
         spans.append((start, start_beat, end, end_beat, vector))
 
-    selected = _select_chord_sequence([vector for *_, vector in spans])
+    selected = _select_chord_sequence([vector for *_, vector in spans], key_context=key_context)
     segments: list[ChordSegment] = []
     for (start, start_beat, end, end_beat, _), chord in zip(spans, selected, strict=False):
         segments.append(
@@ -555,7 +878,7 @@ def detect_chord_segments(
                 end_beat=end_beat,
             )
         )
-    return _merge_segments(segments)
+    return _smooth_short_segments(_merge_segments(segments))
 
 
 def _note_numbers(root: int, intervals: tuple[int, ...]) -> list[int]:
@@ -572,6 +895,7 @@ def write_chord_midi(
     *,
     bpm: int | None,
     title: str | None = None,
+    markers: bool = False,
 ) -> None:
     tempo_bpm = max(30, min(240, int(bpm or 120)))
     tempo_us = int(round(60_000_000 / tempo_bpm))
@@ -596,7 +920,7 @@ def write_chord_midi(
             end_tick = max(start_tick + 1, int(round(seg.end * tempo_bpm / 60.0 * _TPB)))
         delta = max(0, start_tick - cursor_ticks)
         label = _midi_text(seg.label, "N.C.", 48)
-        events += _meta(delta, 0x01, label)
+        events += _meta(delta, 0x06 if markers else 0x01, label)
         cursor_ticks = start_tick
         if seg.root is not None and seg.intervals:
             notes = _note_numbers(seg.root, seg.intervals)
@@ -620,6 +944,24 @@ def write_chord_midi(
     path.write_bytes(header + conductor + track)
 
 
+def chord_segments_to_csv(segments: list[ChordSegment]) -> str:
+    out = StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["label", "start_sec", "end_sec", "start_beat", "end_beat", "confidence"])
+    for seg in segments:
+        writer.writerow(
+            [
+                seg.label,
+                f"{seg.start:.3f}",
+                f"{seg.end:.3f}",
+                "" if seg.start_beat is None else seg.start_beat,
+                "" if seg.end_beat is None else seg.end_beat,
+                f"{seg.confidence:.3f}",
+            ]
+        )
+    return out.getvalue()
+
+
 def generate_chord_midi(
     job: Job, source: Path, job_dir: Path, *, stems_dir: Path | None = None
 ) -> Path | None:
@@ -629,6 +971,7 @@ def generate_chord_midi(
             job.beat_times,
             duration_sec=job.duration_sec,
             stems_dir=stems_dir or (job_dir / "stems"),
+            key_context=_parse_key_context(job.key),
         )
         if not segments:
             return None

@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 
 from app.core.config import JOB_ID_RE, STEM_NAMES
+from app.core.files import atomic_write_text
 from app.core.models import Job
 
 logger = logging.getLogger("stemdeck.registry")
@@ -19,8 +20,9 @@ _jobs: dict[str, Job] = {}
 # of waiting for the pipeline thread to notice the cancel flag.
 _procs: dict[str, subprocess.Popen] = {}
 _lock = threading.Lock()
+_persist_lock = threading.Lock()
 _REGISTRY_FILE = "registry.json"
-_TERMINAL = {"done"}
+_TERMINAL = {"done", "error", "cancelled"}
 _ACTIVE_STATUSES = {"queued", "downloading", "analyzing", "separating", "processing"}
 
 
@@ -99,20 +101,18 @@ def persist(jobs_dir: Path) -> None:
     """Persist terminal jobs so completed library entries survive restarts."""
     try:
         jobs_dir.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        logger.warning("cannot create jobs dir %s; skipping persist", jobs_dir, exc_info=True)
-        return
-    with _lock:
-        records = [
-            job.to_record()
-            for job in sorted(_jobs.values(), key=lambda item: item.created_at)
-            if job.status in _TERMINAL
-        ]
-        payload = json.dumps({"version": REGISTRY_VERSION, "jobs": records}, indent=2) + "\n"
-    path = jobs_dir / _REGISTRY_FILE
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(payload, encoding="utf-8")
-    tmp.replace(path)
+        path = jobs_dir / _REGISTRY_FILE
+        with _persist_lock:
+            with _lock:
+                records = [
+                    job.to_record()
+                    for job in sorted(_jobs.values(), key=lambda item: item.created_at)
+                    if job.status in _TERMINAL
+                ]
+                payload = json.dumps({"version": REGISTRY_VERSION, "jobs": records}, indent=2) + "\n"
+            atomic_write_text(path, payload)
+    except (OSError, TypeError, ValueError):
+        logger.warning("cannot persist registry under %s", jobs_dir, exc_info=True)
 
 
 def restore(jobs_dir: Path) -> None:
@@ -125,7 +125,7 @@ def restore(jobs_dir: Path) -> None:
             to_add = {}
             for record in data.get("jobs", []):
                 job = Job.from_record(record)
-                if JOB_ID_RE.match(job.id) and job.status in _TERMINAL and job.title:
+                if JOB_ID_RE.match(job.id) and job.status in _TERMINAL:
                     to_add[job.id] = job
             with _lock:
                 _jobs.update(to_add)
@@ -215,6 +215,7 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         processing_started_at=meta.get("processing_started_at"),
         completed_at=meta.get("completed_at"),
         processing_elapsed_seconds=meta.get("processing_elapsed_seconds"),
+        logs=meta.get("logs") if isinstance(meta.get("logs"), list) else [],
     )
 
 
@@ -229,3 +230,8 @@ def set_proc(job_id: str, proc: subprocess.Popen | None) -> None:
 def get_proc(job_id: str) -> subprocess.Popen | None:
     with _lock:
         return _procs.get(job_id)
+
+
+def all_procs() -> list[subprocess.Popen]:
+    with _lock:
+        return list(_procs.values())

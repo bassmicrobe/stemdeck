@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.core.config import (
     JOB_ID_RE,
@@ -28,7 +28,9 @@ from app.core.config import (
     resolve_demucs_device_choice,
     stem_names_for_quality_preset,
 )
-from app.core.models import Job
+from app.core.files import atomic_write_text
+from app.core.joblog import add_job_log
+from app.core.models import Job, _set
 from app.core.registry import all_jobs as registry_all_jobs
 from app.core.registry import get as registry_get
 from app.core.registry import get_proc as registry_get_proc
@@ -38,6 +40,7 @@ from app.core.registry import register_if_capacity as registry_register_if_capac
 from app.core.registry import remove as registry_remove
 from app.pipeline import run_local_pipeline, run_pipeline
 from app.pipeline.download import InvalidYouTubeURL, validate_youtube_url
+from app.pipeline.process import terminate_process
 
 router = APIRouter(tags=["jobs"])
 logger = logging.getLogger("stemdeck.api")
@@ -47,6 +50,7 @@ _ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac", ".m4a"))
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 _WS_RE = re.compile(r"\s+")
 _FFMPEG_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)")
+_pipeline_tasks: dict[asyncio.Task, Job] = {}
 
 
 def _sanitize_title(filename: str) -> str:
@@ -127,11 +131,26 @@ def _rmtree_job(job_id: str) -> None:
 
 
 def _task_error_cb(task: asyncio.Task) -> None:
+    _pipeline_tasks.pop(task, None)
     if task.cancelled():
         return
     exc = task.exception()
     if exc is not None:
         logger.error("pipeline task raised unhandled exception", exc_info=exc)
+
+
+def _track_pipeline_task(task: asyncio.Task, job: Job) -> None:
+    _pipeline_tasks[task] = job
+    task.add_done_callback(_task_error_cb)
+
+
+async def shutdown_pipeline_tasks() -> None:
+    tasks = list(_pipeline_tasks.items())
+    for task, job in tasks:
+        job.cancel_requested = True
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*(task for task, _ in tasks), return_exceptions=True)
 
 
 def _selected_stems_for_quality(stems: list[str] | None, quality_preset: str) -> list[str]:
@@ -205,8 +224,9 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
     )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
+    add_job_log(job, "URL job accepted", stage="queued", progress=0.0)
     task = asyncio.create_task(run_pipeline(job, url, JOBS_DIR))
-    task.add_done_callback(_task_error_cb)
+    _track_pipeline_task(task, job)
     return {"job_id": job.id}
 
 
@@ -287,6 +307,10 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     except HTTPException:
         shutil.rmtree(job_dir, ignore_errors=True)
         raise
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        logger.exception("failed to store uploaded audio")
+        raise HTTPException(status_code=500, detail="Could not store uploaded file") from exc
 
     title = _sanitize_title(filename)
     local_source_url = f"local:{title}"
@@ -304,8 +328,9 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
+    add_job_log(job, "Local audio job accepted", stage="queued", progress=0.0)
     task = asyncio.create_task(run_local_pipeline(job, source_path, JOBS_DIR))
-    task.add_done_callback(_task_error_cb)
+    _track_pipeline_task(task, job)
     return {"job_id": job.id}
 
 
@@ -348,18 +373,19 @@ def cancel_job(job_id: str) -> dict:
     if job.status in ("done", "error", "cancelled"):
         return job.to_state()
     job.cancel_requested = True
+    add_job_log(job, "Cancellation requested", level="warning", stage=job.status)
     proc = registry_get_proc(job_id)
     if proc is not None and proc.poll() is None:
-        proc.terminate()
+        terminate_process(proc)
     elif job.status == "queued":
-        job.status = "cancelled"
-        job.stage_message = "Cancelled"
+        _set(job, status="cancelled", stage="Cancelled")
         registry_refresh_queue_positions()
+        registry_persist(JOBS_DIR)
     return job.to_state()
 
 
 _SECTION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,64}$")
-_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 
 
 class SectionItem(BaseModel):
@@ -399,6 +425,24 @@ class SectionItem(BaseModel):
 class SectionsBody(BaseModel):
     sections: list[SectionItem]
 
+    @field_validator("sections")
+    @classmethod
+    def _check_count(cls, value: list[SectionItem]) -> list[SectionItem]:
+        if len(value) > 200:
+            raise ValueError("too many sections")
+        return value
+
+    @model_validator(mode="after")
+    def _check_ranges(self):
+        ids = set()
+        for section in self.sections:
+            if section.end <= section.start:
+                raise ValueError("section end must be after start")
+            if section.id in ids:
+                raise ValueError("duplicate section id")
+            ids.add(section.id)
+        return self
+
 
 @router.patch("/{job_id}/sections")
 def update_sections(job_id: str, body: SectionsBody) -> dict:
@@ -408,10 +452,10 @@ def update_sections(job_id: str, body: SectionsBody) -> dict:
     job = registry_get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
+    if job.status != "done":
+        raise HTTPException(status_code=409, detail="job is not ready")
 
     validated = [s.model_dump() for s in body.sections]
-    job.sections = validated
-
     job_dir = (JOBS_DIR / job_id).resolve()
     if not job_dir.is_relative_to(JOBS_DIR.resolve()):
         raise HTTPException(status_code=404, detail="job not found")
@@ -425,11 +469,12 @@ def update_sections(job_id: str, body: SectionsBody) -> dict:
             pass
     meta["sections"] = validated
     try:
-        meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        atomic_write_text(meta_path, json.dumps(meta, indent=2) + "\n")
     except OSError as exc:
         logger.exception("failed to write sections for %s: %s", job_id, exc)
         raise HTTPException(status_code=500, detail="failed to save sections") from exc
 
+    job.sections = validated
     registry_persist(JOBS_DIR)
 
     return {"job_id": job_id, "sections": validated}

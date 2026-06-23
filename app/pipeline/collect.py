@@ -45,6 +45,7 @@ from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
 from app.core.registry import set_proc
+from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.collect")
@@ -75,13 +76,17 @@ def _run_ffmpeg(job: Job, cmd: list[str]) -> bool:
     but the runner can't see it until subprocess.run returns. With
     set_proc, the cancel API can call proc.terminate() directly and
     communicate() returns within ~1s with a non-zero returncode."""
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    proc = popen_background(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
     set_proc(job.id, proc)
     try:
         try:
             _, stderr = proc.communicate(timeout=TIMEOUT_FFMPEG)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            terminate_process(proc, force=True)
             proc.communicate()
             logger.warning("ffmpeg timed out for job %s", job.id)
             return False
@@ -1079,5 +1084,9 @@ def sweep_old_jobs(jobs_dir: Path) -> None:
         _rmtree(d)
         registry_remove(d.name)
         removed = True
+    for job_id, job in jobs.items():
+        if job.status in _TERMINAL and job.created_at < cutoff and not (jobs_dir / job_id).exists():
+            registry_remove(job_id)
+            removed = True
     if removed:
         registry_persist(jobs_dir)

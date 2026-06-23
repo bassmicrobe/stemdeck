@@ -42,22 +42,13 @@ struct BackendHandles {
     url: String,
 }
 
+#[derive(Default)]
 struct BackendStateInner {
     handles: Option<BackendHandles>,
     /// True while start_backend is executing; prevents concurrent starts (#145).
     starting: bool,
     /// PID of an in-progress pip subprocess; killed by stop_backend on window close (#140).
     pip_pid: Option<u32>,
-}
-
-impl Default for BackendStateInner {
-    fn default() -> Self {
-        BackendStateInner {
-            handles: None,
-            starting: false,
-            pip_pid: None,
-        }
-    }
 }
 
 struct BackendState {
@@ -253,16 +244,16 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("failed to build LayerLab desktop app")
-        .run(|app_handle, event| match event {
-            tauri::RunEvent::WindowEvent {
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { .. },
                 ..
-            } => {
+            } = event
+            {
                 let state = app_handle.state::<BackendState>();
                 stop_backend(&state);
                 app_handle.exit(0);
             }
-            _ => {}
         });
 }
 
@@ -1667,7 +1658,7 @@ fn validate_wav_format(format: WavFormat) -> Result<(), String> {
             ))
         }
     }
-    if format.bits_per_sample % 8 != 0 {
+    if format.bits_per_sample & 7 != 0 {
         return Err("unsupported non-byte-aligned WAV sample size".to_string());
     }
     let expected = format.channels.saturating_mul(format.bits_per_sample / 8);

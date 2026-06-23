@@ -8,6 +8,7 @@ import pytest
 from app.core.models import Job, JobCancelled
 from app.core.registry import _jobs
 from app.pipeline.runner import (
+    _pipeline_lock_files,
     _prepare_demucs_source,
     _prepare_local_source,
     run_local_pipeline,
@@ -143,6 +144,20 @@ async def test_local_pipeline_error_cleans_up_job_dir(tmp_path: Path):
     assert not (tmp_path / job.id).exists(), "job dir should be removed on local error"
 
 
+def test_machine_lock_uses_one_file_per_concurrency_slot(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    base = tmp_path / "layerlab.lock"
+    monkeypatch.setenv("STEMDECK_PIPELINE_LOCK", str(base))
+    monkeypatch.setattr(runner, "PIPELINE_CONCURRENCY", 3)
+
+    assert _pipeline_lock_files() == (
+        tmp_path / "layerlab.lock.0",
+        tmp_path / "layerlab.lock.1",
+        tmp_path / "layerlab.lock.2",
+    )
+
+
 def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monkeypatch):
     import app.pipeline.runner as runner
 
@@ -156,12 +171,13 @@ def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monk
         returncode = 0
         stderr = b""
 
-    def fake_run(cmd, **kwargs):
+    def fake_run(job_arg, cmd, **kwargs):
+        assert job_arg is job
         calls.append((cmd, kwargs))
         Path(cmd[-1]).write_bytes(b"processed")
         return Result()
 
-    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
 
     dest = _prepare_demucs_source(job, source, tmp_path)
 
@@ -191,12 +207,13 @@ def test_prepare_demucs_source_uses_reversible_loudness_safety_gain(
         returncode = 0
         stderr = b""
 
-    def fake_run(cmd, **kwargs):
+    def fake_run(job_arg, cmd, **kwargs):
+        assert job_arg is job
         calls.append((cmd, kwargs))
         Path(cmd[-1]).write_bytes(b"processed")
         return Result()
 
-    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
 
     _prepare_demucs_source(job, source, tmp_path)
 
@@ -217,12 +234,13 @@ def test_prepare_local_source_keeps_float_for_high_quality(tmp_path: Path, monke
         returncode = 0
         stderr = b""
 
-    def fake_run(cmd, **kwargs):
+    def fake_run(job_arg, cmd, **kwargs):
+        assert job_arg is job
         calls.append((cmd, kwargs))
         Path(cmd[-1]).write_bytes(b"processed")
         return Result()
 
-    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
 
     dest = _prepare_local_source(job, source, tmp_path)
 

@@ -69,6 +69,17 @@ def test_keeps_recent_terminal_job(tmp_path: Path):
     assert job.id in _jobs
 
 
+def test_sweeps_old_failed_job_without_directory(tmp_path: Path):
+    job = Job(id="abcdefabcde1", status="error", title="Failed song")
+    job.created_at = time.time() - 999_999
+    _jobs[job.id] = job
+
+    with patch("app.pipeline.collect.JOB_TTL_SECONDS", 60):
+        sweep_old_jobs(tmp_path)
+
+    assert job.id not in _jobs
+
+
 def test_orphan_dir_falls_back_to_mtime(tmp_path: Path):
     """Directories with no registry entry (e.g. left over from a prior
     server run) still get swept by mtime."""

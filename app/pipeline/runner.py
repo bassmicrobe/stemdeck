@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -19,6 +18,8 @@ from app.core.config import (
     demucs_settings_for_preset,
     ffmpeg_executable,
 )
+from app.core.files import atomic_write_text
+from app.core.joblog import add_job_log
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
@@ -37,6 +38,7 @@ from app.pipeline.collect import (
     stabilize_stem_outputs,
 )
 from app.pipeline.download import download
+from app.pipeline.process import run_tracked_process
 from app.pipeline.progress import set_stage_progress
 from app.pipeline.separate import separate
 
@@ -58,40 +60,53 @@ def _rmtree(path: Path) -> None:
 _pipeline_lock = asyncio.Semaphore(PIPELINE_CONCURRENCY)
 
 
-def _pipeline_lock_file() -> Path:
+def _pipeline_lock_files() -> tuple[Path, ...]:
     raw = os.environ.get("STEMDECK_PIPELINE_LOCK", "").strip()
-    if raw:
-        return Path(raw).expanduser().resolve()
-    return Path(tempfile.gettempdir()) / "stemdeck-pipeline.lock"
+    base = (
+        Path(raw).expanduser().resolve()
+        if raw
+        else Path(tempfile.gettempdir()) / "stemdeck-pipeline.lock"
+    )
+    if PIPELINE_CONCURRENCY <= 1:
+        return (base,)
+    return tuple(base.with_name(f"{base.name}.{slot}") for slot in range(PIPELINE_CONCURRENCY))
 
 
 @contextlib.contextmanager
 def _machine_pipeline_lock(job: Job):
-    path = _pipeline_lock_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+", encoding="utf-8") as lock_file:
-        _wait_for_machine_lock(job, lock_file)
+    paths = _pipeline_lock_files()
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    lock_files = [path.open("a+", encoding="utf-8") for path in paths]
+    try:
+        lock_file, slot = _wait_for_machine_lock(job, lock_files)
         try:
             lock_file.seek(0)
             lock_file.truncate()
-            lock_file.write(f"{os.getpid()} {job.id}\n")
+            lock_file.write(f"{os.getpid()} {job.id} slot={slot}\n")
             lock_file.flush()
+            add_job_log(job, f"Local processing slot {slot + 1}/{len(lock_files)} acquired")
             yield
         finally:
             _release_machine_lock(lock_file)
+    finally:
+        for handle in lock_files:
+            handle.close()
 
 
-def _wait_for_machine_lock(job: Job, lock_file) -> None:
+def _wait_for_machine_lock(job: Job, lock_files) -> tuple[object, int]:
     waited = False
     while True:
         _check_cancel(job)
-        if _try_machine_lock(lock_file):
-            if waited:
-                logger.info("job %s acquired machine pipeline lock", job.id)
-            return
+        for slot, lock_file in enumerate(lock_files):
+            if _try_machine_lock(lock_file):
+                if waited:
+                    logger.info("job %s acquired machine pipeline lock slot %s", job.id, slot)
+                return lock_file, slot
         waited = True
         if job.status == "queued":
             _set(job, status="queued", stage="Waiting for local processing slot...")
+            add_job_log(job, "Waiting for an available local processing slot", stage="queued")
         time.sleep(1.0)
 
 
@@ -101,6 +116,11 @@ def _try_machine_lock(lock_file) -> bool:
         import msvcrt
 
         try:
+            if not lock_file.read(1):
+                lock_file.seek(0)
+                lock_file.write(" ")
+                lock_file.flush()
+            lock_file.seek(0)
             msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
             return True
         except OSError:
@@ -171,7 +191,7 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
         "-y",
         str(dest),
     ]
-    result = subprocess.run(cmd, capture_output=True, timeout=TIMEOUT_FFMPEG)
+    result = run_tracked_process(job, cmd, timeout=TIMEOUT_FFMPEG)
     if result.returncode != 0:
         raise RuntimeError(
             "ffmpeg transcode failed: " + result.stderr.decode("utf-8", errors="replace").strip()
@@ -233,7 +253,7 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         "-y",
         str(dest),
     ]
-    result = subprocess.run(cmd, capture_output=True, timeout=TIMEOUT_FFMPEG)
+    result = run_tracked_process(job, cmd, timeout=TIMEOUT_FFMPEG)
     if result.returncode != 0:
         raise RuntimeError(
             "ffmpeg pre-gain failed: " + result.stderr.decode("utf-8", errors="replace").strip()
@@ -367,9 +387,10 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "completed_at": job.completed_at,
         "processing_elapsed_seconds": job.processing_elapsed_seconds,
         "tags": job.tags,
+        "logs": job.logs,
     }
     try:
-        (job_dir / "metadata.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        atomic_write_text(job_dir / "metadata.json", json.dumps(meta, indent=2) + "\n")
     except OSError:
         logger.warning("could not write metadata.json for job %s", job.id, exc_info=True)
 
@@ -385,11 +406,13 @@ async def _run_async(
     """Common async wrapper: acquires the pipeline lock, runs blocking_fn in a
     thread, then handles success / cancel / error outcomes uniformly."""
     try:
+        add_job_log(job, "Job entered the processing queue", stage="queued", progress=job.progress)
         async with _pipeline_lock:
             await asyncio.to_thread(_run_with_machine_lock, job, blocking_fn, *fn_args, job_dir)
     except Exception as e:
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
+            add_job_log(job, e, level="error", stage="error", progress=job.progress)
             _set(job, status="error", stage="Error: Processing failed", error=error_msg)
             persist_registry(jobs_dir)
             _rmtree(job_dir)
@@ -399,11 +422,13 @@ async def _run_async(
             " (wrapped)" if not isinstance(e, JobCancelled) else "",
             job.id,
         )
+        add_job_log(job, "Job cancelled", level="warning", stage="cancelled", progress=job.progress)
         _set(job, status="cancelled", stage="Cancelled")
         persist_registry(jobs_dir)
         _rmtree(job_dir)
         return
     _set(job, status="done", progress=1.0, stage="Done")
+    add_job_log(job, "Processing completed successfully", stage="done", progress=1.0)
     _write_metadata(job, job_dir)
     persist_registry(jobs_dir)
 

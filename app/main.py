@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.jobs import shutdown_pipeline_tasks
 from app.api.router import router
 from app.core.config import (
     DEMUCS_DEVICE,
@@ -31,8 +32,11 @@ from app.core.config import (
     ensure_runtime_dirs,
     ffmpeg_available,
 )
+from app.core.joblog import add_system_log
+from app.core.registry import all_procs
 from app.core.registry import restore as restore_registry
 from app.pipeline.collect import sweep_old_jobs
+from app.pipeline.process import terminate_process
 
 # Show our INFO-level logs through uvicorn's root handler. Without this,
 # Python's default root level (WARNING) silently drops every
@@ -88,7 +92,7 @@ def app_version() -> str:
     # metadata (set at install/build from the tag); fall back to the generated
     # app/_version.py for non-installed runs, then a dev placeholder.
     try:
-        return package_version("stemdeck")
+        return package_version("layerlab")
     except PackageNotFoundError:
         pass
     try:
@@ -137,7 +141,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                     wt = asyncio.create_task(_desktop_parent_watchdog(parent_pid_int))
                     _background_tasks.add(wt)
                     wt.add_done_callback(_background_tasks.discard)
-    yield
+    add_system_log("LayerLab backend started")
+    try:
+        yield
+    finally:
+        add_system_log("LayerLab backend stopping", level="warning")
+        for proc in all_procs():
+            terminate_process(proc)
+        await shutdown_pipeline_tasks()
+        for task in list(_background_tasks):
+            task.cancel()
+        if _background_tasks:
+            await asyncio.gather(*_background_tasks, return_exceptions=True)
 
 
 app = FastAPI(

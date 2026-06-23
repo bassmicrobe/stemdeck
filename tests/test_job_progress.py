@@ -95,6 +95,8 @@ def test_pipeline_stage_progress_is_overall_and_monotonic():
 
     set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
     assert job.to_state()["progress_percent"] == 96
+    assert job.logs[-1]["message"] == "Stem gate complete"
+    assert job.logs[-1]["progress_percent"] == 96
 
 
 def test_job_state_includes_repair_metrics():

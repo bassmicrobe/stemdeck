@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 
@@ -31,3 +34,14 @@ def test_license_and_notice_are_served():
         assert notice_response.status_code == 200
         assert "unofficial modified fork test build" in notice_response.text
         assert "https://github.com/stemdeckapp/stemdeck" in notice_response.text
+
+
+def test_app_version_uses_layerlab_distribution_name():
+    from app import main
+
+    def fake_version(name: str) -> str:
+        assert name == "layerlab"
+        raise PackageNotFoundError
+
+    with patch.object(main, "package_version", side_effect=fake_version):
+        assert main.app_version()

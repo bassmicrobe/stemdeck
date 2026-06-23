@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import subprocess
@@ -274,6 +275,38 @@ def test_cancel_queued_job_opens_queue_slot(client):
     assert replacement.status_code == 200
 
 
+def test_cancel_queued_job_sets_completion_timestamp(client):
+    created = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+    job_id = created.json()["job_id"]
+
+    response = client.post(f"/api/jobs/{job_id}/cancel")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+    assert response.json()["completed_at"] is not None
+    assert _jobs[job_id].logs[-1]["message"] == "Cancellation requested"
+
+
+@pytest.mark.asyncio
+async def test_shutdown_marks_tracked_pipeline_jobs_cancelled():
+    import app.api.jobs as jobs_mod
+
+    job = Job(id="abcdefabcde4")
+
+    async def wait_forever():
+        await asyncio.Event().wait()
+
+    task = asyncio.create_task(wait_forever())
+    jobs_mod._track_pipeline_task(task, job)
+
+    await jobs_mod.shutdown_pipeline_tasks()
+    await asyncio.sleep(0)
+
+    assert job.cancel_requested is True
+    assert task.cancelled()
+    assert task not in jobs_mod._pipeline_tasks
+
+
 # ─── File upload ─────────────────────────────────────────────────────────────
 
 
@@ -361,6 +394,23 @@ def test_upload_m4a_returns_job_id(upload_client):
     assert job.source_url == "local:my_track"
 
 
+def test_upload_copy_failure_removes_partial_job_dir(upload_client, tmp_path, monkeypatch):
+    import app.api.jobs as jobs_mod
+
+    def fail_copy(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(jobs_mod, "_copy_to_dest", fail_copy)
+    response = upload_client.post(
+        "/api/jobs",
+        files={"file": ("my_track.mp3", io.BytesIO(b"ID3data"), "audio/mpeg")},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Could not store uploaded file"
+    assert list(tmp_path.iterdir()) == []
+
+
 # ─── Sections endpoint ────────────────────────────────────────────────────────
 
 
@@ -416,12 +466,69 @@ def test_sections_invalid_color_returns_422(client, done_job):
     assert r.status_code == 422
 
 
+def test_sections_reject_invalid_hex_color_length(client, done_job):
+    payload = {
+        "sections": [
+            {"id": "sec1", "name": "Intro", "start": 0.0, "end": 10.0, "color": "#12345"}
+        ]
+    }
+    response = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
+    assert response.status_code == 422
+
+
 def test_sections_invalid_id_returns_422(client, done_job):
     payload = {
         "sections": [{"id": "has space", "name": "x", "start": 0.0, "end": 5.0, "color": "#fff"}]
     }
     r = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
     assert r.status_code == 422
+
+
+def test_sections_reject_end_before_start(client, done_job):
+    payload = {
+        "sections": [{"id": "bad", "name": "Bad", "start": 8.0, "end": 3.0, "color": "#fff"}]
+    }
+    response = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
+    assert response.status_code == 422
+
+
+def test_sections_reject_duplicate_ids(client, done_job):
+    payload = {
+        "sections": [
+            {"id": "same", "name": "A", "start": 0.0, "end": 1.0, "color": "#fff"},
+            {"id": "same", "name": "B", "start": 1.0, "end": 2.0, "color": "#fff"},
+        ]
+    }
+    response = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
+    assert response.status_code == 422
+
+
+def test_sections_write_failure_keeps_previous_in_memory_state(
+    client, done_job, monkeypatch
+):
+    import app.api.jobs as jobs_mod
+
+    done_job.sections = [{"id": "old"}]
+    monkeypatch.setattr(
+        jobs_mod,
+        "atomic_write_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    payload = {
+        "sections": [{"id": "new", "name": "New", "start": 0.0, "end": 2.0, "color": "#fff"}]
+    }
+
+    response = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
+
+    assert response.status_code == 500
+    assert done_job.sections == [{"id": "old"}]
+
+
+def test_sections_reject_running_job(client):
+    job = Job(id="abcdefabcde3", status="processing")
+    _jobs[job.id] = job
+    response = client.patch(f"/api/jobs/{job.id}/sections", json={"sections": []})
+    assert response.status_code == 409
 
 
 # ─── SSE job_id validation ────────────────────────────────────────────────────

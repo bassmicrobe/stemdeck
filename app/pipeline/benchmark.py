@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 import math
 import subprocess
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from app.core.config import STEM_NAMES, TIMEOUT_ANALYZE, ffmpeg_executable
+from app.pipeline.process import background_process_env
+
+_UNSTABLE_CHORD_SUFFIXES = ("dim", "sus2", "sus4", "maj7")
 
 
 def _round(value: float | None, digits: int = 6) -> float | None:
@@ -54,7 +58,13 @@ def decode_audio_mono(path: Path, *, sr: int = 44100, duration: float | None = 1
     if duration and duration > 0:
         cmd += ["-t", str(duration)]
     cmd.append("-")
-    proc = subprocess.run(cmd, capture_output=True, check=True, timeout=TIMEOUT_ANALYZE)
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        check=True,
+        timeout=TIMEOUT_ANALYZE,
+        env=background_process_env(),
+    )
     samples = np.frombuffer(proc.stdout, dtype=np.float32)
     if samples.size == 0:
         raise ValueError(f"decoded audio is empty: {path}")
@@ -159,15 +169,50 @@ def chord_metrics(metadata_path: Path | None, stems_dir: Path | None = None) -> 
         for item in segments
         if isinstance(item, dict) and item.get("label")
     ]
+    beat_lengths: list[float] = []
+    second_lengths: list[float] = []
+    unstable_short = 0
+    for item in segments:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "")
+        start_beat = item.get("start_beat")
+        end_beat = item.get("end_beat")
+        if isinstance(start_beat, int | float) and isinstance(end_beat, int | float):
+            beats = max(0.0, float(end_beat) - float(start_beat))
+            if beats > 0:
+                beat_lengths.append(beats)
+                if beats <= 1.01 and label.endswith(_UNSTABLE_CHORD_SUFFIXES):
+                    unstable_short += 1
+        start = item.get("start")
+        end = item.get("end")
+        if isinstance(start, int | float) and isinstance(end, int | float):
+            seconds = max(0.0, float(end) - float(start))
+            if seconds > 0:
+                second_lengths.append(seconds)
+    beat_times = metadata.get("beat_times") if isinstance(metadata.get("beat_times"), list) else []
+    duration = metadata.get("duration_sec")
+    if not isinstance(duration, int | float) or duration <= 0:
+        duration = sum(second_lengths) if second_lengths else None
     midi_path = stems_dir / "chords.mid" if stems_dir else None
     return {
         "metadata_available": bool(metadata),
         "midi_available": bool(midi_path and midi_path.is_file()),
         "segment_count": len(segments),
         "unique_labels": sorted(set(labels)),
+        "label_counts": dict(sorted(Counter(labels).items())),
         "average_confidence": _round(float(np.mean(confidences)) if confidences else None, 3),
+        "average_beats_per_segment": _round(float(np.mean(beat_lengths)) if beat_lengths else None, 3),
+        "short_segment_count": sum(1 for beats in beat_lengths if beats <= 1.01),
+        "unstable_short_segment_count": unstable_short,
+        "chord_changes_per_minute": _round(
+            ((len(segments) - 1) / max(float(duration), 1e-12)) * 60.0
+            if duration and len(segments) > 1
+            else None,
+            3,
+        ),
         "bpm": metadata.get("bpm"),
-        "beat_count": len(metadata.get("beat_times") or []) if isinstance(metadata.get("beat_times"), list) else 0,
+        "beat_count": len(beat_times),
     }
 
 
@@ -212,3 +257,73 @@ def benchmark_job_dir(
         sr=sr,
         duration=duration,
     )
+
+
+def benchmark_jobs_root(
+    jobs_root: Path,
+    *,
+    sr: int = 44100,
+    duration: float | None = 180.0,
+) -> dict[str, Any]:
+    job_dirs = sorted(path for path in jobs_root.iterdir() if path.is_dir())
+    reports = []
+    for job_dir in job_dirs:
+        metadata_path = job_dir / "metadata.json"
+        stems_dir = job_dir / "stems"
+        if not metadata_path.is_file() and not stems_dir.is_dir():
+            continue
+        report = benchmark_job_dir(job_dir, sr=sr, duration=duration)
+        report["job_id"] = job_dir.name
+        reports.append(report)
+
+    residuals = [
+        item["stem_sum"].get("residual_percent")
+        for item in reports
+        if item.get("stem_sum", {}).get("available")
+        and isinstance(item["stem_sum"].get("residual_percent"), int | float)
+    ]
+    chord_confidences = [
+        item["chords"].get("average_confidence")
+        for item in reports
+        if isinstance(item.get("chords", {}).get("average_confidence"), int | float)
+    ]
+    unstable_counts = [
+        item["chords"].get("unstable_short_segment_count", 0)
+        for item in reports
+        if isinstance(item.get("chords"), dict)
+    ]
+
+    return {
+        "schema": "layerlab-benchmark-suite-v1",
+        "jobs_root": str(jobs_root),
+        "job_count": len(reports),
+        "summary": {
+            "stem_sum_residual_percent_mean": _round(float(np.mean(residuals)) if residuals else None, 3),
+            "stem_sum_residual_percent_max": _round(float(np.max(residuals)) if residuals else None, 3),
+            "chord_confidence_mean": _round(float(np.mean(chord_confidences)) if chord_confidences else None, 3),
+            "unstable_short_segment_total": int(sum(unstable_counts)),
+        },
+        "jobs": reports,
+    }
+
+
+def compare_benchmark_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
+    current_summary = current.get("summary", {}) if isinstance(current.get("summary"), dict) else {}
+    baseline_summary = baseline.get("summary", {}) if isinstance(baseline.get("summary"), dict) else {}
+    keys = sorted(set(current_summary) | set(baseline_summary))
+    deltas: dict[str, Any] = {}
+    for key in keys:
+        cur = current_summary.get(key)
+        base = baseline_summary.get(key)
+        if isinstance(cur, int | float) and isinstance(base, int | float):
+            deltas[key] = _round(float(cur) - float(base), 6)
+        else:
+            deltas[key] = None
+    return {
+        "schema": "layerlab-benchmark-compare-v1",
+        "baseline_schema": baseline.get("schema"),
+        "current_schema": current.get("schema"),
+        "baseline_job_count": baseline.get("job_count"),
+        "current_job_count": current.get("job_count"),
+        "summary_delta": deltas,
+    }

@@ -74,9 +74,9 @@ LayerLab is free and **does not accept any money, sponsorship, or funding** - no
 
 **Song analysis** including BPM and beat grid timestamps (librosa beat tracker, first 180 seconds), key, scale, and confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and sample peak in dBFS.
 
-**Chord MIDI guide export.** LayerLab estimates beat-aligned chord labels from piano/guitar-weighted chroma plus bass-root hints, merges them into sustained 4-beat "white note" chords, and exports a Standard MIDI file from the Export menu.
+**Chord guide export.** LayerLab estimates quarter-note-grid chord labels from piano/guitar-weighted chroma plus bass-root hints, suppresses weak one-beat misreads, merges stable repeats into sustained chord blocks, and exports MIDI or CSV from the Export menu. Chord export can be switched between beat/bar grid and auto/triad/seventh styles, with optional DAW marker events in MIDI.
 
-**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking.
+**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. It can also scan a whole `jobs/` root and compare against a previous baseline.
 
 **Cancellable jobs.** Cancel mid-pipeline and the runner terminates the active subprocess immediately, deletes the partial job dir, and returns to ready.
 
@@ -101,6 +101,7 @@ LayerLab is not trying to compete with commercial stem-separation products. It c
 | **Input formats** | YouTube URL, MP3, WAV, FLAC, M4A | MP3, WAV, FLAC, M4A, and more depending on service |
 | **Processing speed** | Depends on your hardware; fast with a GPU, slow on CPU only | Fast regardless of your hardware (runs on their servers) |
 | **Batch processing** | Local queue with background processing; concurrency auto-limited by CPU/GPU memory | Yes, on paid plans |
+| **Diagnostics** | In-app per-job/session logs with stage, progress, warnings, and persisted failure details | Varies |
 | **Mobile app** | No | iOS and Android |
 | **Extra features** | BPM/beat grid, chord MIDI guide, local quality benchmark; no lyrics, pitch shift, or mobile tooling | Yes, varies by product |
 | **Polish** | Functional, hobby-grade UI | Polished, production-grade apps |
@@ -347,7 +348,7 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, `max`, or `ultra`. `high` / `max` / `ultra` use slower Demucs settings and preserve 32-bit float WAV output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
 | `STEMDECK_PIPELINE_CONCURRENCY` | auto | Heavy analysis/separation jobs to run in parallel. Auto keeps CUDA/MPS at `1` for memory safety and uses `2` only on roomy CPU-only machines. Set `1`-`4` to override. |
-| `STEMDECK_PIPELINE_LOCK` | system temp file | Legacy environment variable prefix; cross-process lock file used to prevent multiple local LayerLab backends from running Demucs at the same time. |
+| `STEMDECK_PIPELINE_LOCK` | system temp file | Base path for cross-process processing-slot locks. LayerLab creates one shared slot per configured concurrency level. |
 | `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` / `ultra` use `htdemucs_ft` unless overridden. |
 | `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages. Higher is slower and can reduce artifacts. |
 | `STEMDECK_DEMUCS_PRE_GAIN_DB` | preset-dependent | Optional input gain before Demucs. Negative values such as `-6` can help very loud masters separate more cleanly. |
@@ -367,7 +368,7 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_CACHE_DIR` | `<data>/cache` | Torch model cache directory. |
 | `STEMDECK_DOWNLOADS_DIR` | `<data>/downloads` | yt-dlp download scratch space. |
 | `STEMDECK_MODELS_DIR` | `<data>/models` | Demucs model weights directory. |
-| `STEMDECK_LOGS_DIR` | `<data>/logs` | Log file output directory. |
+| `STEMDECK_LOGS_DIR` | `<data>/logs` | Reserved log file output directory; structured job diagnostics are also available in the in-app Logs viewer. |
 | `STEMDECK_FFMPEG_DIR` | (none) | Directory containing a bundled ffmpeg binary. |
 | `STEMDECK_FFMPEG` | `ffmpeg` | Path to the ffmpeg executable. |
 | `STEMDECK_FFPROBE` | `ffprobe` | Path to the ffprobe executable. |

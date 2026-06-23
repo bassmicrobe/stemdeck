@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.joblog import add_job_log
 from app.core.models import Job, JobStatus, _set
 
 # Overall job progress bands. Individual tools such as yt-dlp and Demucs report
@@ -56,3 +57,10 @@ def set_stage_progress(
     if stage is not None:
         fields["stage"] = stage
     _set(job, **fields)
+    if stage is not None:
+        add_job_log(
+            job,
+            stage,
+            stage=stage_key,
+            progress=overall,
+        )

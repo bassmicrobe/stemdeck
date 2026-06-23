@@ -1417,9 +1417,29 @@ export function downloadAllStemsZip(format = "wav") {
   _triggerDownload(`/api/jobs/${currentJobId}/stems/all.zip?${q}`, name);
 }
 
-export function downloadChordMidi() {
+function _chordExportSuffix({ style = "auto", grid = "beat", markers = false } = {}) {
+  const parts = [];
+  if (style && style !== "auto") parts.push(style);
+  if (grid && grid !== "beat") parts.push(grid);
+  if (markers) parts.push("markers");
+  return parts.length ? `_${parts.join("_")}` : "";
+}
+
+export function downloadChordMidi(options = {}) {
   if (!currentJobId || !_chordMidiUrl) return false;
-  _triggerDownload(_chordMidiUrl, `${_exportBase()}_chords.mid`);
+  const format = options.format === "csv" ? "csv" : "midi";
+  const style = options.style || "auto";
+  const grid = options.grid || "beat";
+  const markers = Boolean(options.markers) && format === "midi";
+  const q = new URLSearchParams({ style, grid });
+  if (markers) q.set("markers", "true");
+  const suffix = _chordExportSuffix({ style, grid, markers });
+  if (format === "csv") {
+    _triggerDownload(`/api/jobs/${currentJobId}/chords.csv?${q}`, `${_exportBase()}_chords${suffix}.csv`);
+    return true;
+  }
+  const sep = _chordMidiUrl.includes("?") ? "&" : "?";
+  _triggerDownload(`${_chordMidiUrl}${sep}${q}`, `${_exportBase()}_chords${suffix}.mid`);
   return true;
 }
 

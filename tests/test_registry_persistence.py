@@ -59,6 +59,49 @@ def test_persist_excludes_transient_queue_fields(tmp_path: Path):
     assert "queue_size" not in data["jobs"][0]
 
 
+def test_persist_and_restore_failed_job_logs(tmp_path: Path):
+    job = Job(
+        id="abcdefabcde1",
+        status="error",
+        title="Failed song",
+        error="Processing failed",
+        logs=[
+            {
+                "id": 1,
+                "timestamp": 1_700_000_000.0,
+                "job_id": "abcdefabcde1",
+                "level": "error",
+                "message": "demucs failed",
+                "stage": "error",
+                "progress_percent": 82,
+            }
+        ],
+    )
+    _jobs[job.id] = job
+
+    persist_registry(tmp_path)
+    _jobs.clear()
+    restore_registry(tmp_path)
+
+    restored = _jobs[job.id]
+    assert restored.status == "error"
+    assert restored.logs[0]["message"] == "demucs failed"
+
+
+def test_persist_failure_is_non_fatal(tmp_path: Path, monkeypatch):
+    import app.core.registry as registry
+
+    job = Job(id="abcdefabcde2", status="done", title="Saved song")
+    _jobs[job.id] = job
+    monkeypatch.setattr(
+        registry,
+        "atomic_write_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    persist_registry(tmp_path)
+
+
 def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     job_dir = tmp_path / "abcdefabcdee"
     stems_dir = job_dir / "stems"

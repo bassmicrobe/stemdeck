@@ -35,6 +35,7 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 - アプリ名と表示を `LayerLab` として整理し、非公式 StemDeck fork test build であることを明示。
 - Neon 系のUI、スマホ向けレスポンシブ調整、進捗バー視認性改善。
 - ジョブキュー、キャンセル、進捗率、残り推定時間表示を強化。
+- 画面内の `Logs` から、ジョブ単位または現在セッション全体の処理段階、進捗、警告、失敗理由を確認できる診断ビューを追加。
 - 複数曲キュー中も、完了済みの選択曲を前面に残して試聴やダウンロードを続けられるバックグラウンド抽出に対応。
 - 同じ曲を `Quality` / `Device` / `Clean` / 選択stem の組み合わせごとに別プロファイルとして複数回抽出できるように対応。画面表示、ダウンロードファイル名、stem ZIP内の `LAYERLAB_PROFILE.txt` で設定を確認可能。
 - クライアントマシンのCPU/GPU/メモリ状況に応じて、重い解析・stem分離パイプラインの同時実行数を自動判定。
@@ -42,12 +43,12 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 - `ffprobe` がない環境でも `ffmpeg` fallback で duration を読めるよう改善。
 - `imageio-ffmpeg` を使った portable FFmpeg fallback を追加。
 - BPM、Tempo Stability、拍グリッド検出を追加。波形上に検出拍を表示し、曲ごとのメタデータとして保存。
-- piano/guitar stem を優先したchroma解析、bass root別解析、拍ごとの再推定から白玉コード進行のMIDIを推定生成し、Exportメニューから `*_chords.mid` として書き出せるように追加。
+- piano/guitar stem を優先したchroma解析、bass root別解析、4分音符グリッド上の拍ごとの再推定からコード進行を推定生成し、弱い1拍誤検出を抑制したうえでExportメニューから `*_chords.mid` / `*_chords.csv` として書き出せるように追加。書き出し時に `Auto` / `Triads only` / `Allow 7ths`、`1/4 beat grid` / `1 bar blocks`、MIDI marker有無を選択可能。
 - 高精度プリセット `High` / `Max` / `Ultra` を追加し、`htdemucs_ft`、shift average、overlap、float32 出力を利用。
 - 音圧が高い音源向けに前処理、ゲイン復元、float32 維持、クリップ抑制を強化。
 - ベース欠け補正、stem 合計と原音の位相/残差補正を追加。
 - 分離後の各 stem に任意のノイズ除去 `Noise off` / `Light denoise` / `Strong denoise` を追加。
-- 評価用ベンチマーク `scripts/benchmark_audio.py` を追加し、stem合計と原音の残差、クリップリスク、コードMIDIメタデータをJSONで比較できるように追加。
+- 評価用ベンチマーク `scripts/benchmark_audio.py` を追加し、stem合計と原音の残差、クリップリスク、コードMIDIメタデータをJSONで比較できるように追加。`--jobs-root` と `--baseline` で複数ジョブの回帰比較にも対応。
 - 実 ffmpeg による WAV 合成/置き換えテストとパイプラインテストを追加。
 - Tauri/Rust 側に runtime setup、FFmpeg取得、GPU検出、backend起動、保守/掃除、軽量WAV解析を実装。
 - macOS/Windows 配布向けに署名、Notarize、容量、ライセンス表記の確認導線を追加。
@@ -153,7 +154,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
 - FFmpeg / ffprobe を確認またはダウンロード。
 - Apple Silicon MPS または NVIDIA CUDA を検出し、必要ならGPU向け設定を行う。
 - 同時実行数は既定で自動判定される。MPS/CUDA ではメモリ安全性を優先して通常1本、CPUのみで十分なコアとメモリがある環境では2本まで並列実行する。必要なら `STEMDECK_PIPELINE_CONCURRENCY=1` から `4` で上書き可能。
-- 複数のローカルLayerLabバックエンドが同時に起動しても、互換用の `STEMDECK_PIPELINE_LOCK` 共有ロックで Demucs の同時実行を抑制する。
+- 複数のローカルLayerLabバックエンドが同時に起動しても、`STEMDECK_PIPELINE_LOCK` を基準に自動判定した同時実行数ぶんの共有スロットを使い、マシン全体で過剰な Demucs 同時実行を防ぐ。
 - Demucs model は初回分離時にキャッシュされる。
 - セットアップ画面に runtime download サイズ、jobs/cache 使用量、data folder、ライセンス表記の案内を表示する。
 

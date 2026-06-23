@@ -22,6 +22,12 @@ from app.core.config import (
     wav_codec_for_quality_preset,
 )
 from app.core.registry import get as registry_get
+from app.pipeline.chords import (
+    chord_segments_from_metadata,
+    chord_segments_to_csv,
+    prepare_chord_midi_segments,
+    write_chord_midi,
+)
 
 logger = logging.getLogger("stemdeck.api")
 
@@ -108,21 +114,85 @@ async def get_stem_peaks(job_id: str) -> Response:
     )
 
 
+def _chord_export_segments(job, style: str, grid: str):
+    segments = chord_segments_from_metadata(job.chord_progression)
+    if not segments:
+        raise HTTPException(status_code=404, detail="chord metadata not found")
+    prepared = prepare_chord_midi_segments(segments, style=style, grid=grid)
+    if not prepared:
+        raise HTTPException(status_code=404, detail="chord metadata not found")
+    return prepared
+
+
+def _chord_variant_suffix(style: str, grid: str, markers: bool = False) -> str:
+    parts = []
+    if style != "auto":
+        parts.append(style)
+    if grid != "beat":
+        parts.append(grid)
+    if markers:
+        parts.append("markers")
+    return ("_" + "_".join(parts)) if parts else ""
+
+
 @router.get("/jobs/{job_id}/chords.mid")
-async def get_chord_midi(job_id: str) -> FileResponse:
-    """Download the estimated white-note chord progression as a Standard MIDI file."""
+async def get_chord_midi(
+    job_id: str,
+    style: str = Query(default="auto", description="auto, triads, or sevenths"),
+    grid: str = Query(default="beat", description="beat or bar"),
+    markers: bool = Query(default=False, description="Write chord labels as MIDI marker events"),
+) -> FileResponse:
+    """Download the estimated beat-grid chord progression as a Standard MIDI file."""
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
     if job is None or job.status != "done":
         raise HTTPException(status_code=404, detail="job not ready")
+    normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
+    normalized_grid = grid if grid in ("beat", "bar") else "beat"
     path = (JOBS_DIR / job_id / "stems" / "chords.mid").resolve()
-    if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
-        raise HTTPException(status_code=404, detail="chord midi not found")
+    default_export = normalized_style == "auto" and normalized_grid == "beat" and not markers
+    if default_export and path.is_file() and path.is_relative_to(JOBS_DIR.resolve()):
+        return FileResponse(
+            path,
+            media_type="audio/midi",
+            filename=f"{_download_base(job)}_chords.mid",
+        )
+    segments = _chord_export_segments(job, normalized_style, normalized_grid)
+    fd, tmp = tempfile.mkstemp(prefix="layerlab_chords_", suffix=".mid")
+    os.close(fd)
+    tmp_path = Path(tmp)
+    write_chord_midi(tmp_path, segments, bpm=job.bpm, title=job.title, markers=markers)
+    suffix = _chord_variant_suffix(normalized_style, normalized_grid, markers)
     return FileResponse(
-        path,
+        tmp_path,
         media_type="audio/midi",
-        filename=f"{_download_base(job)}_chords.mid",
+        filename=f"{_download_base(job)}_chords{suffix}.mid",
+        background=BackgroundTask(lambda: tmp_path.unlink(missing_ok=True)),
+    )
+
+
+@router.get("/jobs/{job_id}/chords.csv")
+async def get_chord_csv(
+    job_id: str,
+    style: str = Query(default="auto", description="auto, triads, or sevenths"),
+    grid: str = Query(default="beat", description="beat or bar"),
+) -> Response:
+    """Download the estimated chord progression as a DAW/spreadsheet-friendly CSV."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
+    normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
+    normalized_grid = grid if grid in ("beat", "bar") else "beat"
+    segments = _chord_export_segments(job, normalized_style, normalized_grid)
+    suffix = _chord_variant_suffix(normalized_style, normalized_grid)
+    filename = f"{_download_base(job)}_chords{suffix}.csv"
+    return Response(
+        chord_segments_to_csv(segments),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

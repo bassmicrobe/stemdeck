@@ -5,7 +5,8 @@ import subprocess
 from pathlib import Path
 
 from app.core.config import JOBS_DIR, TIMEOUT_ANALYZE, ffmpeg_executable
-from app.core.models import Job, _set
+from app.core.models import Job, JobCancelled, _set
+from app.pipeline.process import run_tracked_process
 from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.analyze")
@@ -162,7 +163,11 @@ def _measure_loudness(y: object, sr: int) -> tuple[float | None, float | None]:
 
 
 def _load_audio_ffmpeg(
-    source: Path, sr: int = 22050, duration: float = 180.0
+    source: Path,
+    sr: int = 22050,
+    duration: float = 180.0,
+    *,
+    job: Job | None = None,
 ) -> tuple[object, int] | None:
     """Decode `source` to a mono float32 numpy array at `sr` via ffmpeg.
     Bypasses librosa's deprecated audioread fallback (which fires a
@@ -205,11 +210,23 @@ def _load_audio_ffmpeg(
         "-",  # write to stdout
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, check=True, timeout=TIMEOUT_ANALYZE)
+        if job is None:
+            proc = subprocess.run(cmd, capture_output=True, check=True, timeout=TIMEOUT_ANALYZE)
+            stdout = proc.stdout
+        else:
+            result = run_tracked_process(job, cmd, timeout=TIMEOUT_ANALYZE)
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    result.returncode,
+                    cmd,
+                    output=result.stdout,
+                    stderr=result.stderr,
+                )
+            stdout = result.stdout
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
         logger.warning("ffmpeg decode failed for %s: %s", source, e)
         return None
-    y = np.frombuffer(proc.stdout, dtype=np.float32)
+    y = np.frombuffer(stdout, dtype=np.float32)
     if y.size == 0:
         return None
     return y, sr
@@ -263,7 +280,7 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
         # Analyse the first 180 s. Decode via ffmpeg directly into numpy
         # to avoid librosa's deprecated audioread fallback for
         # .webm/.m4a/.opus inputs.
-        loaded = _load_audio_ffmpeg(source, sr=22050, duration=180.0)
+        loaded = _load_audio_ffmpeg(source, sr=22050, duration=180.0, job=job)
         if loaded is None:
             return None, None
         y, sr = loaded
@@ -333,6 +350,8 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
         )
         set_stage_progress(job, "analyze", 1.0, stage="Analysis complete")
         return bpm, key
+    except JobCancelled:
+        raise
     except Exception as e:
         logger.exception("analyze failed for job %s", job.id)
         set_stage_progress(job, "analyze", 1.0, stage=f"Analysis skipped ({e})")

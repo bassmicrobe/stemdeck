@@ -99,6 +99,22 @@ def _detect_pipeline_concurrency(device: str) -> int:
     return 1
 
 
+def _detect_background_cpu_threads() -> int:
+    """Keep background extraction from starving the UI event loop/WebView.
+
+    This only changes CPU scheduling/worker count. It does not alter Demucs
+    model weights or audio math, so output quality is unchanged.
+    """
+    raw = os.environ.get("STEMDECK_BACKGROUND_CPU_THREADS", "").strip().lower()
+    if raw and raw != "auto":
+        try:
+            return max(1, min(16, int(raw)))
+        except ValueError:
+            pass
+    cpu_count = os.cpu_count() or 1
+    return max(1, min(4, cpu_count // 2 or 1))
+
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = ROOT / "static"
 STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "other")
@@ -334,6 +350,9 @@ FFPROBE_BIN = _env_path(
 DEMUCS_MODEL = _demucs_settings.model
 DEMUCS_DEVICE = _detect_device()
 PIPELINE_CONCURRENCY = _detect_pipeline_concurrency(DEMUCS_DEVICE)
+BACKGROUND_PROCESS_PRIORITY = _env_bool("STEMDECK_BACKGROUND_PROCESS_PRIORITY", True)
+BACKGROUND_PROCESS_NICE = max(0, min(19, _env_int("STEMDECK_BACKGROUND_PROCESS_NICE", 8)))
+BACKGROUND_CPU_THREADS = _detect_background_cpu_threads()
 DEMUCS_SHIFTS = _demucs_settings.shifts
 DEMUCS_PRE_GAIN_DB = _demucs_settings.pre_gain_db
 DEMUCS_FLOAT32 = _demucs_settings.float32

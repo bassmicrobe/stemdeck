@@ -9,7 +9,9 @@ import soundfile as sf
 from app.pipeline.benchmark import (
     benchmark_audio,
     benchmark_job_dir,
+    benchmark_jobs_root,
     chord_metrics,
+    compare_benchmark_reports,
     stem_sum_metrics,
 )
 
@@ -75,10 +77,11 @@ def test_chord_metrics_summarizes_metadata(tmp_path: Path):
         json.dumps(
             {
                 "bpm": 128,
+                "duration_sec": 2.0,
                 "beat_times": [0.0, 0.5, 1.0],
                 "chord_progression": [
-                    {"label": "C", "confidence": 0.8},
-                    {"label": "G", "confidence": 0.6},
+                    {"label": "C", "confidence": 0.8, "start": 0.0, "end": 1.0, "start_beat": 0, "end_beat": 2},
+                    {"label": "Gmaj7", "confidence": 0.6, "start": 1.0, "end": 1.5, "start_beat": 2, "end_beat": 3},
                 ],
             }
         ),
@@ -90,8 +93,11 @@ def test_chord_metrics_summarizes_metadata(tmp_path: Path):
     assert metrics["metadata_available"] is True
     assert metrics["midi_available"] is True
     assert metrics["segment_count"] == 2
-    assert metrics["unique_labels"] == ["C", "G"]
+    assert metrics["unique_labels"] == ["C", "Gmaj7"]
     assert metrics["average_confidence"] == 0.7
+    assert metrics["average_beats_per_segment"] == 1.5
+    assert metrics["short_segment_count"] == 1
+    assert metrics["unstable_short_segment_count"] == 1
 
 
 def test_benchmark_job_dir_uses_retained_source(tmp_path: Path):
@@ -119,3 +125,41 @@ def test_benchmark_audio_without_source_reports_chords_only(tmp_path: Path):
 
     assert report["stem_sum"]["available"] is False
     assert report["stems"]["present"] == ["vocals"]
+
+
+def test_benchmark_jobs_root_and_compare_reports(tmp_path: Path):
+    sr = 8000
+    job_dir = tmp_path / "abcdefabcdef"
+    stems_dir = job_dir / "stems"
+    stems_dir.mkdir(parents=True)
+    samples = np.zeros(sr, dtype=np.float32)
+    _write_wav(job_dir / "source.wav", samples, sr)
+    _write_wav(stems_dir / "vocals.wav", samples, sr)
+    (stems_dir / "chords.mid").write_bytes(b"MThd")
+    (job_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "duration_sec": 1.0,
+                "chord_progression": [
+                    {"label": "C", "confidence": 0.9, "start": 0.0, "end": 1.0, "start_beat": 0, "end_beat": 4}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = benchmark_jobs_root(tmp_path, sr=sr, duration=1.0)
+    comparison = compare_benchmark_reports(
+        report,
+        {
+            "schema": "layerlab-benchmark-suite-v1",
+            "job_count": 1,
+            "summary": {"chord_confidence_mean": 0.8, "unstable_short_segment_total": 2},
+        },
+    )
+
+    assert report["schema"] == "layerlab-benchmark-suite-v1"
+    assert report["job_count"] == 1
+    assert report["summary"]["chord_confidence_mean"] == 0.9
+    assert comparison["summary_delta"]["chord_confidence_mean"] == 0.1
+    assert comparison["summary_delta"]["unstable_short_segment_total"] == -2

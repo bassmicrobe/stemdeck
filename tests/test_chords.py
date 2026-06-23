@@ -8,16 +8,23 @@ from app.core.models import Job
 from app.pipeline import chords as chords_mod
 from app.pipeline.chords import (
     ChordSegment,
+    _apply_bass_root_hint,
     _available_chord_source_paths,
     _ChromaSource,
     _combine_beatwise_chroma,
     _combine_segment_chroma,
     _estimate_key_context,
     _midi_text,
+    _parse_key_context,
     _score_chord,
     _select_chord_sequence,
+    _smooth_short_segments,
     _varlen,
+    chord_segments_from_metadata,
+    chord_segments_to_csv,
+    detect_chord_segments,
     generate_chord_midi,
+    prepare_chord_midi_segments,
     write_chord_midi,
 )
 
@@ -126,6 +133,7 @@ def test_available_chord_sources_prefer_harmonic_stems(tmp_path: Path):
     chord_paths, bass_path = _available_chord_source_paths(source, stems_dir)
 
     assert [name for name, _, _ in chord_paths] == ["original", "piano", "guitar"]
+    assert chord_paths[0][2] == 0.35
     assert bass_path == stems_dir / "bass.wav"
 
 
@@ -171,6 +179,29 @@ def test_combine_beatwise_chroma_uses_bass_root_across_beats():
     assert confidence > 0.75
 
 
+def test_combine_beatwise_chroma_skips_tail_without_next_beat():
+    harmony = _multi_frame_source(
+        "piano",
+        1.25,
+        [{0: 1.0, 4: 0.82, 7: 0.72}],
+        [0.5],
+    )
+
+    assert _combine_beatwise_chroma([harmony], None, [0.0, 1.0], 1, 5) is None
+
+
+def test_bass_passing_note_does_not_override_supported_harmony():
+    harmony = _vector({0: 1.0, 4: 0.84, 7: 0.74})
+    harmony = harmony / float(np.sum(harmony))
+
+    combined = _apply_bass_root_hint(harmony, (2, 1.0), boost=0.24)
+    label, root, _, confidence = _score_chord(combined)
+
+    assert label == "C"
+    assert root == 0
+    assert confidence > 0.75
+
+
 def test_estimate_key_context_returns_confident_minor_key():
     vectors = [
         _vector({2: 1.0, 5: 0.82, 9: 0.72}),
@@ -179,6 +210,11 @@ def test_estimate_key_context_returns_confident_minor_key():
     ]
 
     assert _estimate_key_context(vectors) == (2, "minor")
+
+
+def test_parse_key_context_accepts_analysis_labels():
+    assert _parse_key_context("B min") == (11, "minor")
+    assert _parse_key_context("Db major") == (1, "major")
 
 
 def test_select_chord_sequence_smooths_weak_same_root_variant():
@@ -197,6 +233,109 @@ def test_select_chord_sequence_keeps_strong_progression_change():
     selected = _select_chord_sequence([c, g, c])
 
     assert [candidate.label for candidate in selected] == ["C", "G", "C"]
+
+
+def test_select_chord_sequence_uses_key_hint_to_avoid_unstable_complex_chords():
+    key_context = _parse_key_context("B min")
+    f_sharp_dim_like = _vector({6: 1.0, 9: 0.78, 0: 0.62})
+    d_maj7_like = _vector({2: 1.0, 6: 0.82, 9: 0.72, 1: 0.45})
+
+    selected = _select_chord_sequence([f_sharp_dim_like, d_maj7_like], key_context=key_context)
+
+    assert [candidate.label for candidate in selected] == ["F#m", "D"]
+
+
+def test_smooth_short_segments_removes_weak_one_beat_flip():
+    segments = [
+        ChordSegment("C", 0.0, 1.0, 0, (0, 4, 7), 0.82, start_beat=0, end_beat=1),
+        ChordSegment("G", 1.0, 2.0, 7, (0, 4, 7), 0.34, start_beat=1, end_beat=2),
+        ChordSegment("C", 2.0, 3.0, 0, (0, 4, 7), 0.86, start_beat=2, end_beat=3),
+    ]
+
+    smoothed = _smooth_short_segments(segments)
+
+    assert len(smoothed) == 1
+    assert smoothed[0].label == "C"
+    assert smoothed[0].start_beat == 0
+    assert smoothed[0].end_beat == 3
+
+
+def test_smooth_short_segments_removes_single_beat_complex_label():
+    segments = [
+        ChordSegment("F#7", 0.0, 1.0, 6, (0, 4, 7, 10), 0.86, start_beat=0, end_beat=1),
+        ChordSegment("Cmaj7", 1.0, 2.0, 0, (0, 4, 7, 11), 1.0, start_beat=1, end_beat=2),
+        ChordSegment("Bm7", 2.0, 3.0, 11, (0, 3, 7, 10), 0.92, start_beat=2, end_beat=3),
+    ]
+
+    smoothed = _smooth_short_segments(segments)
+
+    assert [(seg.label, seg.start_beat, seg.end_beat) for seg in smoothed] == [
+        ("F#7", 0, 1),
+        ("Bm7", 1, 3),
+    ]
+
+
+def test_prepare_chord_midi_segments_supports_triads_and_bar_grid():
+    segments = chord_segments_from_metadata(
+        [
+            {"label": "Bm7", "start": 0.0, "end": 1.0, "start_beat": 0, "end_beat": 1, "confidence": 0.9},
+            {"label": "Dmaj7", "start": 1.0, "end": 3.0, "start_beat": 1, "end_beat": 3, "confidence": 0.8},
+            {"label": "Gmaj7", "start": 3.0, "end": 4.0, "start_beat": 3, "end_beat": 4, "confidence": 0.7},
+        ]
+    )
+
+    prepared = prepare_chord_midi_segments(segments, style="triads", grid="bar")
+
+    assert [(seg.label, seg.start_beat, seg.end_beat) for seg in prepared] == [("D", 0, 4)]
+    assert prepared[0].intervals == (0, 4, 7)
+    assert prepared[0].start == 0.0
+    assert prepared[0].end == 4.0
+
+
+def test_chord_segments_to_csv_writes_beat_metadata():
+    segments = [ChordSegment("C", 0.0, 1.5, 0, (0, 4, 7), 0.876, start_beat=0, end_beat=4)]
+
+    text = chord_segments_to_csv(segments)
+
+    assert "label,start_sec,end_sec,start_beat,end_beat,confidence" in text
+    assert "C,0.000,1.500,0,4,0.876" in text
+
+
+def test_detect_chord_segments_uses_quarter_note_grid(monkeypatch, tmp_path: Path):
+    source = tmp_path / "source.wav"
+    stems_dir = tmp_path / "stems"
+    source.write_bytes(b"wav")
+    stems_dir.mkdir()
+    (stems_dir / "piano.wav").write_bytes(b"wav")
+
+    piano = _multi_frame_source(
+        "piano",
+        1.25,
+        [
+            {0: 1.0, 4: 0.82, 7: 0.72},
+            {0: 1.0, 4: 0.82, 7: 0.72},
+            {7: 1.0, 11: 0.82, 2: 0.72},
+            {7: 1.0, 11: 0.82, 2: 0.72},
+        ],
+        [0.5, 1.5, 2.5, 3.5],
+    )
+
+    def fake_load_chroma_source(*args, **kwargs):
+        return piano if kwargs["name"] == "piano" else None
+
+    monkeypatch.setattr(chords_mod, "_load_chroma_source", fake_load_chroma_source)
+
+    segments = detect_chord_segments(
+        source,
+        [0.0, 1.0, 2.0, 3.0, 4.0],
+        duration_sec=4.0,
+        stems_dir=stems_dir,
+    )
+
+    assert [(seg.label, seg.start_beat, seg.end_beat) for seg in segments] == [
+        ("C", 0, 2),
+        ("G", 2, 4),
+    ]
 
 
 def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
@@ -258,6 +397,15 @@ def test_write_chord_midi_keeps_no_chord_time_on_grid(tmp_path: Path):
     write_chord_midi(out, segments, bpm=120, title="No Chord Tail")
 
     assert _last_midi_tick(out.read_bytes()) == 8 * 480
+
+
+def test_write_chord_midi_can_write_marker_events(tmp_path: Path):
+    out = tmp_path / "markers.mid"
+    segments = [ChordSegment("C", 0.0, 1.0, 0, (0, 4, 7), 0.9, start_beat=0, end_beat=4)]
+
+    write_chord_midi(out, segments, bpm=120, title="Markers", markers=True)
+
+    assert b"\xff\x06\x01C" in out.read_bytes()
 
 
 def test_generate_chord_midi_sets_job_metadata(tmp_path: Path, monkeypatch):

@@ -134,6 +134,40 @@ def test_chord_midi_returns_file_for_done_job(client, tmp_path):
     assert r.headers["content-disposition"].endswith('_chords.mid"')
 
 
+def test_chord_midi_variant_renders_from_metadata(client, tmp_path):
+    job = Job(id="abcdefabcda3", status="done", title="Chord Song", bpm=120)
+    job.chord_progression = [
+        {"label": "Bm7", "start": 0.0, "end": 1.0, "start_beat": 0, "end_beat": 1, "confidence": 0.9},
+        {"label": "Dmaj7", "start": 1.0, "end": 3.0, "start_beat": 1, "end_beat": 3, "confidence": 0.8},
+        {"label": "Gmaj7", "start": 3.0, "end": 4.0, "start_beat": 3, "end_beat": 4, "confidence": 0.7},
+    ]
+    _jobs[job.id] = job
+    (tmp_path / job.id / "stems").mkdir(parents=True, exist_ok=True)
+
+    r = client.get(f"/api/jobs/{job.id}/chords.mid?style=triads&grid=bar&markers=true")
+
+    assert r.status_code == 200
+    assert r.content.startswith(b"MThd")
+    assert b"\xff\x06" in r.content
+    assert "triads_bar_markers" in r.headers["content-disposition"]
+
+
+def test_chord_csv_variant_renders_from_metadata(client, tmp_path):
+    job = Job(id="abcdefabcda4", status="done", title="Chord CSV")
+    job.chord_progression = [
+        {"label": "Cmaj7", "start": 0.0, "end": 2.0, "start_beat": 0, "end_beat": 4, "confidence": 0.8},
+    ]
+    _jobs[job.id] = job
+    (tmp_path / job.id / "stems").mkdir(parents=True, exist_ok=True)
+
+    r = client.get(f"/api/jobs/{job.id}/chords.csv?style=triads")
+
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "Chord_CSV" in r.headers["content-disposition"]
+    assert "C,0.000,2.000,0,4,0.800" in r.text
+
+
 def test_chord_midi_404_when_missing(client, tmp_path):
     job = Job(id="abcdefabcda2", status="done")
     _jobs[job.id] = job

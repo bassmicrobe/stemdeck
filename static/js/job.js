@@ -17,6 +17,7 @@ import {
 import { initSections } from "./sections.js";
 import { supportedStemNamesForQuality } from "./constants.js";
 import { fmtBeatGrid } from "./utils.js";
+import { openLogViewer } from "./logs.js";
 
 // Playful stage label rotation (Claude-Code-style flair). The backend
 // emits truthful stage strings; we surface them in the small #job-detail
@@ -29,9 +30,11 @@ let activeJobSyncTimerId = null;
 let jobTimerId = null;
 let jobTimerState = null;
 let monitoredJobId = null;
+let monitoredJobOwnsStudio = false;
 const renderedJobs = new Set();
 const jobSources = new Map();
 const activeJobIds = new Set();
+let activeJobSyncFailures = 0;
 
 const TERMINAL_STATUSES = new Set(["done", "error", "cancelled"]);
 
@@ -51,14 +54,30 @@ function setSubmitProcessing(processing) {
   if (label) label.textContent = processing ? "Processing" : "Process";
 }
 
+function setJobConnectionStatus(message = "", tone = "info") {
+  let el = jobBox.querySelector(".job-connection");
+  if (!message) {
+    el?.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "job-connection";
+    jobBox.insertBefore(el, jobBox.querySelector(".job-progress-row") || jobCancelBtn);
+  }
+  el.className = `job-connection ${tone}`;
+  el.textContent = message;
+}
+
 function shouldForegroundNewJob() {
   if (!jobBox.classList.contains("hidden")) return false;
   return !isTrackPlayable(getCurrentTrack());
 }
 
-function showJobMonitor(jobId, status = "queued") {
+function showJobMonitor(jobId, status = "queued", { ownStudio = false } = {}) {
   monitoredJobId = jobId;
-  if (!isTrackPlayable(getCurrentTrack())) setCurrentTrack(jobId);
+  monitoredJobOwnsStudio = ownStudio;
+  if (ownStudio && !isTrackPlayable(getCurrentTrack())) setCurrentTrack(jobId);
   jobBox.classList.remove("hidden");
   jobCancelBtn.classList.remove("hidden");
   startPhraseRotation(status);
@@ -66,9 +85,9 @@ function showJobMonitor(jobId, status = "queued") {
   connectEvents(jobId);
 }
 
-export function showJobProgress(jobId) {
+export function showJobProgress(jobId, { ownStudio = false } = {}) {
   if (!jobId) return;
-  showJobMonitor(jobId);
+  showJobMonitor(jobId, "queued", { ownStudio });
   probeJob(jobId).catch((err) => {
     console.warn("[job] could not open job monitor:", err);
   });
@@ -239,6 +258,7 @@ export function reset() {
   stopPhraseRotation();
   lastStatus = null;
   monitoredJobId = null;
+  monitoredJobOwnsStudio = false;
   destroyPlayer();
   errorEl.classList.add("hidden");
   errorEl.textContent = "";
@@ -250,6 +270,7 @@ export function reset() {
   jobEtaEl.textContent = "";
   jobPercentEl.textContent = "0%";
   progressEl.value = 0;
+  setJobConnectionStatus("");
   setSubmitProcessing(false);
   setCurrentJobId(null);
 }
@@ -260,9 +281,9 @@ function channelForStatus(state) {
   return "Processing";
 }
 
-function applyState(state, { focus = true } = {}) {
+function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } = {}) {
   const currentTrack = getCurrentTrack();
-  const ownsStudio = focus && (
+  const ownsStudio = focus && ownStudio && (
     currentJobId === state.job_id
     || !isTrackPlayable(currentTrack)
     || currentTrack?.id === state.job_id
@@ -432,6 +453,7 @@ function applyState(state, { focus = true } = {}) {
     if (ownsStudio) setWaveformLoading(false);
     if (monitoredJobId === state.job_id) {
       monitoredJobId = null;
+      monitoredJobOwnsStudio = false;
       jobBox.classList.add("hidden");
     }
     setSubmitProcessing(false);
@@ -441,6 +463,7 @@ function applyState(state, { focus = true } = {}) {
     updateTrackStatus(state.job_id, "done");
     if (monitoredJobId === state.job_id) {
       monitoredJobId = null;
+      monitoredJobOwnsStudio = false;
       jobBox.classList.add("hidden");
     }
     if (ownsStudio && !renderedJobs.has(state.job_id)) {
@@ -493,6 +516,8 @@ async function syncActiveJobs() {
   try {
     const res = await fetch("/api/jobs/active", { cache: "no-store" });
     if (!res.ok) return;
+    activeJobSyncFailures = 0;
+    setJobConnectionStatus("");
     const states = await res.json();
     const nextIds = new Set(states.map((state) => state.job_id));
     for (const state of states) {
@@ -509,6 +534,10 @@ async function syncActiveJobs() {
       }
     }
   } catch (err) {
+    activeJobSyncFailures += 1;
+    if (activeJobSyncFailures >= 2) {
+      setJobConnectionStatus("Reconnecting to background queue...", "warn");
+    }
     console.warn("[job] active queue sync failed:", err);
   }
 }
@@ -536,15 +565,21 @@ function connectEvents(jobId) {
     const es = new EventSource(`/api/jobs/${jobId}/events`);
     setEventSource(es);
 
+    es.onopen = () => {
+      attempt = 0;
+      setJobConnectionStatus("");
+    };
+
     es.onmessage = (ev) => {
       attempt = 0; // any successful frame resets backoff
+      setJobConnectionStatus("");
       let s;
       try { s = JSON.parse(ev.data); } catch { return; }
       // Defer by one tick so synchronous user event handlers (clicks,
       // input events) always complete before SSE state is applied.
       setTimeout(() => {
         if (monitoredJobId !== jobId) return;
-        applyState(s);
+        applyState(s, { ownStudio: monitoredJobOwnsStudio });
         if (TERMINAL_STATUSES.has(s.status)) {
           stopped = true;
           es.close();
@@ -566,7 +601,7 @@ function connectEvents(jobId) {
       // Probe REST once before declaring failure -- handles dev-server
       // reloads and brief network blips where the job is actually fine.
       try {
-        const s = await probeJob(jobId);
+        const s = await probeJob(jobId, { ownStudio: monitoredJobOwnsStudio });
         if (TERMINAL_STATUSES.has(s.status)) {
           stopped = true;
           return;
@@ -584,11 +619,13 @@ function connectEvents(jobId) {
       attempt += 1;
       if (attempt > 6) {
         // SSE gave up — activate REST polling as the fallback.
+        setJobConnectionStatus("Live updates interrupted. Polling job status...", "warn");
         startJobPolling(jobId);
         return;
       }
       // 0.5s, 1s, 2s, 4s, 8s, 16s
       const delay = 500 * Math.pow(2, attempt - 1);
+      setJobConnectionStatus(`Connection interrupted. Retrying in ${Math.round(delay / 1000)}s...`, "warn");
       setTimeout(() => { if (!stopped) open(); }, delay);
     };
   };
@@ -702,7 +739,7 @@ export async function importFromUrl(url, { title, stems, quality, denoise, devic
     completedAt: null,
     sourceUrl: url,
   });
-  showJobMonitor(jobId);
+  showJobMonitor(jobId, "queued", { ownStudio: foreground });
   syncActiveJobs();
   setSubmitProcessing(false);
   return jobId;
@@ -710,6 +747,9 @@ export async function importFromUrl(url, { title, stems, quality, denoise, devic
 
 export function wireJobForm() {
   jobCancelBtn.addEventListener("click", cancelCurrentJob);
+  document.getElementById("job-logs")?.addEventListener("click", () => {
+    openLogViewer(monitoredJobId);
+  });
   startActiveJobSync();
 
   form.addEventListener("submit", async (e) => {
@@ -820,7 +860,7 @@ export function wireJobForm() {
       sourceUrl,
     });
 
-    showJobMonitor(jobId);
+    showJobMonitor(jobId, "queued", { ownStudio: foreground });
     syncActiveJobs();
     setSubmitProcessing(false);
   });

@@ -21,6 +21,7 @@ import { togglePlayPause, updateLoopRegionVisual } from "./transport.js";
 import { wireStemListControls, wireMixerToolbar } from "./mixer.js";
 import { initCatalog } from "./catalog.js";
 import { runStoreMigrationIfNeeded } from "./utils.js";
+import { initLogViewer } from "./logs.js";
 
 // ─── Stem choice toggles on the import page ───
 //
@@ -229,6 +230,10 @@ function wireFooterControls() {
   const itemStems  = document.getElementById("t-export-stems");
   const itemChords = document.getElementById("t-export-chords");
   const itemRegion = document.getElementById("t-export-region");
+  const chordFormat = document.getElementById("t-chord-format");
+  const chordStyle = document.getElementById("t-chord-style");
+  const chordGrid = document.getElementById("t-chord-grid");
+  const chordMarkers = document.getElementById("t-chord-markers");
   const actionItems = () => [itemMix, itemStems, itemChords, itemRegion];
 
   let format = "wav";
@@ -255,6 +260,12 @@ function wireFooterControls() {
   fmtWav?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("wav"); });
   fmtMp3?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("mp3"); });
   fmtFlac?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("flac"); });
+  for (const el of [chordFormat, chordStyle, chordGrid, chordMarkers]) {
+    el?.addEventListener("click", (e) => e.stopPropagation());
+    el?.addEventListener("change", () => {
+      if (chordMarkers) chordMarkers.disabled = chordFormat?.value === "csv";
+    });
+  }
 
   function resetBusy() {
     busy = false;
@@ -310,7 +321,13 @@ function wireFooterControls() {
   itemChords?.addEventListener("click", (e) => {
     e.stopPropagation();
     if (busy) return;
-    if (!downloadChordMidi()) { showError("Chord MIDI is not available for this track yet."); return; }
+    const options = {
+      format: chordFormat?.value || "midi",
+      style: chordStyle?.value || "auto",
+      grid: chordGrid?.value || "beat",
+      markers: chordMarkers?.checked ?? true,
+    };
+    if (!downloadChordMidi(options)) { showError("Chord guide is not available for this track yet."); return; }
     flashBusy();
   });
 
@@ -517,3 +534,4 @@ window.addEventListener("unhandledrejection", (e) => {
 
 buildStripStems();
 renderEmptyShell();
+initLogViewer();

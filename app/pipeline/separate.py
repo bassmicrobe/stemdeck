@@ -17,6 +17,7 @@ from app.core.config import (
 )
 from app.core.models import Job, JobCancelled
 from app.core.registry import set_proc
+from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.pipeline")
@@ -70,7 +71,7 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
     except ModuleNotFoundError:
         pass
 
-    proc = subprocess.Popen(
+    proc = popen_background(
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -102,7 +103,7 @@ def separate(job: Job, source: Path, job_dir: Path) -> Path:
                     TIMEOUT_DEMUCS_STALL,
                     job.id,
                 )
-                proc.terminate()
+                terminate_process(proc)
                 return
 
     wt = threading.Thread(target=_watchdog, daemon=True)

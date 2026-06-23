@@ -117,6 +117,7 @@ class Job:
     queue_position: int | None = None  # 1-based waiting position while status == queued
     queue_size: int = 0  # current number of queued jobs, for UI context
     error: str | None = None
+    logs: list[dict[str, Any]] = field(default_factory=list)
     # Set by POST /api/jobs/{id}/cancel; consumed by pipeline stages.
     # Not surfaced via to_state() -- it's internal control state.
     cancel_requested: bool = False
@@ -271,6 +272,10 @@ class Job:
         job = cls(id=job_id)
         for key, value in fields.items():
             setattr(job, key, value)
+        if not isinstance(job.logs, list):
+            job.logs = []
+        else:
+            job.logs = [entry for entry in job.logs[-300:] if isinstance(entry, dict)]
         job.cancel_requested = False
         return job
 
