@@ -13,7 +13,7 @@ DMG_RW_PATH="${DIST_DIR}/LayerLab-macOS-${ARCH}.rw.dmg"
 RUNTIME_NAME="LayerLab-runtime-macOS-${ARCH}.tar.zst"
 RUNTIME_PATH="${BUILD_DIR}/${RUNTIME_NAME}"
 APP_BUNDLE_NAME="LayerLab.app"
-DMG_SIZE="${DMG_SIZE:-256m}"
+DMG_SIZE="${DMG_SIZE:-384m}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "ERROR: make-dmg.sh must run on macOS" >&2
@@ -77,9 +77,16 @@ if [[ -f "$REPO_ROOT/packaging/macos/README-macOS.txt" ]]; then
   cp "$REPO_ROOT/packaging/macos/README-macOS.txt" "$MOUNT_DIR/README-macOS.txt"
 fi
 
-if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
-  cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$MOUNT_DIR/THIRD_PARTY_NOTICES.txt"
-fi
+LICENSE_BUNDLE_DIR="$BUILD_DIR/license-bundle-${ARCH}"
+for license_file in THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.txt THIRD_PARTY_INVENTORY.json; do
+  if [[ ! -f "$LICENSE_BUNDLE_DIR/$license_file" ]]; then
+    echo "ERROR: generated license artifact not found: $LICENSE_BUNDLE_DIR/$license_file" >&2
+    exit 1
+  fi
+  destination="$license_file"
+  [[ "$license_file" == "THIRD_PARTY_NOTICES.md" ]] && destination="THIRD_PARTY_NOTICES.txt"
+  cp "$LICENSE_BUNDLE_DIR/$license_file" "$MOUNT_DIR/$destination"
+done
 
 if [[ -f "$REPO_ROOT/LICENSE" ]]; then
   cp "$REPO_ROOT/LICENSE" "$MOUNT_DIR/LICENSE"
@@ -87,6 +94,10 @@ fi
 
 if [[ -f "$REPO_ROOT/NOTICE" ]]; then
   cp "$REPO_ROOT/NOTICE" "$MOUNT_DIR/NOTICE"
+fi
+
+if [[ -f "$REPO_ROOT/OSS_COMPONENTS.md" ]]; then
+  cp "$REPO_ROOT/OSS_COMPONENTS.md" "$MOUNT_DIR/OSS_COMPONENTS.md"
 fi
 
 # Finder metadata/resource xattrs make strict codesign validation fail. Strip
@@ -108,6 +119,10 @@ if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
   fi
   app_codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$MOUNT_DIR/$APP_BUNDLE_NAME")
   codesign "${app_codesign_args[@]}"
+  codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_BUNDLE_NAME"
+else
+  echo "==> Applying local ad-hoc signature to mounted app"
+  codesign --force --deep --sign - "$MOUNT_DIR/$APP_BUNDLE_NAME"
   codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_BUNDLE_NAME"
 fi
 

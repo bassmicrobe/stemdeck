@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
@@ -39,6 +41,26 @@ async def test_pipeline_marks_done_on_success(tmp_path: Path):
 
     assert job.status == "done"
     assert job.progress == 1.0
+
+
+@pytest.mark.asyncio
+async def test_pipeline_acquisition_can_overlap_between_jobs(tmp_path: Path):
+    """Only Demucs is serialized; front-half work for queued songs can overlap."""
+    barrier = threading.Barrier(2, timeout=2.0)
+    first = Job(id="abcdefabcda1")
+    second = Job(id="abcdefabcda2")
+
+    def acquire_together(*args, **kwargs):
+        barrier.wait()
+
+    with patch("app.pipeline.runner._run_blocking", side_effect=acquire_together):
+        await asyncio.gather(
+            run_pipeline(first, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path),
+            run_pipeline(second, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path),
+        )
+
+    assert first.status == "done"
+    assert second.status == "done"
 
 
 @pytest.mark.asyncio
@@ -158,50 +180,36 @@ def test_machine_lock_uses_one_file_per_concurrency_slot(tmp_path: Path, monkeyp
     )
 
 
-def test_prepare_demucs_source_creates_pregain_working_copy(tmp_path: Path, monkeypatch):
-    import app.pipeline.runner as runner
-
+def test_prepare_demucs_source_skips_redundant_normalization_copy(tmp_path: Path):
     job = Job(id="abcdefabcde6")
     job.quality_preset = "high"
     source = tmp_path / "source.wav"
     source.write_bytes(b"wav")
-    calls = []
-
-    class Result:
-        returncode = 0
-        stderr = b""
-
-    def fake_run(job_arg, cmd, **kwargs):
-        assert job_arg is job
-        calls.append((cmd, kwargs))
-        Path(cmd[-1]).write_bytes(b"processed")
-        return Result()
-
-    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
-
     dest = _prepare_demucs_source(job, source, tmp_path)
 
-    assert dest == tmp_path / "source.demucs.wav"
-    assert dest.read_bytes() == b"processed"
-    cmd, kwargs = calls[0]
-    filter_chain = cmd[cmd.index("-filter:a") + 1]
-    assert "aresample=44100" in filter_chain
-    assert "highpass=f=12" in filter_chain
-    assert "volume=-6dB" in filter_chain
-    assert job.demucs_gain_db == -6.0
-    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
-    assert kwargs["timeout"] == runner.TIMEOUT_FFMPEG
+    assert dest == source
+    assert job.demucs_gain_db == 0.0
 
 
-def test_prepare_demucs_source_uses_reversible_loudness_safety_gain(
-    tmp_path: Path, monkeypatch
+def test_prepare_demucs_source_does_not_duplicate_hot_master_decode(
+    tmp_path: Path,
 ):
-    import app.pipeline.runner as runner
-
     job = Job(id="abcdefabcde4", quality_preset="high", lufs=-7.0, peak_db=1.2)
     source = tmp_path / "source.wav"
     source.write_bytes(b"wav")
-    calls = []
+    dest = _prepare_demucs_source(job, source, tmp_path)
+
+    assert dest == source
+    assert job.demucs_gain_db == 0.0
+
+
+def test_prepare_demucs_source_converts_m4a_once_without_ffprobe(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    job = Job(id="abcdefabcde3", quality_preset="high")
+    source = tmp_path / "source.m4a"
+    source.write_bytes(b"m4a")
+    calls: list[list[str]] = []
 
     class Result:
         returncode = 0
@@ -209,42 +217,28 @@ def test_prepare_demucs_source_uses_reversible_loudness_safety_gain(
 
     def fake_run(job_arg, cmd, **kwargs):
         assert job_arg is job
-        calls.append((cmd, kwargs))
-        Path(cmd[-1]).write_bytes(b"processed")
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"wav")
         return Result()
 
+    monkeypatch.setattr(runner.shutil, "which", lambda name: None)
     monkeypatch.setattr(runner, "run_tracked_process", fake_run)
 
-    _prepare_demucs_source(job, source, tmp_path)
+    prepared = _prepare_demucs_source(job, source, tmp_path)
 
-    filter_chain = calls[0][0][calls[0][0].index("-filter:a") + 1]
-    assert "volume=-11dB" in filter_chain
-    assert job.demucs_gain_db == -11.0
+    assert prepared == tmp_path / "source.demucs.wav"
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("-c:a") : calls[0].index("-c:a") + 2] == [
+        "-c:a",
+        "pcm_f32le",
+    ]
 
 
-def test_prepare_local_source_keeps_float_for_high_quality(tmp_path: Path, monkeypatch):
-    import app.pipeline.runner as runner
-
+def test_prepare_local_source_defers_decode_to_demucs_ffmpeg(tmp_path: Path):
     job = Job(id="abcdefabcde5", quality_preset="high")
     source = tmp_path / "upload.mp3"
     source.write_bytes(b"ID3")
-    calls = []
-
-    class Result:
-        returncode = 0
-        stderr = b""
-
-    def fake_run(job_arg, cmd, **kwargs):
-        assert job_arg is job
-        calls.append((cmd, kwargs))
-        Path(cmd[-1]).write_bytes(b"processed")
-        return Result()
-
-    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
-
     dest = _prepare_local_source(job, source, tmp_path)
 
-    assert dest == tmp_path / "source.wav"
-    cmd, _ = calls[0]
-    assert cmd[cmd.index("-sample_fmt") : cmd.index("-sample_fmt") + 2] == ["-sample_fmt", "flt"]
-    assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+    assert dest == source
+    assert source.read_bytes() == b"ID3"

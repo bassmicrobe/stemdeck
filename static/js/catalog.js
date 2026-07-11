@@ -194,6 +194,20 @@ function trackProfileLabel(track) {
   return `${quality} / ${denoise} / ${device} / ${stemsLabel}`;
 }
 
+function compactTrackProfile(track) {
+  const qualityValue = String(track?.qualityPreset || "standard").toLowerCase();
+  const denoiseValue = String(track?.stemDenoisePreset || "off").toLowerCase();
+  const deviceValue = String(track?.demucsDevice || "auto").toLowerCase();
+  const resolvedValue = String(track?.demucsDeviceResolved || "").toLowerCase();
+  const quality = QUALITY_LABELS[qualityValue] || "Standard";
+  const denoise = denoiseValue === "off" ? "" : denoiseValue === "strong" ? "Strong" : "Light";
+  const deviceKey = deviceValue === "auto" ? resolvedValue : deviceValue;
+  const device = deviceKey && deviceKey !== "auto"
+    ? (DEVICE_LABELS[deviceKey] || deviceKey.toUpperCase()).replace("Apple GPU", "MPS").replace("NVIDIA CUDA", "CUDA")
+    : "";
+  return [quality, denoise, device].filter(Boolean).join(" · ");
+}
+
 function normalizeSearch(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -439,6 +453,7 @@ function stateMetadataToTrack(state, fallbackTrack) {
     beatTimes: state.beat_times ?? fallbackTrack.beatTimes ?? null,
     chordProgression: state.chord_progression ?? fallbackTrack.chordProgression ?? null,
     chordMidiUrl: state.chord_midi_url ?? fallbackTrack.chordMidiUrl ?? null,
+    midiAnalysisUrl: state.midi_analysis_url ?? fallbackTrack.midiAnalysisUrl ?? null,
     tags: state.tags ?? fallbackTrack.tags ?? [],
     sections: state.sections ?? fallbackTrack.sections ?? null,
     sourceUrl: state.source_url || fallbackTrack.sourceUrl,
@@ -449,7 +464,7 @@ function stateMetadataToTrack(state, fallbackTrack) {
 }
 
 function trackSubText(track, { inTrash = false } = {}) {
-  const profile = trackProfileLabel(track);
+  const profile = compactTrackProfile(track);
   if (inTrash) return "Removed";
   if (track?.status === "unavailable") return [profile, "Audio unavailable"].filter(Boolean).join(" · ");
   if (track?.status === "queued") {
@@ -747,6 +762,7 @@ async function loadTrackIntoStudio(trackId) {
     trackProfileKey(track),
     track.beatTimes || [],
     track.chordMidiUrl || null,
+    track.midiAnalysisUrl || null,
   );
   initSections(trackId, track.sections, track.duration || 0);
 }

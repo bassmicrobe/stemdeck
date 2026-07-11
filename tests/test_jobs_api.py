@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import MAX_PENDING_JOBS
 from app.core.models import Job
-from app.core.registry import _jobs
+from app.core.registry import _jobs, add_proc, remove_proc
 
 
 @pytest.fixture(autouse=True)
@@ -212,6 +212,33 @@ def test_cancel_sets_flag_and_returns_state(client):
     r = client.post(f"/api/jobs/{job_id}/cancel")
     assert r.status_code == 200
     assert _jobs[job_id].cancel_requested is True
+
+
+def test_cancel_terminates_every_active_child(client, monkeypatch):
+    import app.api.jobs as jobs_api
+
+    response = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+    job_id = response.json()["job_id"]
+
+    class ActiveProcess:
+        @staticmethod
+        def poll():
+            return None
+
+    first = ActiveProcess()
+    second = ActiveProcess()
+    terminated = []
+    add_proc(job_id, first)  # type: ignore[arg-type]
+    add_proc(job_id, second)  # type: ignore[arg-type]
+    monkeypatch.setattr(jobs_api, "terminate_process", terminated.append)
+    try:
+        response = client.post(f"/api/jobs/{job_id}/cancel")
+    finally:
+        remove_proc(job_id, first)  # type: ignore[arg-type]
+        remove_proc(job_id, second)  # type: ignore[arg-type]
+
+    assert response.status_code == 200
+    assert terminated == [first, second]
 
 
 def test_cancel_after_done_is_idempotent(client):

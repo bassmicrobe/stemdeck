@@ -20,6 +20,10 @@ Notes
 - Generated files stay under data/.
 - FFmpeg is downloaded during first-run setup into data/ffmpeg/.
 - Demucs model weights are downloaded by the backend on first use into data/models/.
+- The default FFmpeg provider identifies its release essentials build as GPL.
+  The executable is downloaded directly and is not bundled in this package.
+- Demucs code is MIT, but the pretrained weights are separate and upstream
+  describes them as personal/research-use artifacts.
 - LayerLab is an unofficial modified fork test build based on the
   original StemDeck project and is distributed under the Apache License 2.0.
   See LICENSE and NOTICE in this folder for attribution.
@@ -29,9 +33,11 @@ Notes
   conditions are met, but it does not grant trademark rights. Do not present
   this package as an official StemDeck release, official commercial offering,
   certified build, or upstream-supported product.
-- Third-party notices are included in THIRD_PARTY_NOTICES.txt. Final public
-  releases should verify the exact Python, FFmpeg, Demucs, PyTorch, Tauri, and
-  Rust dependency licenses used in the shipped artifacts.
+- Exact third-party notices are included in THIRD_PARTY_NOTICES.txt, full texts
+  in THIRD_PARTY_LICENSES.txt, and a machine-readable inventory in
+  THIRD_PARTY_INVENTORY.json.
+- Commercial use of the Apache-2.0-covered application code does not grant
+  commercial rights to the default Demucs pretrained weights.
 
 Troubleshooting
 ---------------

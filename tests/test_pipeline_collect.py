@@ -6,6 +6,7 @@ import wave
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from app.core.models import Job
@@ -73,6 +74,21 @@ def test_multiple_stems(tmp_path):
 
     data = json.loads((stems_dir / "peaks.json").read_text())
     assert set(data.keys()) == {"vocals", "drums", "bass"}
+
+
+def test_peaks_include_tail_and_both_channels(tmp_path):
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    frames = _PEAK_POINTS + 1
+    stereo = np.zeros((frames, 2), dtype=np.float32)
+    stereo[-1, 1] = 0.9
+    sf.write(stems_dir / "other.wav", stereo, 44100, subtype="FLOAT")
+
+    compute_stem_peaks(stems_dir, ["other"])
+
+    points = json.loads((stems_dir / "peaks.json").read_text())["other"]
+    assert len(points) <= _PEAK_POINTS
+    assert points[-1][1] == pytest.approx(0.9)
 
 
 def test_skips_missing_wav(tmp_path):
@@ -232,6 +248,10 @@ def test_high_quality_mix_uses_float32_wav_codec(tmp_path, monkeypatch):
     assert out == stems_dir / "mix.wav"
     cmd = calls[0]
     assert cmd[cmd.index("-c:a") : cmd.index("-c:a") + 2] == ["-c:a", "pcm_f32le"]
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert "alimiter=limit=0.98" in graph
+    assert "level=0" in graph
+    assert "latency=1" in graph
 
 
 def test_denoise_stem_outputs_replaces_all_stems_after_success(tmp_path, monkeypatch):

@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
@@ -17,9 +18,13 @@ from fastapi.staticfiles import StaticFiles
 from app.api.jobs import shutdown_pipeline_tasks
 from app.api.router import router
 from app.core.config import (
+    BEAT_THIS_MODEL,
+    BEAT_TRACKER,
     DEMUCS_DEVICE,
     DEMUCS_FLOAT32,
+    DEMUCS_JOBS,
     DEMUCS_MODEL,
+    DEMUCS_OVERLAP,
     DEMUCS_PRE_GAIN_DB,
     DEMUCS_SHIFTS,
     JOBS_DIR,
@@ -35,7 +40,9 @@ from app.core.config import (
 from app.core.joblog import add_system_log
 from app.core.registry import all_procs
 from app.core.registry import restore as restore_registry
+from app.pipeline.beat_tracker import beat_this_available
 from app.pipeline.collect import sweep_old_jobs
+from app.pipeline.midi_analysis import music21_available
 from app.pipeline.process import terminate_process
 
 # Show our INFO-level logs through uvicorn's root handler. Without this,
@@ -181,8 +188,15 @@ def health() -> dict[str, object]:
         "demucs_device_choices": ["auto", "cpu", "mps", "cuda"],
         "demucs_available_devices": list(available_demucs_devices()),
         "pipeline_concurrency": PIPELINE_CONCURRENCY,
+        "pipeline_lock_scope": "separation-only",
+        "demucs_jobs": DEMUCS_JOBS,
         "demucs_shifts": DEMUCS_SHIFTS,
+        "demucs_overlap": DEMUCS_OVERLAP,
         "demucs_pre_gain_db": DEMUCS_PRE_GAIN_DB,
+        "beat_tracker": BEAT_TRACKER,
+        "beat_this_model_override": BEAT_THIS_MODEL or None,
+        "beat_this_available": beat_this_available(),
+        "music21_available": music21_available(),
     }
 
 
@@ -194,6 +208,40 @@ def license_file() -> FileResponse:
 @app.get("/NOTICE", include_in_schema=False)
 def notice_file() -> FileResponse:
     return FileResponse(ROOT / "NOTICE", media_type="text/plain; charset=utf-8")
+
+
+def _distribution_file(name: str, generated_name: str | None = None) -> Path:
+    candidates = [ROOT / name]
+    if generated_name:
+        candidates.append(ROOT / "packaging" / "generated" / "macos-arm64" / generated_name)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+@app.get("/THIRD_PARTY_NOTICES.txt", include_in_schema=False)
+def third_party_notices_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_NOTICES.txt", "THIRD_PARTY_NOTICES.md"),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/THIRD_PARTY_LICENSES.txt", include_in_schema=False)
+def third_party_licenses_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_LICENSES.txt", "THIRD_PARTY_LICENSES.txt"),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/THIRD_PARTY_INVENTORY.json", include_in_schema=False)
+def third_party_inventory_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_INVENTORY.json", "THIRD_PARTY_INVENTORY.json"),
+        media_type="application/json",
+    )
 
 
 # Content-Security-Policy. Defense-in-depth so an injected string in the webview

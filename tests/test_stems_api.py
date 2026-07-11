@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.stems import _mixdown_codec_args
+from app.core.config import ffmpeg_available
 from app.core.models import Job
 from app.core.registry import _jobs
 
@@ -178,6 +179,21 @@ def test_chord_midi_404_when_missing(client, tmp_path):
     assert r.status_code == 404
 
 
+def test_midi_analysis_returns_generated_json(client, tmp_path):
+    job = Job(id="abcdefabcda5", status="done", title="Chord Analysis")
+    _jobs[job.id] = job
+    stems_dir = tmp_path / job.id / "stems"
+    stems_dir.mkdir(parents=True, exist_ok=True)
+    payload = b'{"engine":"music21","detected_midi_key":"C major"}'
+    (stems_dir / "midi-analysis.json").write_bytes(payload)
+
+    r = client.get(f"/api/jobs/{job.id}/midi-analysis.json")
+
+    assert r.status_code == 200
+    assert r.content == payload
+    assert "Chord_Analysis" in r.headers["content-disposition"]
+
+
 # ── Export All Stems (.zip) ──
 
 
@@ -265,12 +281,9 @@ def test_all_stems_zip_404_when_no_stem_files(client, tmp_path):
 def test_all_stems_zip_mp3(client, tmp_path):
     """MP3 zip transcodes via ffmpeg; skip if ffmpeg isn't available."""
     import io
-    import shutil
     import zipfile
 
-    if shutil.which("ffmpeg") is None:
-        import pytest
-
+    if not ffmpeg_available():
         pytest.skip("ffmpeg not available")
 
     # A real (tiny) WAV so ffmpeg can transcode it.
@@ -300,12 +313,13 @@ def test_all_stems_zip_mp3(client, tmp_path):
 # --- dynamic mixdown endpoint (#183) ---
 
 
-def _tiny_wav(seconds: float = 0.2, sr: int = 8000) -> bytes:
-    """A minimal silent PCM16 mono WAV so ffmpeg can decode/mix it."""
+def _tiny_wav(seconds: float = 0.2, sr: int = 8000, amplitude: float = 0.0) -> bytes:
+    """A minimal constant-level PCM16 mono WAV for real FFmpeg tests."""
     import struct
 
     nframes = int(sr * seconds)
-    data = b"\x00\x00" * nframes
+    sample = max(-32768, min(32767, round(amplitude * 32767)))
+    data = struct.pack("<h", sample) * nframes
     hdr = b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVE"
     hdr += b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, sr, sr * 2, 2, 16)
     hdr += b"data" + struct.pack("<I", len(data))
@@ -378,11 +392,7 @@ def test_mixdown_404_for_missing_stem_file(client, tmp_path):
 
 
 def _skip_without_ffmpeg():
-    import shutil
-
-    if shutil.which("ffmpeg") is None:
-        import pytest
-
+    if not ffmpeg_available():
         pytest.skip("ffmpeg not available")
 
 
@@ -392,8 +402,76 @@ def test_mixdown_wav_happy(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,0.500")
     assert r.status_code == 200
     assert r.headers["content-type"] == "audio/wav"
-    assert "Track_Standard_Noise_off_All_6_stem_mix.wav" in r.headers["content-disposition"]
+    assert "Track_Standard_Noise_off_Auto_All_6_stem_mix.wav" in r.headers[
+        "content-disposition"
+    ]
     assert r.content[:4] == b"RIFF"
+
+
+def test_mixdown_graph_limits_without_auto_makeup_gain(client, tmp_path, monkeypatch):
+    import app.api.stems as stems_api
+
+    job = _done_job_with_stems(tmp_path, "abcdef000016", ["vocals", "drums"])
+    commands = []
+
+    def fake_stream(cmd):
+        commands.append(cmd)
+        yield _tiny_wav()
+
+    monkeypatch.setattr(stems_api, "_stream_ffmpeg", fake_stream)
+
+    response = client.get(
+        f"/api/jobs/{job.id}/mixdown.mp3?stems=vocals,drums&gains=1.000,1.000"
+    )
+
+    assert response.status_code == 200
+    graph = commands[0][commands[0].index("-filter_complex") + 1]
+    assert "alimiter=limit=0.98" in graph
+    assert "level=0" in graph
+    assert "latency=1" in graph
+
+
+@pytest.mark.asyncio
+async def test_rendered_export_cleans_temp_file_when_ffmpeg_cannot_start(tmp_path, monkeypatch):
+    import os
+
+    import app.api.stems as stems_api
+
+    output = tmp_path / "export.wav"
+
+    def fake_mkstemp(**kwargs):
+        return os.open(output, os.O_CREAT | os.O_RDWR), str(output)
+
+    async def fail_to_start(*args, **kwargs):
+        raise FileNotFoundError("ffmpeg")
+
+    monkeypatch.setattr(stems_api.tempfile, "mkstemp", fake_mkstemp)
+    monkeypatch.setattr(stems_api.asyncio, "create_subprocess_exec", fail_to_start)
+
+    with pytest.raises(FileNotFoundError):
+        await stems_api._render_ffmpeg_temp(["ffmpeg"], suffix=".wav")
+
+    assert not output.exists()
+
+
+def test_mixdown_limiter_prevents_clipping_without_changing_duration(client, tmp_path):
+    import io
+    import struct
+    import wave
+
+    job = _done_job_with_stems(tmp_path, "abcdef000017", ["vocals", "drums"])
+    for name in ("vocals", "drums"):
+        _make_stem_file(tmp_path, job.id, name, _tiny_wav(amplitude=0.8))
+
+    response = client.get(
+        f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,1.000"
+    )
+
+    assert response.status_code == 200
+    with wave.open(io.BytesIO(response.content), "rb") as wav:
+        assert wav.getnframes() == 1600
+        samples = struct.unpack(f"<{wav.getnframes()}h", wav.readframes(wav.getnframes()))
+    assert max(abs(sample) for sample in samples) <= round(0.98 * 32767) + 1
 
 
 def test_mixdown_single_lane_skips_amix(client, tmp_path):
@@ -414,6 +492,9 @@ def test_mixdown_mp3_happy(client, tmp_path):
 
 
 def test_mixdown_region_trim(client, tmp_path):
+    import io
+    import wave
+
     _skip_without_ffmpeg()
     job = _done_job_with_stems(tmp_path, "abcdef000013", ["vocals", "drums"])
     r = client.get(
@@ -421,6 +502,8 @@ def test_mixdown_region_trim(client, tmp_path):
     )
     assert r.status_code == 200
     assert r.content[:4] == b"RIFF"
+    with wave.open(io.BytesIO(r.content), "rb") as wav:
+        assert wav.getnframes() == 800
 
 
 def test_mixdown_flac_happy(client, tmp_path):

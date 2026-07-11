@@ -47,10 +47,10 @@ async function runStep(name, fn) {
 }
 
 function minDelay(ms) {
-  return Promise.all([
-    new Promise((r) => setTimeout(r, ms)),
-    new Promise((r) => requestAnimationFrame(r)),
-  ]);
+  // WKWebView may suspend animation frames while the launcher is not the
+  // foreground window. Setup must continue even when the app starts behind
+  // another window, so never make progress depend on requestAnimationFrame.
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function formatElapsed(startedAt) {
@@ -185,7 +185,7 @@ async function installRuntimePack(appRoot) {
     }
     if (!verified) {
       progressWrap.classList.remove("hidden");
-      setStatus("Downloading LayerLab runtime...");
+      setStatus("Preparing LayerLab runtime...");
 
       // Reset stall baseline when network download is actually about to start (#150).
       lastProgressAt = Date.now();
@@ -210,9 +210,9 @@ async function installRuntimePack(appRoot) {
       // startProgressStatus is assigned after stallTimer creation; the closure
       // above captures stopSlowMsg by reference, so it sees the updated value.
       stopSlowMsg = startProgressStatus([
-        { afterSeconds: 0,  text: "Downloading LayerLab runtime..." },
-        { afterSeconds: 30, text: "Still downloading runtime... slow connection detected." },
-        { afterSeconds: 90, text: "Still downloading... large file on a slow connection can take a few minutes." },
+        { afterSeconds: 0,  text: "Preparing LayerLab runtime..." },
+        { afterSeconds: 30, text: "Still preparing runtime... this can take a few minutes." },
+        { afterSeconds: 90, text: "Still preparing runtime... check disk space or network access." },
       ]);
 
       try {
@@ -220,7 +220,7 @@ async function installRuntimePack(appRoot) {
       } catch (err) {
         throw Object.assign(
           new Error(String(err)),
-          { hint: "Check your internet connection and click Retry. If the problem persists, try a different network." }
+          { hint: "Check available disk space, then click Retry. Online-only builds also require internet access." }
         );
       } finally {
         window.clearInterval(stallTimer);
@@ -398,7 +398,9 @@ async function runSetup() {
     });
 
     setStep("model", "done");
-    setStatus("AI separation model will download on first use (~340 MB).");
+    setStatus(
+      "Demucs weights download on first use (~340 MB). Upstream describes the weights as personal/research-use artifacts; see the bundled third-party notices."
+    );
 
     await runStep("backend", async () => {
       setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting LayerLab backend...");

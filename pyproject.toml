@@ -5,6 +5,7 @@ name = "layerlab"
 # Builds between tags report a dev version (e.g. 0.7.0a5.dev3+g<sha>). (#169)
 dynamic = ["version"]
 description = "LayerLab local audio stem separation with a DAW-style player."
+license = "Apache-2.0"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastapi>=0.115,!=0.136.3",
@@ -27,6 +28,12 @@ dependencies = [
     "soundfile>=0.12",
     # BPM + key analysis on the downloaded source. Pulls numpy/scipy/numba.
     "librosa>=0.10",
+    # Neural beat/downbeat tracker used by every quality profile. Model
+    # weights are downloaded into Torch's cache on first use.
+    "beat-this>=1.1,<2",
+    # MIDI validation, key analysis, and Roman-numeral chord summaries.
+    "music21>=10.5,<11; python_version >= '3.11'",
+    "music21>=9,<10; python_version < '3.11'",
     # Current llvmlite releases no longer publish macOS x86_64 wheels, which
     # makes Intel runtime builds require a full LLVM/CMake toolchain. Keep Intel
     # macOS on a wheel-backed Numba line.
@@ -55,6 +62,8 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
+    # MIT-licensed reference metrics for labelled chord benchmark suites.
+    "mir_eval>=0.8,<0.9",
 ]
 
 [build-system]

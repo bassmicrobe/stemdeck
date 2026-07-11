@@ -33,7 +33,7 @@ from app.core.joblog import add_job_log
 from app.core.models import Job, _set
 from app.core.registry import all_jobs as registry_all_jobs
 from app.core.registry import get as registry_get
-from app.core.registry import get_proc as registry_get_proc
+from app.core.registry import get_procs as registry_get_procs
 from app.core.registry import persist as registry_persist
 from app.core.registry import refresh_queue_positions as registry_refresh_queue_positions
 from app.core.registry import register_if_capacity as registry_register_if_capacity
@@ -374,10 +374,11 @@ def cancel_job(job_id: str) -> dict:
         return job.to_state()
     job.cancel_requested = True
     add_job_log(job, "Cancellation requested", level="warning", stage=job.status)
-    proc = registry_get_proc(job_id)
-    if proc is not None and proc.poll() is None:
-        terminate_process(proc)
-    elif job.status == "queued":
+    procs = registry_get_procs(job_id)
+    for proc in procs:
+        if proc.poll() is None:
+            terminate_process(proc)
+    if not procs and job.status == "queued":
         _set(job, status="cancelled", stage="Cancelled")
         registry_refresh_queue_positions()
         registry_persist(JOBS_DIR)

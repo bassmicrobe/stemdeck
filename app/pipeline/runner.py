@@ -7,17 +7,11 @@ import logging
 import os
 import shutil
 import tempfile
+import threading
 import time
 from pathlib import Path
 
-from app.core.config import (
-    PIPELINE_CONCURRENCY,
-    STEM_PREPROCESS_TARGET_I,
-    STEM_PREPROCESS_TRUE_PEAK,
-    TIMEOUT_FFMPEG,
-    demucs_settings_for_preset,
-    ffmpeg_executable,
-)
+from app.core.config import PIPELINE_CONCURRENCY, TIMEOUT_FFMPEG, ffmpeg_executable
 from app.core.files import atomic_write_text
 from app.core.joblog import add_job_log
 from app.core.models import Job, JobCancelled, _set
@@ -57,7 +51,7 @@ def _rmtree(path: Path) -> None:
 # Limit heavy pipeline parallelism by detected local capacity inside one
 # backend process. A second file lock below also coordinates multiple local
 # LayerLab backends, for example dev server + packaged desktop app.
-_pipeline_lock = asyncio.Semaphore(PIPELINE_CONCURRENCY)
+_separation_lock = threading.BoundedSemaphore(PIPELINE_CONCURRENCY)
 
 
 def _pipeline_lock_files() -> tuple[Path, ...]:
@@ -157,84 +151,43 @@ def _check_cancel(job: Job) -> None:
 
 
 def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
-    """Transcode any local upload to a 44.1 kHz stereo WAV before
-    handing it to Demucs. Normalises MP3 and non-standard WAV formats
-    (24-bit, 32-bit float, high sample rate, multi-channel) that Demucs
-    would otherwise process silently and output as silence. High-quality
-    presets keep this normalization in 32-bit float so hot sources are not
-    truncated before the dedicated safety preprocessing pass.
+    """Validate an upload and let Demucs' FFmpeg reader decode it once.
 
-    Deletes the original source file after a successful transcode."""
-    dest = job_dir / "source.wav"
-    if source.resolve() == dest.resolve():
-        return source
-
-    set_stage_progress(job, "acquire", 0.0, status="processing", stage="Preparing audio...")
-    settings = demucs_settings_for_preset(job.quality_preset)
-    sample_fmt = "flt" if settings.float32 else "s16"
-    codec = "pcm_f32le" if settings.float32 else "pcm_s16le"
-    cmd = [
-        ffmpeg_executable(),
-        "-nostdin",
-        "-loglevel",
-        "error",
-        "-i",
-        str(source),
-        "-ar",
-        "44100",
-        "-ac",
-        "2",
-        "-sample_fmt",
-        sample_fmt,
-        "-c:a",
-        codec,
-        "-y",
-        str(dest),
-    ]
-    result = run_tracked_process(job, cmd, timeout=TIMEOUT_FFMPEG)
-    if result.returncode != 0:
-        raise RuntimeError(
-            "ffmpeg transcode failed: " + result.stderr.decode("utf-8", errors="replace").strip()
-        )
-    source.unlink(missing_ok=True)
-    return dest
+    Demucs already resamples and converts channel layouts internally. Eagerly
+    creating another WAV doubled decode I/O and could add hundreds of MB of
+    scratch data without changing model input.
+    """
+    del job_dir
+    if not source.is_file():
+        raise RuntimeError("uploaded source file is missing")
+    set_stage_progress(job, "acquire", 1.0, status="processing", stage="Audio ready")
+    return source
 
 
 def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
-    """Optionally create a safer high-quality working copy for Demucs.
+    """Create one compatibility WAV only when Demucs cannot use its FFmpeg path.
 
-    Hot masters can provoke clipped or ragged stem edges. Feeding Demucs a
-    true-peak limited, DC-filtered, slightly quieter float WAV costs extra
-    ffmpeg time but preserves the source file and keeps the tweak reversible.
+    Demucs normalizes mean and standard deviation itself, so this pass never
+    applies gain or limiting. Packaged builds with both ``ffmpeg`` and
+    ``ffprobe`` decode the original container directly; imageio-only local
+    environments get a single float WAV shared by analysis and separation.
     """
-    settings = demucs_settings_for_preset(job.quality_preset)
-    loudness_gain = 0.0
-    if job.lufs is not None and job.lufs > STEM_PREPROCESS_TARGET_I:
-        loudness_gain = STEM_PREPROCESS_TARGET_I - job.lufs
-    peak_gain = 0.0
-    if job.peak_db is not None and job.peak_db > STEM_PREPROCESS_TRUE_PEAK:
-        peak_gain = STEM_PREPROCESS_TRUE_PEAK - job.peak_db
-    demucs_gain_db = min(settings.pre_gain_db, loudness_gain, peak_gain, 0.0)
-    job.demucs_gain_db = demucs_gain_db
-    if abs(demucs_gain_db) < 0.001 and not settings.float32:
+    job.demucs_gain_db = 0.0
+    direct_audio = source.suffix.lower() in {".wav", ".wave", ".flac"}
+    direct_toolchain = bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
+    if direct_audio or direct_toolchain:
         return source
 
     dest = job_dir / "source.demucs.wav"
+    if dest.is_file() and dest.stat().st_size > 44:
+        return dest
     set_stage_progress(
         job,
-        "prepare_separation",
-        0.25,
+        "acquire",
+        0.9,
         status="processing",
-        stage="Preparing high-quality separation...",
+        stage="Preparing decoder-compatible audio...",
     )
-    filters = [
-        "aresample=44100",
-        "aformat=sample_fmts=flt:channel_layouts=stereo",
-        # A very low high-pass removes DC/near-DC offset without touching bass fundamentals.
-        "highpass=f=12",
-    ]
-    if abs(demucs_gain_db) >= 0.001:
-        filters.append(f"volume={demucs_gain_db:g}dB")
     cmd = [
         ffmpeg_executable(),
         "-nostdin",
@@ -242,8 +195,6 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         "error",
         "-i",
         str(source),
-        "-filter:a",
-        ",".join(filters),
         "-ar",
         "44100",
         "-ac",
@@ -254,30 +205,37 @@ def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
         str(dest),
     ]
     result = run_tracked_process(job, cmd, timeout=TIMEOUT_FFMPEG)
-    if result.returncode != 0:
-        raise RuntimeError(
-            "ffmpeg pre-gain failed: " + result.stderr.decode("utf-8", errors="replace").strip()
-        )
+    if result.returncode != 0 or not dest.is_file():
+        dest.unlink(missing_ok=True)
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"ffmpeg compatibility transcode failed: {detail}")
     return dest
+
+
+@contextlib.contextmanager
+def _separation_slot(job: Job):
+    """Serialize only Demucs while other jobs acquire/analyze/post-process."""
+    while not _separation_lock.acquire(timeout=1.0):
+        _check_cancel(job)
+        _set(job, status="processing", stage="Waiting for separation engine...")
+    try:
+        with _machine_pipeline_lock(job):
+            yield
+    finally:
+        _separation_lock.release()
 
 
 def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     """Analyze → separate → collect → mix. Shared by both YouTube and local
     upload pipelines after their respective source acquisition steps."""
     _check_cancel(job)
-    analyze(job, source)
-    _check_cancel(job)
-    set_stage_progress(
-        job,
-        "prepare_separation",
-        0.0,
-        status="processing",
-        stage="Preparing separation input...",
-    )
     demucs_source = _prepare_demucs_source(job, source, job_dir)
+    analyze(job, demucs_source)
+    _check_cancel(job)
     set_stage_progress(job, "prepare_separation", 1.0, stage="Separation input ready")
     _check_cancel(job)
-    stems_root = separate(job, demucs_source, job_dir)
+    with _separation_slot(job):
+        stems_root = separate(job, demucs_source, job_dir)
     set_stage_progress(job, "collect", 0.0, status="processing", stage="Collecting stems...")
     found = collect(job, stems_root, job_dir)
     set_stage_progress(job, "collect", 1.0, stage="Stems collected")
@@ -365,8 +323,12 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "dynamic_range": job.dynamic_range,
         "tempo_stability": job.tempo_stability,
         "beat_times": job.beat_times,
+        "downbeat_times": job.downbeat_times,
+        "beat_tracker": job.beat_tracker,
         "chord_progression": job.chord_progression,
         "chord_midi_url": job.chord_midi_url,
+        "midi_analysis": job.midi_analysis,
+        "midi_analysis_url": job.midi_analysis_url,
         "stem_presence": job.stem_presence,
         "selected_stems": job.selected_stems,
         "quality_preset": job.quality_preset,
@@ -407,8 +369,7 @@ async def _run_async(
     thread, then handles success / cancel / error outcomes uniformly."""
     try:
         add_job_log(job, "Job entered the processing queue", stage="queued", progress=job.progress)
-        async with _pipeline_lock:
-            await asyncio.to_thread(_run_with_machine_lock, job, blocking_fn, *fn_args, job_dir)
+        await asyncio.to_thread(blocking_fn, job, *fn_args, job_dir)
     except Exception as e:
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
@@ -431,12 +392,6 @@ async def _run_async(
     add_job_log(job, "Processing completed successfully", stage="done", progress=1.0)
     _write_metadata(job, job_dir)
     persist_registry(jobs_dir)
-
-
-def _run_with_machine_lock(job: Job, blocking_fn, *fn_args: object) -> None:
-    *args, job_dir = fn_args
-    with _machine_pipeline_lock(job):
-        blocking_fn(job, *args, job_dir)
 
 
 async def run_pipeline(job: Job, url: str, jobs_dir: Path) -> None:

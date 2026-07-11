@@ -12,6 +12,7 @@ from app.pipeline.benchmark import (
     benchmark_jobs_root,
     chord_metrics,
     compare_benchmark_reports,
+    reference_chord_metrics,
     stem_sum_metrics,
 )
 
@@ -68,6 +69,32 @@ def test_stem_sum_metrics_reports_residual_when_stem_missing(tmp_path: Path):
     assert metrics["residual_percent"] > 40
 
 
+def test_stem_sum_metrics_preserves_stereo_channels_for_peak_measurement(tmp_path: Path):
+    sr = 8000
+    stereo = np.column_stack(
+        (
+            np.full(sr, 0.9, dtype=np.float32),
+            np.full(sr, -0.9, dtype=np.float32),
+        )
+    )
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    _write_wav(tmp_path / "source.wav", stereo, sr)
+    _write_wav(stems_dir / "vocals.wav", stereo, sr)
+
+    metrics = stem_sum_metrics(
+        tmp_path / "source.wav",
+        stems_dir,
+        stem_names=["vocals"],
+        sr=sr,
+        duration=1.0,
+    )
+
+    assert metrics["source_rms"] > 0.89
+    assert metrics["source_peak_dbfs"] < 0
+    assert metrics["stem_sum_clipping_samples"] == 0
+
+
 def test_chord_metrics_summarizes_metadata(tmp_path: Path):
     stems_dir = tmp_path / "stems"
     stems_dir.mkdir()
@@ -100,6 +127,30 @@ def test_chord_metrics_summarizes_metadata(tmp_path: Path):
     assert metrics["unstable_short_segment_count"] == 1
 
 
+def test_reference_chord_metrics_reports_mir_eval_wcsr(tmp_path: Path):
+    reference = tmp_path / "reference.lab"
+    reference.write_text("0.0\t1.0\tC:maj\n1.0\t2.0\tG:maj\n", encoding="utf-8")
+    metadata = tmp_path / "metadata.json"
+    metadata.write_text(
+        json.dumps(
+            {
+                "chord_progression": [
+                    {"label": "C", "start": 0.0, "end": 1.0},
+                    {"label": "G", "start": 1.0, "end": 2.0},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    metrics = reference_chord_metrics(reference, metadata)
+
+    assert metrics["available"] is True
+    assert metrics["root_wcsr"] == 1.0
+    assert metrics["majmin_wcsr"] == 1.0
+    assert metrics["triads_wcsr"] == 1.0
+
+
 def test_benchmark_job_dir_uses_retained_source(tmp_path: Path):
     sr = 8000
     source = np.zeros(sr, dtype=np.float32)
@@ -114,6 +165,29 @@ def test_benchmark_job_dir_uses_retained_source(tmp_path: Path):
 
     assert report["schema"] == "layerlab-benchmark-v1"
     assert report["stem_sum"]["available"] is True
+
+
+def test_benchmark_job_dir_scores_reference_chords(tmp_path: Path):
+    job_dir = tmp_path / "abcdefabcdef"
+    (job_dir / "stems").mkdir(parents=True)
+    (job_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "chord_progression": [
+                    {"label": "C", "start": 0.0, "end": 1.0},
+                    {"label": "G", "start": 1.0, "end": 2.0},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    reference = tmp_path / "reference.lab"
+    reference.write_text("0.0\t1.0\tC:maj\n1.0\t2.0\tG:maj\n", encoding="utf-8")
+
+    report = benchmark_job_dir(job_dir, reference_chords_path=reference)
+
+    assert report["chord_reference"]["available"] is True
+    assert report["chord_reference"]["triads_wcsr"] == 1.0
 
 
 def test_benchmark_audio_without_source_reports_chords_only(tmp_path: Path):

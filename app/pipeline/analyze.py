@@ -4,8 +4,9 @@ import logging
 import subprocess
 from pathlib import Path
 
-from app.core.config import JOBS_DIR, TIMEOUT_ANALYZE, ffmpeg_executable
+from app.core.config import JOBS_DIR, MAX_DURATION_SEC, TIMEOUT_ANALYZE, ffmpeg_executable
 from app.core.models import Job, JobCancelled, _set
+from app.pipeline.beat_tracker import detect_beat_grid
 from app.pipeline.process import run_tracked_process
 from app.pipeline.progress import set_stage_progress
 
@@ -55,6 +56,8 @@ _PITCHES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 # (e.g. "Come As You Are" hammers the open D string in an E minor song),
 # and minor is the better default when the call is genuinely ambiguous.
 _MINOR_TIE_BREAK_FRAC = 0.05
+_ANALYSIS_CHUNK_SEC = 180.0
+_NEURAL_ANALYSIS_SAMPLE_SEC = 90.0
 
 
 def _correlate(profile: tuple[float, ...], chroma: list[float], shift: int) -> float:
@@ -167,6 +170,7 @@ def _load_audio_ffmpeg(
     sr: int = 22050,
     duration: float = 180.0,
     *,
+    start: float = 0.0,
     job: Job | None = None,
 ) -> tuple[object, int] | None:
     """Decode `source` to a mono float32 numpy array at `sr` via ffmpeg.
@@ -197,6 +201,10 @@ def _load_audio_ffmpeg(
         "-nostdin",
         "-loglevel",
         "error",
+    ]
+    if start > 0:
+        cmd += ["-ss", f"{start:g}"]
+    cmd += [
         "-i",
         str(resolved),
         "-ac",
@@ -233,10 +241,9 @@ def _load_audio_ffmpeg(
 
 
 def compute_stem_presence(stems_dir: Path, selected_stems: list[str]) -> dict[str, int]:
-    """Load each extracted stem WAV, compute mean absolute amplitude, normalize
-    to 0-100. Only the stems that were selected (and therefore extracted) are
-    measured; the rest are omitted from the returned dict."""
+    """Stream each stem WAV, compute full-track RMS, and normalize to 0-100."""
     import numpy as np
+    import soundfile as sf
 
     result: dict[str, int] = {}
     rms_values: dict[str, float] = {}
@@ -245,11 +252,20 @@ def compute_stem_presence(stems_dir: Path, selected_stems: list[str]) -> dict[st
         wav_path = stems_dir / f"{name}.wav"
         if not wav_path.is_file():
             continue
-        loaded = _load_audio_ffmpeg(wav_path, sr=22050, duration=180.0)
-        if loaded is None:
-            continue
-        y, _ = loaded
-        rms_values[name] = float(np.sqrt(np.mean(y**2)))
+        try:
+            sum_squares = 0.0
+            sample_count = 0
+            with sf.SoundFile(wav_path) as audio:
+                while True:
+                    block = audio.read(262_144, dtype="float32", always_2d=True)
+                    if block.size == 0:
+                        break
+                    sum_squares += float(np.sum(block * block, dtype=np.float64))
+                    sample_count += int(block.size)
+            if sample_count:
+                rms_values[name] = float(np.sqrt(sum_squares / sample_count))
+        except Exception:
+            logger.warning("could not measure stem presence for %s", wav_path, exc_info=True)
 
     if not rms_values:
         return result
@@ -262,6 +278,84 @@ def compute_stem_presence(stems_dir: Path, selected_stems: list[str]) -> dict[st
         result[name] = max(0, min(100, round(rms / max_rms * 100)))
 
     return result
+
+
+def _analysis_windows(
+    duration_sec: float | None,
+    *,
+    max_total: float | None = None,
+) -> list[tuple[float, float]]:
+    total = min(float(duration_sec or _ANALYSIS_CHUNK_SEC), float(MAX_DURATION_SEC))
+    total = max(0.0, total)
+    if total <= 0:
+        return []
+    if max_total is not None and max_total > 0 and total > max_total:
+        sample_length = max_total / 3.0
+        return [
+            (0.0, sample_length),
+            ((total - sample_length) / 2.0, sample_length),
+            (total - sample_length, sample_length),
+        ]
+    windows: list[tuple[float, float]] = []
+    start = 0.0
+    while start < total:
+        length = min(_ANALYSIS_CHUNK_SEC, total - start)
+        windows.append((start, length))
+        start += length
+    return windows
+
+
+def _merge_beat_times(existing: list[float], incoming: object, offset: float) -> None:
+    for raw in incoming:
+        beat = float(raw) + offset
+        if beat < 0:
+            continue
+        if existing and beat - existing[-1] < 0.08:
+            continue
+        existing.append(beat)
+
+
+def _normalize_quarter_note_grid(
+    beat_times: list[float],
+    *,
+    tempo_hint: float | None,
+) -> list[float]:
+    """Resolve half-tempo grids and isolated missed quarter notes."""
+    import numpy as np
+
+    if len(beat_times) < 3:
+        return beat_times
+    intervals = np.diff(np.asarray(beat_times, dtype=np.float64))
+    median_interval = float(np.median(intervals))
+    if median_interval <= 0 or not np.isfinite(median_interval):
+        return beat_times
+
+    normalized = [float(beat) for beat in beat_times]
+    if tempo_hint is not None and np.isfinite(tempo_hint):
+        grid_bpm = 60.0 / median_interval
+        ratio = float(tempo_hint) / grid_bpm
+        if grid_bpm < 100 and 1.82 <= ratio <= 2.18:
+            normalized = []
+            for start, end in zip(beat_times, beat_times[1:], strict=False):
+                normalized.append(float(start))
+                normalized.append((float(start) + float(end)) / 2.0)
+            normalized.append(float(beat_times[-1]))
+
+    normalized_intervals = np.diff(np.asarray(normalized, dtype=np.float64))
+    normalized_median = float(np.median(normalized_intervals))
+    expanded: list[float] = []
+    for start, end in zip(normalized, normalized[1:], strict=False):
+        expanded.append(round(start, 3))
+        gap = end - start
+        multiple = int(round(gap / normalized_median))
+        per_beat = gap / max(1, multiple)
+        if 2 <= multiple <= 4 and abs(per_beat - normalized_median) <= normalized_median * 0.16:
+            expanded.extend(
+                round(start + (gap * step / multiple), 3)
+                for step in range(1, multiple)
+            )
+    expanded.append(round(normalized[-1], 3))
+    return expanded
 
 
 def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
@@ -277,63 +371,120 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
         return None, None
 
     try:
-        # Analyse the first 180 s. Decode via ffmpeg directly into numpy
-        # to avoid librosa's deprecated audioread fallback for
-        # .webm/.m4a/.opus inputs.
-        loaded = _load_audio_ffmpeg(source, sr=22050, duration=180.0, job=job)
-        if loaded is None:
+        import numpy as np
+
+        beat_times_list: list[float] = []
+        downbeat_times: list[float] = []
+        beat_tracker = "librosa"
+        chroma_sum = np.zeros(12, dtype=np.float64)
+        chroma_frames = 0
+        lufs: float | None = None
+        peak_db: float | None = None
+        tempo_hints: list[float] = []
+        set_stage_progress(job, "analyze", 0.02, stage="Detecting beat grid...")
+        neural_grid = detect_beat_grid(job, source)
+        if neural_grid is not None:
+            beat_times_list = neural_grid.beats
+            downbeat_times = neural_grid.downbeats
+            beat_tracker = f"{neural_grid.engine}:{neural_grid.model}"
+        windows = _analysis_windows(
+            job.duration_sec,
+            max_total=_NEURAL_ANALYSIS_SAMPLE_SEC if neural_grid is not None else None,
+        )
+        if not windows:
             return None, None
-        y, sr = loaded
+        analysis_source = (
+            neural_grid.analysis_source
+            if neural_grid is not None and neural_grid.analysis_source is not None
+            else source
+        )
 
-        # Harmonic / percussive separation. Beat tracking sees a cleaner
-        # onset envelope on the percussive component; chroma sees a
-        # cleaner pitch profile on the harmonic component (no cymbal
-        # smear, no kick fundamentals leaking in).
-        y_harmonic, y_percussive = librosa.effects.hpss(y)
+        for idx, (start, length) in enumerate(windows):
+            if job.cancel_requested:
+                raise JobCancelled()
+            set_stage_progress(
+                job,
+                "analyze",
+                idx / len(windows),
+                status="analyzing",
+                stage=f"Analyzing audio {idx + 1}/{len(windows)}...",
+            )
+            loaded = _load_audio_ffmpeg(
+                analysis_source,
+                sr=22050,
+                duration=length,
+                start=start,
+                job=job,
+            )
+            if loaded is None:
+                continue
+            y, sr = loaded
 
-        tempo_arr, beat_frames = librosa.beat.beat_track(y=y_percussive, sr=sr)
-        try:
-            tempo = float(tempo_arr[0])  # type: ignore[index]
-        except (TypeError, IndexError):
-            tempo = float(tempo_arr)
-        bpm = int(round(tempo)) if tempo > 0 else None
+            # Bound memory by processing long tracks in fixed-size windows.
+            if neural_grid is None:
+                y_harmonic, y_percussive = librosa.effects.hpss(y)
+                _, beat_frames = librosa.beat.beat_track(y=y_percussive, sr=sr)
+                chunk_beats = librosa.frames_to_time(beat_frames, sr=sr)
+                _merge_beat_times(beat_times_list, chunk_beats, start)
+            else:
+                # Neural inference already provides the complete beat grid.
+                # CQT is robust enough on the mix for this provisional key;
+                # the stem-aware chord pass performs the precise harmony work.
+                y_harmonic = y
+                try:
+                    onset = librosa.onset.onset_strength(y=y, sr=sr)
+                    tempo_values = librosa.feature.tempo(onset_envelope=onset, sr=sr)
+                    if len(tempo_values) and np.isfinite(tempo_values[0]):
+                        tempo_hints.append(float(tempo_values[0]))
+                except Exception:
+                    logger.debug("tempo octave hint unavailable", exc_info=True)
 
-        # chroma_cqt is constant-Q based — better pitch resolution than
-        # chroma_stft, especially in the bass register where the open
-        # strings of a guitar live.
-        chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
-        chroma_mean = chroma.mean(axis=1).tolist()
+            chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
+            if chroma.shape[1]:
+                chroma_sum += np.sum(chroma, axis=1, dtype=np.float64)
+                chroma_frames += int(chroma.shape[1])
+
+            chunk_lufs, chunk_peak = _measure_loudness(y, sr)
+            if lufs is None:
+                lufs = chunk_lufs
+            if chunk_peak is not None:
+                peak_db = chunk_peak if peak_db is None else max(peak_db, chunk_peak)
+            if job.cancel_requested:
+                raise JobCancelled()
+
+        chroma_mean = (chroma_sum / chroma_frames).tolist() if chroma_frames else [0.0] * 12
         if any(chroma_mean):
             key, scale, key_confidence = _detect_key(chroma_mean)
         else:
             key, scale, key_confidence = None, None, None
 
-        # LUFS / peak. Computed on the same 22 kHz mono buffer; this
-        # loses a few dB of accuracy vs full-sample-rate stereo, but
-        # it's good enough for a UI display and adds ~50 ms to analyze.
-        lufs, peak_db = _measure_loudness(y, sr)
-
         dynamic_range: float | None = None
         if lufs is not None and peak_db is not None:
             dynamic_range = round(peak_db - lufs, 1)
 
-        # Beat interval coefficient of variation → stability 0-100.
-        # CV = std/mean of inter-beat intervals; CV=0 is perfectly metronomic.
-        tempo_stability: int | None = None
-        import numpy as np
+        tempo_hint = float(np.median(tempo_hints)) if tempo_hints else None
+        beat_times_list = _normalize_quarter_note_grid(
+            beat_times_list,
+            tempo_hint=tempo_hint,
+        )
+        beat_times_list = [round(t, 3) for t in beat_times_list]
 
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
-        beat_times_list = [
-            round(float(t), 3)
-            for t in beat_times
-            if float(t) >= 0.0
-        ]
-        if len(beat_times) > 2:
-            intervals = np.diff(beat_times)
-            mean_iv = float(intervals.mean())
-            if mean_iv > 0:
-                cv = float(intervals.std() / mean_iv)
-                tempo_stability = max(0, min(100, round((1 - min(cv, 1)) * 100)))
+        # Use a robust median interval across the full track. This is less
+        # sensitive to one bad chunk boundary than averaging per-window tempos.
+        bpm: int | None = None
+        tempo_stability: int | None = None
+        if len(beat_times_list) > 2:
+            intervals = np.diff(np.asarray(beat_times_list, dtype=np.float64))
+            median_iv = float(np.median(intervals))
+            if median_iv > 0:
+                usable = intervals[
+                    (intervals >= median_iv * 0.55) & (intervals <= median_iv * 1.8)
+                ]
+                if usable.size:
+                    robust_iv = float(np.median(usable))
+                    bpm = int(round(60.0 / robust_iv)) if robust_iv > 0 else None
+                    cv = float(np.std(usable) / max(float(np.mean(usable)), 1e-9))
+                    tempo_stability = max(0, min(100, round((1 - min(cv, 1)) * 100)))
 
         _set(
             job,
@@ -346,6 +497,8 @@ def analyze(job: Job, source: Path) -> tuple[int | None, str | None]:
             dynamic_range=dynamic_range,
             tempo_stability=tempo_stability,
             beat_times=beat_times_list,
+            downbeat_times=downbeat_times,
+            beat_tracker=beat_tracker,
             stage="Analysis complete",
         )
         set_stage_progress(job, "analyze", 1.0, stage="Analysis complete")

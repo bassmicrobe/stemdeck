@@ -1,7 +1,8 @@
 THIRD-PARTY NOTICES
 ===================
 
-LayerLab for macOS uses a thin Tauri app plus a downloaded runtime pack.
+LayerLab for macOS uses a Tauri app with a bundled runtime pack that is
+verified and extracted into the user's application-data directory.
 
 Project License and Upstream Attribution
 ----------------------------------------
@@ -20,10 +21,10 @@ Bundled in LayerLab.app:
 - The system WebKit WebView provided by macOS
 - Rust crates used by the Tauri shell, including reqwest, serde, sha2, tar,
   zip, zstd, flate2, and Tauri plugins
-
-Downloaded during first-run setup:
-
 - LayerLab runtime pack containing Python and Python package dependencies
+
+Prepared or downloaded during first-run setup / first use:
+
 - Python
 - FastAPI
 - Uvicorn
@@ -32,17 +33,29 @@ Downloaded during first-run setup:
 - PyTorch / Torch
 - torchaudio
 - librosa
+- Beat This! (MIT), including published model weights downloaded on first use
+- music21 (BSD-3-Clause)
 - pyloudnorm
 - soundfile
-- imageio-ffmpeg (BSD-2-Clause), used by the Python runtime as a portable
-  FFmpeg executable fallback when needed
-- FFmpeg and ffprobe
-- Demucs model weights
+- imageio-ffmpeg (BSD-2-Clause code only; its wheel-embedded GPL FFmpeg
+  executable is removed from the packaged runtime)
+- FFmpeg and ffprobe 8.1.1-tessus from evermeet.cx, downloaded directly and
+  built with --enable-gpl --enable-version3 (GPL-3.0-or-later)
+- Demucs model weights, not covered by the Demucs MIT code license; upstream
+  describes them as personal/research-use artifacts
+- Beat This! model weights
 
-The runtime pack includes its own dependency inventory under
-runtime/licenses/pip-list.json. Before public release, generate and include
-full license texts for every packaged dependency and verify the exact FFmpeg
-build license/provenance.
+The release build generates the following from the exact packaged Python
+runtime and target-specific Rust dependency graph:
+
+- THIRD_PARTY_NOTICES.txt: complete component/version/license inventory
+- THIRD_PARTY_LICENSES.txt: full collected license and notice texts
+- THIRD_PARTY_INVENTORY.json: machine-readable component-to-text mapping
+- pip-list.json: Python package/version inventory
+
+The build fails when a packaged Python/Rust dependency has no declared license
+or usable license text. Model terms and runtime downloads remain separate from
+the Apache-2.0 license covering LayerLab/StemDeck code.
 
 This notice is not legal advice. It is a distribution checklist for the current
 packaging flow; the final shipped artifacts remain the source of truth.

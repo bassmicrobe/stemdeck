@@ -115,6 +115,30 @@ def _detect_background_cpu_threads() -> int:
     return max(1, min(4, cpu_count // 2 or 1))
 
 
+def _detect_demucs_jobs(device: str) -> int:
+    """Choose Demucs chunk workers without multiplying Torch threads.
+
+    Demucs' ``-j`` workers each hold a full chunk and can multiply memory use.
+    Apple Accelerate performs better with one inference stream, while large
+    Linux/Windows CPU hosts can benefit from two chunk workers.
+    """
+    raw = os.environ.get("STEMDECK_DEMUCS_JOBS", "").strip().lower()
+    if raw and raw != "auto":
+        try:
+            return max(0, min(4, int(raw)))
+        except ValueError:
+            pass
+    if device != "cpu" or sys.platform == "darwin":
+        return 0
+    if _detect_pipeline_concurrency(device) > 1:
+        return 0
+    cpu_count = os.cpu_count() or 1
+    memory_gb = _system_memory_gb()
+    if cpu_count >= 16 and (memory_gb is None or memory_gb >= 32):
+        return 2
+    return 0
+
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = ROOT / "static"
 STEM_NAMES: tuple[str, ...] = ("vocals", "drums", "bass", "guitar", "piano", "other")
@@ -123,6 +147,7 @@ JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 SUPPORTED_QUALITY_PRESETS = frozenset(("standard", "high", "max", "ultra"))
 SUPPORTED_STEM_DENOISE_PRESETS = frozenset(("off", "light", "strong"))
 SUPPORTED_DEMUCS_DEVICE_CHOICES = frozenset(("auto", "cpu", "mps", "cuda"))
+SUPPORTED_BEAT_TRACKERS = frozenset(("auto", "beat_this", "librosa"))
 
 
 @dataclass(frozen=True)
@@ -135,6 +160,7 @@ class DemucsSettings:
     clip_mode: str | None
     overlap: float
     segment: float
+    jobs: int = 0
 
 
 def normalize_quality_preset(value: str | None) -> str:
@@ -189,52 +215,61 @@ def stem_names_for_quality_preset(preset: str | None) -> tuple[str, ...]:
 QUALITY_PRESET = _env_choice(
     "STEMDECK_QUALITY_PRESET", "standard", set(SUPPORTED_QUALITY_PRESETS)
 ) or "standard"
+BEAT_TRACKER = _env_choice(
+    "STEMDECK_BEAT_TRACKER", "auto", set(SUPPORTED_BEAT_TRACKERS)
+) or "auto"
+BEAT_THIS_MODEL = os.environ.get("STEMDECK_BEAT_THIS_MODEL", "").strip()
 _QUALITY_DEFAULTS = {
     "standard": {
         "model": "htdemucs_6s",
-        "shifts": 0,
+        "shifts": 1,
         "pre_gain_db": 0.0,
         "float32": False,
         "clip_mode": None,
-        "overlap": 0.0,
+        "overlap": 0.20,
         "segment": 0.0,
     },
-    # Slower, cleaner 4-stem separation. htdemucs_ft is Demucs' fine-tuned
-    # model; shifts averages repeated runs and helps reduce random artifacts.
+    # htdemucs_ft is a four-model bag, so every shift costs four inference
+    # passes. Keep the interactive presets conservative: shift averaging has
+    # sharply diminishing returns beyond the first few runs.
     "high": {
         "model": "htdemucs_ft",
-        "shifts": 4,
+        "shifts": 1,
         "pre_gain_db": -6.0,
         "float32": True,
         "clip_mode": "rescale",
-        "overlap": 0.0,
+        "overlap": 0.20,
         "segment": 0.0,
     },
     "max": {
         "model": "htdemucs_ft",
-        "shifts": 10,
+        "shifts": 2,
         "pre_gain_db": -6.0,
         "float32": True,
         "clip_mode": "rescale",
-        "overlap": 0.0,
+        "overlap": 0.25,
         "segment": 0.0,
     },
-    # Slowest local preset. Extra shift averaging and overlap can reduce
-    # random separation artifacts and segment-boundary roughness at the cost
-    # of noticeably longer extraction time.
+    # Highest practical local preset. Four shifts across the four-model bag
+    # still performs 16 inference passes; the former 16-shift default required
+    # 64 passes and commonly took over an hour for a five-minute track.
     "ultra": {
         "model": "htdemucs_ft",
-        "shifts": 16,
+        "shifts": 4,
         "pre_gain_db": -8.0,
         "float32": True,
         "clip_mode": "rescale",
-        "overlap": 0.5,
+        "overlap": 0.25,
         "segment": 0.0,
     },
 }
 
 
-def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
+def demucs_settings_for_preset(
+    preset: str | None,
+    *,
+    device: str | None = None,
+) -> DemucsSettings:
     quality_preset = normalize_quality_preset(preset)
     quality = _QUALITY_DEFAULTS[quality_preset]
     model = os.environ.get("STEMDECK_DEMUCS_MODEL", str(quality["model"])).strip() or str(
@@ -251,6 +286,7 @@ def demucs_settings_for_preset(preset: str | None) -> DemucsSettings:
         ),
         overlap=max(0.0, _env_float("STEMDECK_DEMUCS_OVERLAP", float(quality["overlap"]))),
         segment=max(0.0, _env_float("STEMDECK_DEMUCS_SEGMENT", float(quality["segment"]))),
+        jobs=_detect_demucs_jobs(device or _detect_device()),
     )
 
 
@@ -350,6 +386,7 @@ FFPROBE_BIN = _env_path(
 DEMUCS_MODEL = _demucs_settings.model
 DEMUCS_DEVICE = _detect_device()
 PIPELINE_CONCURRENCY = _detect_pipeline_concurrency(DEMUCS_DEVICE)
+DEMUCS_JOBS = _detect_demucs_jobs(DEMUCS_DEVICE)
 BACKGROUND_PROCESS_PRIORITY = _env_bool("STEMDECK_BACKGROUND_PROCESS_PRIORITY", True)
 BACKGROUND_PROCESS_NICE = max(0, min(19, _env_int("STEMDECK_BACKGROUND_PROCESS_NICE", 8)))
 BACKGROUND_CPU_THREADS = _detect_background_cpu_threads()
@@ -369,6 +406,14 @@ BASS_REPAIR_SHORT_GAP_RATIO = max(
 PHASE_REPAIR_MAX_BLEND = phase_repair_max_blend_for_preset(QUALITY_PRESET)
 PHASE_REPAIR_FLOOR_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_PHASE_REPAIR_FLOOR_DB", -58.0)))
 STEM_POST_LIMITER_PEAK = min(0.999, max(0.5, _env_float("STEMDECK_STEM_POST_LIMITER_PEAK", 0.98)))
+MIX_LIMITER_ATTACK_MS = min(
+    80.0,
+    max(0.1, _env_float("STEMDECK_MIX_LIMITER_ATTACK_MS", 5.0)),
+)
+MIX_LIMITER_RELEASE_MS = min(
+    8000.0,
+    max(1.0, _env_float("STEMDECK_MIX_LIMITER_RELEASE_MS", 50.0)),
+)
 STEM_GATE_THRESHOLD_DB = min(-24.0, max(-96.0, _env_float("STEMDECK_STEM_GATE_THRESHOLD_DB", -54.0)))
 STEM_GATE_WINDOW_MS = max(5, _env_int("STEMDECK_STEM_GATE_WINDOW_MS", 20))
 STEM_GATE_HOLD_MS = max(0, _env_int("STEMDECK_STEM_GATE_HOLD_MS", 90))
@@ -384,6 +429,16 @@ MAX_PENDING_JOBS = max(1, min(50, _env_int("STEMDECK_MAX_PENDING_JOBS", 3)))
 TIMEOUT_FFMPEG = _env_int("STEMDECK_TIMEOUT_FFMPEG", 300)
 TIMEOUT_ANALYZE = _env_int("STEMDECK_TIMEOUT_ANALYZE", 120)
 TIMEOUT_DEMUCS_STALL = _env_int("STEMDECK_TIMEOUT_DEMUCS_STALL", 1800)
+TIMEOUT_DEMUCS_TOTAL = max(0, _env_int("STEMDECK_TIMEOUT_DEMUCS_TOTAL", 12 * 3600))
+
+
+def output_limiter_filter() -> str:
+    """Return a transparent-until-needed limiter for rendered stem mixes."""
+    return (
+        f"alimiter=limit={STEM_POST_LIMITER_PEAK:g}:"
+        f"attack={MIX_LIMITER_ATTACK_MS:g}:release={MIX_LIMITER_RELEASE_MS:g}:"
+        "level=0:latency=1"
+    )
 
 
 def _imageio_ffmpeg_executable() -> str | None:

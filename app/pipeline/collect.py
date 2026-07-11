@@ -34,6 +34,7 @@ from app.core.config import (
     demucs_settings_for_preset,
     ffmpeg_executable,
     normalize_stem_denoise_preset,
+    output_limiter_filter,
     phase_repair_enabled_for_preset,
     phase_repair_max_blend_for_preset,
     stem_denoise_filter_for_preset,
@@ -41,10 +42,10 @@ from app.core.config import (
     wav_codec_for_quality_preset,
 )
 from app.core.models import Job, _set
+from app.core.registry import add_proc, remove_proc
 from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
-from app.core.registry import set_proc
 from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
@@ -74,14 +75,14 @@ def _run_ffmpeg(job: Job, cmd: list[str]) -> bool:
     Without registering the proc, an in-flight ffmpeg amix would block
     cancellation for up to its 300s timeout -- the cancel flag is set
     but the runner can't see it until subprocess.run returns. With
-    set_proc, the cancel API can call proc.terminate() directly and
+    process registration, the cancel API can call proc.terminate() directly and
     communicate() returns within ~1s with a non-zero returncode."""
     proc = popen_background(
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
-    set_proc(job.id, proc)
+    add_proc(job.id, proc)
     try:
         try:
             _, stderr = proc.communicate(timeout=TIMEOUT_FFMPEG)
@@ -101,7 +102,7 @@ def _run_ffmpeg(job: Job, cmd: list[str]) -> bool:
             return False
         return True
     finally:
-        set_proc(job.id, None)
+        remove_proc(job.id, proc)
 
 
 _TERMINAL = frozenset(("done", "error", "cancelled"))
@@ -987,9 +988,8 @@ def make_selected_mix(job: Job, stems_dir: Path, found: list[str]) -> Path | Non
     download URL, so a single-stem selection points the Download Mix
     button directly at the existing stem file.
 
-    amix normalize=0 keeps stem amplitudes as-is. Demucs separations
-    sum back to (close to) the original signal, so a 2-stem subset
-    fits comfortably below 0 dBFS without normalization headroom."""
+    amix normalize=0 keeps stem amplitudes as-is; a look-ahead limiter catches
+    only peaks above the configured output ceiling without make-up gain."""
     selected = [s for s in job.selected_stems if s in found]
     if not selected:
         return None
@@ -1010,7 +1010,7 @@ def make_selected_mix(job: Job, stems_dir: Path, found: list[str]) -> Path | Non
     filter_inputs = "".join(f"[{i}:a]" for i in range(len(inputs)))
     cmd += [
         "-filter_complex",
-        f"{filter_inputs}amix=inputs={len(inputs)}:normalize=0",
+        f"{filter_inputs}amix=inputs={len(inputs)}:normalize=0,{output_limiter_filter()}",
         "-c:a",
         wav_codec,
         str(out),
@@ -1030,17 +1030,46 @@ def compute_stem_peaks(stems_dir: Path, stem_names: list[str]) -> None:
         if not path.is_file():
             continue
         try:
-            data, _ = sf.read(path, dtype="float32", always_2d=True)
-            ch = data[:, 0]
-            n = len(ch)
-            if n == 0:
-                continue
-            chunk = max(1, n // _PEAK_POINTS)
             result: list[list[float]] = []
-            for i in range(0, n, chunk):
-                block = ch[i : i + chunk]
-                result.append([float(np.min(block)), float(np.max(block))])
-            peaks[name] = result[:_PEAK_POINTS]
+            with sf.SoundFile(path) as audio:
+                if audio.frames <= 0:
+                    continue
+                # Ceil division preserves the tail instead of producing >1500
+                # buckets and truncating the end of the waveform.
+                chunk = max(1, (audio.frames + _PEAK_POINTS - 1) // _PEAK_POINTS)
+                while len(result) < _PEAK_POINTS:
+                    points_left = _PEAK_POINTS - len(result)
+                    bins_to_read = min(64, points_left)
+                    block = audio.read(
+                        chunk * bins_to_read,
+                        dtype="float32",
+                        always_2d=True,
+                    )
+                    if block.size == 0:
+                        break
+                    full_bins = len(block) // chunk
+                    if full_bins:
+                        shaped = block[: full_bins * chunk].reshape(
+                            full_bins,
+                            chunk,
+                            block.shape[1],
+                        )
+                        minima = np.minimum(np.min(shaped, axis=(1, 2)), 0.0)
+                        maxima = np.maximum(np.max(shaped, axis=(1, 2)), 0.0)
+                        result.extend(
+                            [float(mn), float(mx)]
+                            for mn, mx in zip(minima, maxima, strict=False)
+                        )
+                    remainder = block[full_bins * chunk :]
+                    if remainder.size and len(result) < _PEAK_POINTS:
+                        result.append(
+                            [
+                                float(np.min(remainder, initial=0.0)),
+                                float(np.max(remainder, initial=0.0)),
+                            ]
+                        )
+            if result:
+                peaks[name] = result
         except Exception:
             logger.warning("could not compute peaks for %s/%s", stems_dir.name, name, exc_info=True)
 

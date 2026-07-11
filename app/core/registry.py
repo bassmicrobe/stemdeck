@@ -15,10 +15,10 @@ logger = logging.getLogger("stemdeck.registry")
 REGISTRY_VERSION = 1
 
 _jobs: dict[str, Job] = {}
-# Active subprocesses keyed by job_id (currently only Demucs). Lets
-# POST /cancel terminate the running process from the API thread instead
-# of waiting for the pipeline thread to notice the cancel flag.
-_procs: dict[str, subprocess.Popen] = {}
+# Active subprocesses keyed by job_id and process identity. Some analysis
+# stages run independent FFmpeg decoders concurrently, so cancellation must
+# retain every child rather than only the most recently started one.
+_procs: dict[str, dict[int, subprocess.Popen]] = {}
 _lock = threading.Lock()
 _persist_lock = threading.Lock()
 _REGISTRY_FILE = "registry.json"
@@ -164,6 +164,9 @@ def _recover_done_job(job_dir: Path) -> Job | None:
     chord_midi_url = None
     if (stems_dir / "chords.mid").is_file():
         chord_midi_url = f"/api/jobs/{job_dir.name}/chords.mid"
+    midi_analysis_url = None
+    if (stems_dir / "midi-analysis.json").is_file():
+        midi_analysis_url = f"/api/jobs/{job_dir.name}/midi-analysis.json"
     selected = [stem["name"] for stem in stems if stem["name"] in STEM_NAMES] or list(STEM_NAMES)
     meta_path = job_dir / "metadata.json"
     if not meta_path.is_file():
@@ -198,10 +201,18 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         dynamic_range=meta.get("dynamic_range"),
         tempo_stability=meta.get("tempo_stability"),
         beat_times=meta.get("beat_times") if isinstance(meta.get("beat_times"), list) else None,
+        downbeat_times=meta.get("downbeat_times")
+        if isinstance(meta.get("downbeat_times"), list)
+        else None,
+        beat_tracker=meta.get("beat_tracker"),
         chord_progression=meta.get("chord_progression")
         if isinstance(meta.get("chord_progression"), list)
         else None,
         chord_midi_url=meta.get("chord_midi_url") or chord_midi_url,
+        midi_analysis=meta.get("midi_analysis")
+        if isinstance(meta.get("midi_analysis"), dict)
+        else None,
+        midi_analysis_url=meta.get("midi_analysis_url") or midi_analysis_url,
         stem_presence=meta.get("stem_presence"),
         sections=meta.get("sections"),
         tags=meta.get("tags"),
@@ -219,19 +230,34 @@ def _recover_done_job(job_dir: Path) -> Job | None:
     )
 
 
-def set_proc(job_id: str, proc: subprocess.Popen | None) -> None:
+def add_proc(job_id: str, proc: subprocess.Popen) -> None:
     with _lock:
-        if proc is None:
+        active = _procs.setdefault(job_id, {})
+        active[id(proc)] = proc
+
+
+def remove_proc(job_id: str, proc: subprocess.Popen) -> None:
+    with _lock:
+        active = _procs.get(job_id)
+        if active is None:
+            return
+        active.pop(id(proc), None)
+        if not active:
             _procs.pop(job_id, None)
-        else:
-            _procs[job_id] = proc
+
+
+def get_procs(job_id: str) -> tuple[subprocess.Popen, ...]:
+    with _lock:
+        return tuple(_procs.get(job_id, {}).values())
 
 
 def get_proc(job_id: str) -> subprocess.Popen | None:
+    """Return the most recently registered child for legacy callers."""
     with _lock:
-        return _procs.get(job_id)
+        active = tuple(_procs.get(job_id, {}).values())
+        return active[-1] if active else None
 
 
 def all_procs() -> list[subprocess.Popen]:
     with _lock:
-        return list(_procs.values())
+        return [proc for active in _procs.values() for proc in active.values()]

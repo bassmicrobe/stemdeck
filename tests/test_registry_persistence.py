@@ -121,9 +121,13 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
                 "stem_gate_applied": True,
                 "stem_gate_threshold_db": -54.0,
                 "beat_times": [0.5, 1.0, 1.5],
+                "downbeat_times": [0.5],
+                "beat_tracker": "beat_this:small0",
                 "chord_progression": [
                     {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
                 ],
+                "midi_analysis": {"engine": "music21", "detected_midi_key": "C major"},
+                "midi_analysis_url": "/api/jobs/abcdefabcdee/midi-analysis.json",
                 "selected_stems": ["vocals"],
                 "source_url": "local:Test Song.wav",
                 "processing_started_at": 1_699_999_876.6,
@@ -149,10 +153,14 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     assert restored.stem_gate_applied is True
     assert restored.stem_gate_threshold_db == -54.0
     assert restored.beat_times == [0.5, 1.0, 1.5]
+    assert restored.downbeat_times == [0.5]
+    assert restored.beat_tracker == "beat_this:small0"
     assert restored.chord_progression == [
         {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
     ]
     assert restored.chord_midi_url == "/api/jobs/abcdefabcdee/chords.mid"
+    assert restored.midi_analysis == {"engine": "music21", "detected_midi_key": "C major"}
+    assert restored.midi_analysis_url == "/api/jobs/abcdefabcdee/midi-analysis.json"
     assert restored.selected_stems == ["vocals"]
     assert restored.source_url == "local:Test Song.wav"
     assert restored.processing_started_at == 1_699_999_876.6

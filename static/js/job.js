@@ -315,6 +315,7 @@ function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } 
       beatTimes: state.beat_times ?? null,
       chordProgression: state.chord_progression ?? null,
       chordMidiUrl: state.chord_midi_url ?? null,
+      midiAnalysisUrl: state.midi_analysis_url ?? null,
       stemPresence: state.stem_presence,
       bassRepairApplied: state.bass_repair_applied ?? false,
       phaseRepairApplied: state.phase_repair_applied ?? false,
@@ -480,6 +481,7 @@ function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } 
         state.profile_key || "",
         state.beat_times || [],
         state.chord_midi_url || null,
+        state.midi_analysis_url || null,
       );
       initSections(state.job_id, state.sections, state.duration || 0);
     }

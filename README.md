@@ -54,7 +54,7 @@ LayerLab is free and **does not accept any money, sponsorship, or funding** - no
 
 **6-stem separation** via Demucs `htdemucs_6s`, with auto-detection of the best Torch device (CUDA on NVIDIA, MPS on Apple Silicon, CPU fallback).
 
-**YouTube and local file import.** Paste a YouTube URL or drop an MP3, WAV, FLAC, or M4A directly onto the import bar.
+**YouTube and local file import.** Paste a YouTube URL or drop an MP3, WAV, FLAC, or M4A directly onto the import bar. YouTube metadata is fetched once, overlong sources are rejected before download, and decoder-compatible inputs avoid an unnecessary intermediate WAV.
 
 **DAW-style waveform editor** with min/max sample rendering across all stems, shared normalization, zoom in/out/Fit, loop drag on the ruler, gold playhead overlay, and stem-aligned lanes.
 
@@ -72,11 +72,18 @@ LayerLab is free and **does not accept any money, sponsorship, or funding** - no
 
 **Live VU meters** per stem. Post-gain RMS via Web Audio analysers with peak hold and slow falloff.
 
-**Song analysis** including BPM and beat grid timestamps (librosa beat tracker, first 180 seconds), key, scale, and confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and sample peak in dBFS.
+**Song analysis** including full-track BPM and beat-grid timestamps, key,
+scale, confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and
+sample peak in dBFS. Every profile uses the accurate MIT-licensed Beat This!
+`final0` neural tracker for beats/downbeats and safely falls back to librosa.
 
-**Chord guide export.** LayerLab estimates quarter-note-grid chord labels from piano/guitar-weighted chroma plus bass-root hints, suppresses weak one-beat misreads, merges stable repeats into sustained chord blocks, and exports MIDI or CSV from the Export menu. Chord export can be switched between beat/bar grid and auto/triad/seventh styles, with optional DAW marker events in MIDI.
+**Chord guide export.** LayerLab estimates quarter-note-grid chord labels from reliability-weighted piano/guitar chroma, a separate bass-root analysis, and per-source tuning correction. It fills isolated missed quarter notes, suppresses single-note-riff false positives and weak one-beat misreads, then exports MIDI or CSV. MIDI includes the detected audio lead-in and a per-beat tempo map so variable-tempo material stays aligned in a DAW. CQT/CENS reuse one spectrum and independent stem features run in a bounded two-worker pool without changing the resulting labels. BSD-3-Clause-licensed music21 validates each generated MIDI and writes a downloadable harmonic-analysis JSON with key, range, and Roman numerals.
 
-**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. It can also scan a whole `jobs/` root and compare against a previous baseline.
+**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. With a labelled `.lab` reference it uses the development-only MIT-licensed `mir_eval` dependency to report root, major/minor, triad, and tetrad WCSR plus segmentation metrics.
+
+**Non-blocking local queue.** Only Demucs inference occupies the shared CPU/GPU slot. Download, analysis, post-processing, playback, and exports can continue for other jobs while the next separation runs in the background. Every child process is tracked per job, so cancelling parallel analysis terminates all of its FFmpeg workers.
+
+**Safe mix rendering.** Mix exports use a no-make-up-gain look-ahead limiter only when peaks approach the output ceiling. WAV exports are finalized to a seekable temporary file before download, so the RIFF header contains the real frame count instead of a multi-hour placeholder duration.
 
 **Cancellable jobs.** Cancel mid-pipeline and the runner terminates the active subprocess immediately, deletes the partial job dir, and returns to ready.
 
@@ -107,7 +114,7 @@ LayerLab is not trying to compete with commercial stem-separation products. It c
 | **Polish** | Functional, hobby-grade UI | Polished, production-grade apps |
 | **Source code** | Open source, forkable, self-hostable | Closed source |
 
-If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, LayerLab is enough.
+If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or want local processing without an account or subscription, LayerLab covers that use case.
 
 ---
 
@@ -122,7 +129,11 @@ Unofficial fork test builds are attached to [GitHub Releases](https://github.com
 | `LayerLab-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
 | `LayerLab-macOS-x64.dmg` | CPU only | Intel |
 
-Open the DMG, drag LayerLab to Applications, and launch it. On first launch the setup screen downloads the Python runtime, FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
+Open the DMG, drag LayerLab to Applications, and launch it. The macOS DMG
+contains the Python runtime, so first launch verifies and extracts it locally
+without requiring a GitHub runtime download. FFmpeg/ffprobe and AI model
+weights are fetched when needed. Subsequent launches skip setup and start in
+seconds. No Python or system dependencies are required.
 
 macOS may show a Gatekeeper prompt on first open — right-click the app and choose Open to bypass it.
 
@@ -148,7 +159,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
   -StripVenv
 ```
 
-The installer lands in `dist/*-Setup.exe`, installs per-user under `%LocalAppData%\Programs\LayerLab`, creates Start Menu/Desktop shortcut entries, and includes `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.txt`.
+The installer lands in `dist/*-Setup.exe`, installs per-user under `%LocalAppData%\Programs\LayerLab`, creates Start Menu/Desktop shortcut entries, and includes `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`, `THIRD_PARTY_LICENSES.txt`, and `THIRD_PARTY_INVENTORY.json`.
 
 ### Release Signing / Notarization
 
@@ -164,12 +175,16 @@ Unsigned internal builds are acceptable for local testing, but public macOS buil
 
 ### Distribution Size and Storage
 
-The desktop shell is intentionally thin. The Python runtime, FFmpeg/ffprobe, and Demucs model are prepared during first-run setup or first use. This keeps the app bundle smaller, but the first launch needs internet access and enough disk space.
+The desktop shell prepares Python, FFmpeg/ffprobe, and model assets during
+first-run setup or first use. The self-contained macOS DMG bundles the Python
+runtime and extracts it locally; internet access is still required when
+FFmpeg/ffprobe or AI model weights are not already cached.
 
-- macOS first-run setup downloads a runtime pack, FFmpeg/ffprobe, and later the model cache.
+- macOS first-run setup extracts the bundled runtime pack, then obtains
+  FFmpeg/ffprobe and model weights when needed.
 - Windows portable builds include a Python environment; the NVIDIA variant is larger because CUDA/PyTorch wheels are large.
 - Stem WAVs are large: a 10-minute stereo 16-bit WAV is about 101 MiB, and a 10-minute stereo float32 WAV is about 202 MiB before multiplying by the number of stems.
-- `LICENSE`, `NOTICE`, and platform `THIRD_PARTY_NOTICES.txt` are copied into release packages. Runtime dependency inventories are generated where available.
+- `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`, `THIRD_PARTY_LICENSES.txt`, and `THIRD_PARTY_INVENTORY.json` are copied into release packages. Runtime dependency inventories are regenerated from the exact artifact.
 
 ---
 
@@ -183,7 +198,7 @@ The desktop shell is intentionally thin. The Python runtime, FFmpeg/ffprobe, and
 
 <br>
 
-LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra), Meta AI's open-source neural stem separation models. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses the MIT-licensed **[Demucs](https://github.com/facebookresearch/demucs)** code (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra); the downloaded pretrained weights have separate personal/research-use terms described in the license section below. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. Neural beat/downbeat detection uses **[Beat This!](https://github.com/CPJKU/beat_this)** with a librosa fallback; librosa also provides key/chroma features, while **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** measures loudness (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
 *Thanks to the creators and maintainers of all the open-source libraries that make LayerLab possible.*
 
@@ -193,7 +208,8 @@ LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](ht
 
 ### macOS Native App
 
-Requires Rust, Node.js, and Python 3.12. Builds a self-contained `.app` that downloads its own runtime on first launch.
+Requires Rust, Node.js, and Python 3.10-3.13. Builds a self-contained `.app`
+with the generated runtime archive embedded for offline runtime installation.
 
 ```sh
 # First time only — add the cross-compilation targets
@@ -321,7 +337,7 @@ runtime fall back to an `imageio-ffmpeg` binary automatically.
 
 ## Quality Benchmark
 
-Use the local benchmark helper when comparing quality presets, denoise settings, or phase/bass repair changes. It decodes the source and stem WAVs through ffmpeg, sums the stems, and reports residual error as JSON.
+Use the local benchmark helper when comparing quality presets, denoise settings, or phase/bass repair changes. It decodes the source and stem WAVs through ffmpeg while preserving stereo channels, sums the stems, and reports residual error and actual per-channel clipping risk as JSON.
 
 ```sh
 uv run python scripts/benchmark_audio.py \
@@ -337,6 +353,14 @@ For an unswept or in-progress job that still has `source.*` in its job directory
 uv run python scripts/benchmark_audio.py --job-dir jobs/<job-id>
 ```
 
+To evaluate chord recognition against a labelled `start_seconds end_seconds C:maj` reference:
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-chords /path/to/reference.lab
+```
+
 Completed jobs may have their source audio removed to save disk space. In that case, pass `--source` explicitly if you want stem-sum residual metrics; without a source, the report still summarizes available stems and chord metadata.
 
 ---
@@ -347,15 +371,18 @@ Completed jobs may have their source audio removed to save disk space. In that c
 |---|---|---|
 | `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, `max`, or `ultra`. `high` / `max` / `ultra` use slower Demucs settings and preserve 32-bit float WAV output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
-| `STEMDECK_PIPELINE_CONCURRENCY` | auto | Heavy analysis/separation jobs to run in parallel. Auto keeps CUDA/MPS at `1` for memory safety and uses `2` only on roomy CPU-only machines. Set `1`-`4` to override. |
-| `STEMDECK_PIPELINE_LOCK` | system temp file | Base path for cross-process processing-slot locks. LayerLab creates one shared slot per configured concurrency level. |
+| `STEMDECK_PIPELINE_CONCURRENCY` | auto | Demucs inference jobs to run in parallel. Auto keeps CUDA/MPS at `1` for memory safety and uses `2` only on roomy CPU-only machines. Non-Demucs stages are not held by this slot. Set `1`-`4` to override. |
+| `STEMDECK_PIPELINE_LOCK` | system temp file | Base path for cross-process Demucs-slot locks. LayerLab creates one shared slot per configured concurrency level. |
 | `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` / `ultra` use `htdemucs_ft` unless overridden. |
-| `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages. Higher is slower and can reduce artifacts. |
-| `STEMDECK_DEMUCS_PRE_GAIN_DB` | preset-dependent | Optional input gain before Demucs. Negative values such as `-6` can help very loud masters separate more cleanly. |
+| `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages per model. `htdemucs_ft` is a four-model bag. Current defaults are High `1` (4 passes), Max `2` (8 passes), and Ultra `4` (16 passes). Set `16` explicitly only for the former 64-pass research setting. |
 | `STEMDECK_DEMUCS_FLOAT32` | preset-dependent | Write Demucs stems as 32-bit float WAVs when truthy. |
 | `STEMDECK_DEMUCS_CLIP_MODE` | preset-dependent | Demucs output clipping mode: `rescale`, `clamp`, or `none`. |
-| `STEMDECK_DEMUCS_OVERLAP` | `0` | Optional Demucs segment overlap override. `0` leaves the Demucs default untouched. |
+| `STEMDECK_DEMUCS_OVERLAP` | Standard/High `0.20`, Max/Ultra `0.25` | Demucs segment overlap. The selected value is always passed explicitly so upstream defaults cannot silently change runtime. |
 | `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
+| `STEMDECK_DEMUCS_JOBS` | auto | Demucs CPU chunk workers. Auto uses `0` for MPS/CUDA/macOS and whenever multiple CPU separations are enabled; a roomy CPU-only host limited to one separation may use `2`. |
+| `STEMDECK_STEM_POST_LIMITER_PEAK` | `0.98` | Peak ceiling used by stem stabilization and rendered mix limiting. |
+| `STEMDECK_MIX_LIMITER_ATTACK_MS` | `5` | Look-ahead attack used only for rendered stem mixes. |
+| `STEMDECK_MIX_LIMITER_RELEASE_MS` | `50` | Release time used only for rendered stem mixes. |
 | `STEMDECK_BASS_REPAIR` | `high`/`max`/`ultra`: on, `standard`: off | Repair short bass dropouts after separation by blending a low-frequency residual from the original mix. Set `0` to disable or `1` to force-enable. |
 | `STEMDECK_BASS_REPAIR_LOW_PASS_HZ` | `180` | Low-pass cutoff used for the bass residual candidate. |
 | `STEMDECK_BASS_REPAIR_TRIGGER_RATIO` | `1.9` | How much stronger the residual must be than the bass stem before repair blends in. Higher is more conservative. |
@@ -378,6 +405,7 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_TIMEOUT_FFMPEG` | `300` | ffmpeg subprocess timeout (seconds). |
 | `STEMDECK_TIMEOUT_ANALYZE` | `120` | Audio analysis timeout (seconds). |
 | `STEMDECK_TIMEOUT_DEMUCS_STALL` | `1800` | Kill Demucs if no output for this many seconds. |
+| `STEMDECK_TIMEOUT_DEMUCS_TOTAL` | `43200` | Hard Demucs runtime limit (12 hours). Set `0` to disable. |
 
 `run.sh` also reads: `HOST` (default `127.0.0.1`), `PORT` (default `8765`), `RELOAD=1` (enable uvicorn auto-reload for development), `FOREGROUND=1` (run in foreground instead of backgrounding).
 
@@ -451,17 +479,42 @@ The author(s) of LayerLab provide this software "as is", without warranty of any
 
 LayerLab is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
 
-See [NOTICE](NOTICE) for the upstream attribution and modification notice. Third-party runtime dependencies are licensed by their respective authors; packaged builds include `THIRD_PARTY_NOTICES.txt` and generated dependency inventories where available.
+See [NOTICE](NOTICE) for the upstream attribution and modification notice, and
+[OSS_COMPONENTS.md](OSS_COMPONENTS.md) for the music-analysis OSS review and
+license decisions. The current macOS arm64 audit is generated from the actual
+runtime and target-specific Rust graph:
+
+- [component inventory](packaging/generated/macos-arm64/THIRD_PARTY_NOTICES.md)
+- [machine-readable inventory](packaging/generated/macos-arm64/THIRD_PARTY_INVENTORY.json)
+- [full license and notice texts](packaging/generated/macos-arm64/THIRD_PARTY_LICENSES.txt)
+
+Release builds regenerate these files and fail if a packaged Python/Rust
+component has no declared license or usable license text.
 
 This repository is an unofficial modified fork test build, not an official upstream release. It is not affiliated with or endorsed by the original StemDeck project. Apache-2.0 does not grant trademark rights, so public distributions should avoid implying upstream endorsement.
 
 ### Commercial Use
 
-Apache License 2.0 does not prohibit commercial use, paid distribution, internal business use, or distribution of modified versions. Commercial use of this fork is therefore possible when the Apache-2.0 conditions and all third-party dependency licenses are respected.
+Apache License 2.0 does not prohibit commercial use, paid distribution, internal business use, or distribution of modified versions of the code it covers. That permission does not automatically cover separately licensed binaries, model weights, fonts, media, trademarks, or user-supplied audio.
 
 Do not remove `LICENSE`, `NOTICE`, or packaged third-party notices. Do not present this fork as an official StemDeck release, official commercial offering, certified build, or upstream-supported product. Trademark-like use of the StemDeck/STEMDECK name or logos is not granted by Apache-2.0 except as needed to describe the origin of the work and reproduce NOTICE content.
 
-If you sell, host, bundle, or provide services around this software, you are responsible for verifying the exact licenses of the shipped FFmpeg build, PyTorch, Demucs, yt-dlp, Python runtime, Tauri/Rust crates, and any other bundled components, and for ensuring that users have the rights to process the audio they submit. This documentation is not legal advice.
+The Demucs source code is MIT-licensed, but Demucs maintainers state that the
+published pretrained weights are not covered by that MIT license and are
+provided for personal/research usage because of training-dataset restrictions.
+LayerLab downloads those weights on first separation and does not bundle them;
+that technical separation does not grant commercial model rights. A commercial
+release or hosted service should obtain permission, use weights with suitable
+commercial terms, or disable the default pretrained-weight workflow.
+
+Packaged LayerLab runtimes remove the GPL-enabled FFmpeg executable embedded in
+the `imageio-ffmpeg` wheel. Desktop first-run setup instead downloads the
+disclosed FFmpeg build directly from its provider. The default macOS
+`8.1.1-tessus` build is GPL-3.0-or-later. Anyone who mirrors or rebundles an
+FFmpeg executable must satisfy the exact build's corresponding-source and
+notice obligations.
+
+If you sell, host, bundle, or provide services around this software, you are responsible for verifying the exact licenses and terms of the shipped/downloaded FFmpeg build, PyTorch, Demucs code and weights, yt-dlp, Python runtime, Tauri/Rust crates, fonts, assets, and any other components, and for ensuring that users have the rights to process the audio they submit. This documentation is not legal advice.
 
 ---
 

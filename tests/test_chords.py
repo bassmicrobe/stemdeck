@@ -1,24 +1,32 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import numpy as np
+import pytest
 
-from app.core.models import Job
+from app.core.models import Job, JobCancelled
 from app.pipeline import chords as chords_mod
 from app.pipeline.chords import (
     ChordSegment,
     _apply_bass_root_hint,
     _available_chord_source_paths,
+    _canonical_chord_label,
     _ChromaSource,
+    _clean_beat_times,
     _combine_beatwise_chroma,
     _combine_segment_chroma,
     _estimate_key_context,
+    _load_chroma_source,
+    _mean_normalized_chroma,
     _midi_text,
     _parse_key_context,
     _score_chord,
     _select_chord_sequence,
     _smooth_short_segments,
+    _source_chord_reliability,
+    _tempo_map_events,
     _varlen,
     chord_segments_from_metadata,
     chord_segments_to_csv,
@@ -190,6 +198,28 @@ def test_combine_beatwise_chroma_skips_tail_without_next_beat():
     assert _combine_beatwise_chroma([harmony], None, [0.0, 1.0], 1, 5) is None
 
 
+def test_mean_normalized_chroma_uses_sorted_time_window():
+    source = _multi_frame_source(
+        "piano",
+        1.0,
+        [
+            {0: 1.0},
+            {4: 1.0},
+            {7: 1.0},
+            {9: 1.0},
+        ],
+        [0.25, 0.75, 1.25, 1.75],
+    )
+
+    vector = _mean_normalized_chroma(source, 0.7, 1.5)
+
+    assert vector is not None
+    assert vector[4] > 0
+    assert vector[7] > 0
+    assert vector[0] == 0
+    assert vector[9] == 0
+
+
 def test_bass_passing_note_does_not_override_supported_harmony():
     harmony = _vector({0: 1.0, 4: 0.84, 7: 0.74})
     harmony = harmony / float(np.sum(harmony))
@@ -215,6 +245,27 @@ def test_estimate_key_context_returns_confident_minor_key():
 def test_parse_key_context_accepts_analysis_labels():
     assert _parse_key_context("B min") == (11, "minor")
     assert _parse_key_context("Db major") == (1, "major")
+
+
+def test_canonical_chord_label_supports_jams_and_complex_chords():
+    assert _canonical_chord_label("C:maj") == "C"
+    assert _canonical_chord_label("Bb:min7") == "A#m7"
+    assert _canonical_chord_label("F#:hdim7") == "F#hdim7"
+    assert _canonical_chord_label("N") == "N.C."
+
+    segments = chord_segments_from_metadata(
+        [{"label": "Bb:min7", "start": 0.0, "end": 1.0, "confidence": 0.8}]
+    )
+    assert segments[0].label == "A#m7"
+    assert segments[0].intervals == (0, 3, 7, 10)
+
+
+def test_source_chord_reliability_rejects_single_note_riffs():
+    single_note = _vector({2: 1.0, 9: 0.05})
+    triad = _vector({0: 1.0, 4: 0.82, 7: 0.72})
+
+    assert _source_chord_reliability(triad) > 0.75
+    assert _source_chord_reliability(single_note) < 0.35
 
 
 def test_select_chord_sequence_smooths_weak_same_root_variant():
@@ -243,6 +294,14 @@ def test_select_chord_sequence_uses_key_hint_to_avoid_unstable_complex_chords():
     selected = _select_chord_sequence([f_sharp_dim_like, d_maj7_like], key_context=key_context)
 
     assert [candidate.label for candidate in selected] == ["F#m", "D"]
+
+
+def test_select_chord_sequence_prefers_full_harmonic_stem_key():
+    c_major = _vector({0: 1.0, 4: 0.82, 7: 0.72})
+
+    selected = _select_chord_sequence([c_major] * 8, key_context=(11, "minor"))
+
+    assert all(candidate.label == "C" for candidate in selected)
 
 
 def test_smooth_short_segments_removes_weak_one_beat_flip():
@@ -338,6 +397,107 @@ def test_detect_chord_segments_uses_quarter_note_grid(monkeypatch, tmp_path: Pat
     ]
 
 
+def test_detect_chord_segments_skips_redundant_hpss_for_piano(monkeypatch, tmp_path: Path):
+    source = tmp_path / "source.wav"
+    stems_dir = tmp_path / "stems"
+    source.write_bytes(b"wav")
+    stems_dir.mkdir()
+    (stems_dir / "piano.wav").write_bytes(b"wav")
+    calls = []
+    piano = _multi_frame_source(
+        "piano",
+        1.25,
+        [{0: 1.0, 4: 0.82, 7: 0.72}, {0: 1.0, 4: 0.82, 7: 0.72}],
+        [0.5, 1.5],
+    )
+
+    def fake_load_chroma_source(*args, **kwargs):
+        calls.append((kwargs["name"], kwargs["harmonic"]))
+        return piano if kwargs["name"] == "piano" else None
+
+    monkeypatch.setattr(chords_mod, "_load_chroma_source", fake_load_chroma_source)
+
+    detect_chord_segments(source, [0.0, 1.0, 2.0], duration_sec=2.0, stems_dir=stems_dir)
+
+    assert ("original", True) in calls
+    assert ("piano", False) in calls
+
+
+def test_detect_chord_segments_loads_independent_sources_concurrently(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "source.wav"
+    stems_dir = tmp_path / "stems"
+    source.write_bytes(b"wav")
+    stems_dir.mkdir()
+    (stems_dir / "piano.wav").write_bytes(b"wav")
+    barrier = threading.Barrier(2)
+    chroma = _multi_frame_source(
+        "piano",
+        1.0,
+        [{0: 1.0, 4: 0.8, 7: 0.7}, {0: 1.0, 4: 0.8, 7: 0.7}],
+        [0.5, 1.5],
+    )
+
+    def fake_load_chroma_source(*args, **kwargs):
+        barrier.wait(timeout=1.0)
+        return chroma
+
+    monkeypatch.setattr(chords_mod, "_load_chroma_source", fake_load_chroma_source)
+
+    segments = detect_chord_segments(
+        source,
+        [0.0, 1.0, 2.0],
+        duration_sec=2.0,
+        stems_dir=stems_dir,
+    )
+
+    assert segments
+
+
+def test_load_chroma_source_reuses_one_cqt_for_cqt_and_cens(monkeypatch, tmp_path: Path):
+    import librosa
+
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    samples = np.ones(22050, dtype=np.float32) * 0.1
+    cqt_spectrum = np.ones((7 * 36, 48), dtype=np.float32)
+    cqt_calls: list[dict] = []
+    feature_inputs: list[np.ndarray] = []
+
+    monkeypatch.setattr(chords_mod, "_load_audio_ffmpeg", lambda *args, **kwargs: (samples, 22050))
+    monkeypatch.setattr(librosa, "estimate_tuning", lambda **kwargs: 0.0)
+
+    def fake_cqt(*args, **kwargs):
+        cqt_calls.append(kwargs)
+        return cqt_spectrum.astype(np.complex64)
+
+    def fake_chroma_cqt(**kwargs):
+        feature_inputs.append(kwargs["C"])
+        return np.ones((12, 48), dtype=np.float32)
+
+    def fake_chroma_cens(**kwargs):
+        feature_inputs.append(kwargs["C"])
+        return np.ones((12, 48), dtype=np.float32)
+
+    monkeypatch.setattr(librosa, "cqt", fake_cqt)
+    monkeypatch.setattr(librosa.feature, "chroma_cqt", fake_chroma_cqt)
+    monkeypatch.setattr(librosa.feature, "chroma_cens", fake_chroma_cens)
+
+    result = _load_chroma_source(
+        source,
+        name="piano",
+        weight=1.0,
+        end_time=1.0,
+        harmonic=False,
+    )
+
+    assert result is not None
+    assert len(cqt_calls) == 1
+    assert feature_inputs[0] is feature_inputs[1]
+
+
 def test_write_chord_midi_writes_standard_midi_file(tmp_path: Path):
     out = tmp_path / "chords.mid"
     segments = [
@@ -387,6 +547,34 @@ def test_write_chord_midi_quantizes_detected_beats_as_quarter_notes(tmp_path: Pa
     assert _last_midi_tick(out.read_bytes()) == 8 * 480
 
 
+def test_write_chord_midi_preserves_audio_leadin_and_tempo_map(tmp_path: Path):
+    out = tmp_path / "tempo-map.mid"
+    beat_times = [0.25, 0.75, 1.26, 1.74, 2.25]
+    segments = [
+        ChordSegment("C", 0.25, 2.25, 0, (0, 4, 7), 0.9, start_beat=0, end_beat=4)
+    ]
+
+    write_chord_midi(out, segments, bpm=120, title="Tempo Map", beat_times=beat_times)
+
+    data = out.read_bytes()
+    leadin_ticks = round(beat_times[0] * 120 / 60 * 480)
+    assert _last_midi_tick(data) == leadin_ticks + (4 * 480)
+    assert data.count(b"\xff\x51\x03") >= 4
+
+
+def test_tempo_map_preserves_large_detected_interval_after_grid_repair():
+    events = _tempo_map_events([0.0, 0.5, 1.0, 2.0], 120)
+
+    assert events[-1] == (2 * 480, 1_000_000)
+
+
+def test_clean_beat_times_rejects_non_finite_and_duplicate_values():
+    assert _clean_beat_times([float("nan"), float("inf"), -1.0, 0.0, 0.04, 0.5]) == [
+        0.0,
+        0.5,
+    ]
+
+
 def test_write_chord_midi_keeps_no_chord_time_on_grid(tmp_path: Path):
     out = tmp_path / "no-chord-tail.mid"
     segments = [
@@ -422,6 +610,10 @@ def test_generate_chord_midi_sets_job_metadata(tmp_path: Path, monkeypatch):
     assert out == job_dir / "stems" / "chords.mid"
     assert out is not None and out.is_file()
     assert job.chord_midi_url == f"/api/jobs/{job.id}/chords.mid"
+    assert job.midi_analysis_url == f"/api/jobs/{job.id}/midi-analysis.json"
+    assert job.midi_analysis is not None
+    assert job.midi_analysis["engine"] == "music21"
+    assert (job_dir / "stems" / "midi-analysis.json").is_file()
     assert job.chord_progression == [
         {
             "label": "C",
@@ -432,3 +624,17 @@ def test_generate_chord_midi_sets_job_metadata(tmp_path: Path, monkeypatch):
             "confidence": 0.9,
         }
     ]
+
+
+def test_generate_chord_midi_propagates_cancellation(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        chords_mod,
+        "detect_chord_segments",
+        lambda *args, **kwargs: (_ for _ in ()).throw(JobCancelled()),
+    )
+    job = Job(id="abcdefabcdef", bpm=120)
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+
+    with pytest.raises(JobCancelled):
+        generate_chord_midi(job, source, tmp_path)

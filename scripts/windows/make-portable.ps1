@@ -104,6 +104,10 @@ function Bundle-PythonRuntime([string]$VenvDir, [string]$VenvPython) {
     Copy-Tree $baseDlls (Join-Path $portableBaseHome "DLLs")
   }
   Copy-TreeContents $baseLib (Join-Path $portableBaseHome "Lib") @("site-packages")
+  $baseLicense = Join-Path $baseHome "LICENSE.txt"
+  if (Test-Path $baseLicense) {
+    Copy-Item -Force $baseLicense (Join-Path $portableBaseHome "LICENSE.txt")
+  }
 
   $cfg = Join-Path $VenvDir "pyvenv.cfg"
   Set-PyvenvValue $cfg "home" $portableBaseHome
@@ -241,6 +245,14 @@ if ($PackageVersion) {
 }
 & $PythonExe -m pip install "$Root"
 
+# Do not redistribute the GPL-enabled FFmpeg executable embedded in
+# imageio-ffmpeg wheels. First-run setup downloads the disclosed build directly.
+$imageioBinaries = Join-Path $PythonDir "Lib\site-packages\imageio_ffmpeg\binaries"
+if (Test-Path $imageioBinaries) {
+  Get-ChildItem -LiteralPath $imageioBinaries -Filter "ffmpeg-*" -File -Force |
+    Remove-Item -Force
+}
+
 if ($CpuOnly) {
   # pip strips local version identifiers when resolving requirements, so it installs
   # the CUDA wheel from PyPI even when we pre-install the CPU wheel. Force-reinstall
@@ -254,6 +266,21 @@ if ($CpuOnly) {
 
 Bundle-PythonRuntime $PythonDir $PythonExe
 & $PythonExe -c "import sys, fastapi, uvicorn; print('Portable Python:', sys.executable)"
+
+$LicenseDir = Join-Path $Stage "licenses"
+& $PythonExe (Join-Path $Root "scripts\generate-license-bundle.py") `
+  --repo-root $Root `
+  --python-root (Join-Path $PythonDir "base") `
+  --site-packages (Join-Path $PythonDir "Lib\site-packages") `
+  --cargo-manifest (Join-Path $TauriDir "Cargo.toml") `
+  --target "x86_64-pc-windows-msvc" `
+  --output $LicenseDir
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_NOTICES.md") (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_LICENSES.txt") (Join-Path $Stage "THIRD_PARTY_LICENSES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_INVENTORY.json") (Join-Path $Stage "THIRD_PARTY_INVENTORY.json")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_NOTICES.md") (Join-Path $BackendDir "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_LICENSES.txt") (Join-Path $BackendDir "THIRD_PARTY_LICENSES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_INVENTORY.json") (Join-Path $BackendDir "THIRD_PARTY_INVENTORY.json")
 
 if ($StripVenv) {
   Write-Host "Stripping venv of build-time artifacts..."

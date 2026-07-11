@@ -260,12 +260,17 @@ function wireFooterControls() {
   fmtWav?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("wav"); });
   fmtMp3?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("mp3"); });
   fmtFlac?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("flac"); });
+  function updateChordOptionState() {
+    const selected = chordFormat?.value || "midi";
+    if (chordMarkers) chordMarkers.disabled = selected !== "midi";
+    if (chordStyle) chordStyle.disabled = selected === "json";
+    if (chordGrid) chordGrid.disabled = selected === "json";
+  }
   for (const el of [chordFormat, chordStyle, chordGrid, chordMarkers]) {
     el?.addEventListener("click", (e) => e.stopPropagation());
-    el?.addEventListener("change", () => {
-      if (chordMarkers) chordMarkers.disabled = chordFormat?.value === "csv";
-    });
+    el?.addEventListener("change", updateChordOptionState);
   }
+  updateChordOptionState();
 
   function resetBusy() {
     busy = false;

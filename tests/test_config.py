@@ -108,9 +108,10 @@ def test_high_quality_preset_sets_slower_demucs_defaults(monkeypatch):
         reloaded = importlib.reload(config)
         assert reloaded.QUALITY_PRESET == "high"
         assert reloaded.DEMUCS_MODEL == "htdemucs_ft"
-        assert reloaded.DEMUCS_SHIFTS == 4
+        assert reloaded.DEMUCS_SHIFTS == 1
         assert reloaded.DEMUCS_PRE_GAIN_DB == -6.0
         assert reloaded.DEMUCS_FLOAT32 is True
+        assert reloaded.DEMUCS_OVERLAP == 0.2
     finally:
         monkeypatch.delenv("STEMDECK_QUALITY_PRESET", raising=False)
         importlib.reload(original)
@@ -129,11 +130,11 @@ def test_ultra_quality_preset_sets_slowest_demucs_defaults(monkeypatch):
         reloaded = importlib.reload(config)
         assert reloaded.QUALITY_PRESET == "ultra"
         assert reloaded.DEMUCS_MODEL == "htdemucs_ft"
-        assert reloaded.DEMUCS_SHIFTS == 16
+        assert reloaded.DEMUCS_SHIFTS == 4
         assert reloaded.DEMUCS_PRE_GAIN_DB == -8.0
         assert reloaded.DEMUCS_FLOAT32 is True
         assert reloaded.DEMUCS_CLIP_MODE == "rescale"
-        assert reloaded.DEMUCS_OVERLAP == 0.5
+        assert reloaded.DEMUCS_OVERLAP == 0.25
     finally:
         monkeypatch.delenv("STEMDECK_QUALITY_PRESET", raising=False)
         importlib.reload(original)
@@ -181,6 +182,41 @@ def test_pipeline_concurrency_env_override(monkeypatch):
 
     monkeypatch.setenv("STEMDECK_PIPELINE_CONCURRENCY", "3")
     assert config._detect_pipeline_concurrency("mps") == 3
+
+
+def test_demucs_cpu_jobs_avoid_oversubscription(monkeypatch):
+    import app.core.config as config
+
+    monkeypatch.delenv("STEMDECK_DEMUCS_JOBS", raising=False)
+    monkeypatch.setattr(config.sys, "platform", "darwin")
+    monkeypatch.setattr(config.os, "cpu_count", lambda: 16)
+    monkeypatch.setattr(config, "_system_memory_gb", lambda: 64.0)
+    assert config._detect_demucs_jobs("cpu") == 0
+
+    monkeypatch.setattr(config.sys, "platform", "linux")
+    assert config._detect_demucs_jobs("mps") == 0
+    assert config._detect_demucs_jobs("cuda") == 0
+    assert config._detect_demucs_jobs("cpu") == 0
+
+    monkeypatch.setenv("STEMDECK_PIPELINE_CONCURRENCY", "1")
+    assert config._detect_demucs_jobs("cpu") == 2
+
+    monkeypatch.setenv("STEMDECK_DEMUCS_JOBS", "3")
+    assert config._detect_demucs_jobs("cpu") == 3
+
+
+def test_demucs_settings_use_per_job_device_for_worker_count(monkeypatch):
+    import app.core.config as config
+
+    monkeypatch.setattr(config, "_detect_device", lambda: "mps")
+    monkeypatch.setattr(
+        config,
+        "_detect_demucs_jobs",
+        lambda device: 2 if device == "cpu" else 0,
+    )
+
+    assert config.demucs_settings_for_preset("standard").jobs == 0
+    assert config.demucs_settings_for_preset("standard", device="cpu").jobs == 2
 
 
 def test_demucs_device_choice_normalization_and_resolution(monkeypatch):

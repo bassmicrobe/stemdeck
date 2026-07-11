@@ -27,6 +27,11 @@ certified build, or upstream-supported product.
 - Bass dropout repair and phase/residual repair.
 - Optional per-stem denoise.
 - Queue, cancellation, progress, and ETA improvements.
+- Faster Demucs presets, one-pass source preparation, separation-only locking,
+  and bounded parallel chord analysis.
+- Neural quarter-note repair, variable-tempo MIDI maps, and labelled WCSR
+  benchmark support.
+- Clipping-safe mix exports with finalized WAV duration headers.
 - Neon UI and responsive layout refinements.
 - Desktop setup, maintenance, signing, and distribution notice improvements.
 
@@ -46,7 +51,10 @@ certified build, or upstream-supported product.
 推奨を示すものではありません。
 
 Apache License 2.0 に基づき、配布物には LICENSE、NOTICE、
-THIRD_PARTY_NOTICES.txt を含めています。再配布前に必ず確認してください。
+`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、
+`THIRD_PARTY_INVENTORY.json` を含めています。Demucsコードと学習済み重みの
+条件は別であり、標準重みは個人・研究用途と説明されています。再配布・商用利用前に
+必ず確認してください。
 Apache License 2.0 は商用利用や有償配布自体を禁止していませんが、
 商標権を自動許諾するものではありません。この test build を公式版、
 公式販売物、認定ビルド、元プロジェクトのサポート対象のように表示しないでください。

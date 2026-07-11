@@ -129,8 +129,11 @@ def test_job_state_includes_detected_beat_times():
         bpm=128,
         tempo_stability=92,
         beat_times=[0.511, 0.976, 1.44],
+        downbeat_times=[0.511],
+        beat_tracker="beat_this:small0",
         chord_progression=progression,
         chord_midi_url="/api/jobs/abcdefabcdef/chords.mid",
+        midi_analysis_url="/api/jobs/abcdefabcdef/midi-analysis.json",
     )
 
     state = job.to_state()
@@ -138,8 +141,11 @@ def test_job_state_includes_detected_beat_times():
     assert state["bpm"] == 128
     assert state["tempo_stability"] == 92
     assert state["beat_times"] == [0.511, 0.976, 1.44]
+    assert state["downbeat_times"] == [0.511]
+    assert state["beat_tracker"] == "beat_this:small0"
     assert state["chord_progression"] == progression
     assert state["chord_midi_url"] == "/api/jobs/abcdefabcdef/chords.mid"
+    assert state["midi_analysis_url"] == "/api/jobs/abcdefabcdef/midi-analysis.json"
 
 
 def test_job_state_includes_profile_identity():

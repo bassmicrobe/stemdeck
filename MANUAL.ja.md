@@ -10,7 +10,7 @@ LayerLab は、音源をローカル環境で stem 分離するためのアプ�
 - 元プロジェクトの公式リリースではなく、元プロジェクトと提携・承認関係はありません。
 - 処理は基本的にローカルマシン上で完結します。音源をクラウドへアップロードする設計ではありません。
 - YouTube URL 入力は、処理する権利を持つコンテンツで使ってください。LayerLab はダウンローダーではなく stem 分離ツールです。
-- 再配布する場合は `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を同梱し、Apache License 2.0 と各依存関係のライセンス条件を確認してください。
+- 再配布する場合は `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、`THIRD_PARTY_INVENTORY.json` を同梱し、Apache License 2.0 と各依存関係・モデル重みの条件を確認してください。
 
 ## 起動方法
 
@@ -38,7 +38,7 @@ curl -s http://127.0.0.1:8765/api/health
 
 ### デスクトップ版
 
-macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピーして起動します。初回起動時に Python runtime、FFmpeg、ffprobe、必要なモデルを確認または取得します。
+macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピーして起動します。初回起動時にDMG同梱の Python runtimeを検証・展開し、FFmpeg、ffprobe、必要なモデルは必要に応じて取得します。
 
 初回セットアップにはインターネット接続と数GB程度の空き容量が必要です。Demucs model は初回分離時にキャッシュされ、2回目以降は再利用されます。
 
@@ -103,12 +103,12 @@ macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピ�
 
 | 設定 | 目的 | 目安 |
 |---|---|---|
-| `Standard` | 通常利用向け | 速め、6-stem |
-| `High` | 品質優先 | 遅め、float32、補正強化 |
-| `Max` | 最高精度優先 | かなり遅い、shift average多め |
-| `Ultra` | 最高品質の検証用 | 最も遅い、shift average最多、overlap強化 |
+| `Standard` | 通常利用向け | 最速、6-stem、1回推論 |
+| `High` | 品質と速度の両立 | 4-stem、4回推論、float32、補正強化 |
+| `Max` | 精度優先 | 4-stem、8回推論 |
+| `Ultra` | 実用上の最高品質 | 4-stem、16回推論、overlap強化 |
 
-`Ultra` は `Max` よりさらに処理時間が伸びます。Apple Silicon MPS や NVIDIA CUDA が使える環境でも、曲の長さやメモリ状況によって時間がかかります。
+`htdemucs_ft` は4モデルのアンサンブルです。そのためshift数1でも4回、shift数4では16回の推論を行います。Standard/Highのoverlapは`0.20`、Max/Ultraは`0.25`です。`Ultra` は `Max` より処理時間が伸びますが、旧設定の64回推論から16回へ削減し、品質向上幅に対して過大だった待ち時間を抑えています。
 
 ## Device設定
 
@@ -213,7 +213,16 @@ macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピ�
 
 `Export Chord Guide` は、拍グリッドとchroma解析から推定した補助用のコード進行です。完全な採譜ではありませんが、DAWでコード進行の下書きとして使えます。書き出し時に `MIDI` / `CSV`、`Auto` / `Triads only` / `Allow 7ths`、`1/4 beat grid` / `1 bar blocks` を選べます。MIDIではDAW markerイベントも任意で含められます。
 
+全品質で `Beat This! final0` が拍とダウンビートを検出し、孤立した2倍間隔は
+欠落した4分音符として補間します。失敗時はlibrosaに自動で戻ります。MIDIには音源先頭までのオフセットと拍ごとの
+テンポ変更が保存されるため、一定BPMに丸めるよりDAW上の拍へ合わせやすくなります。生成後の
+`/api/jobs/{job_id}/midi-analysis.json` には、music21によるMIDIの推定キー、
+音域、四分音符長、平均信頼度、ローマ数字コード進行が保存されます。
+
 WAVは音質劣化が少ない一方、ファイルサイズが大きくなります。
+ミックス書き出しではmake-up gainを行わないlook-ahead limiterが0 dBFS超過だけを
+抑えます。WAVは一時ファイルへ完成させてから返すため、RIFFヘッダーの長さが未確定の
+ままにならず、プレイヤーで数時間のファイルとして誤表示されません。
 
 ## 曲ごとの記録
 
@@ -311,7 +320,13 @@ Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucs
 
 ### 処理が遅い
 
-`Max` / `Ultra`、長尺音源、float32、denoise、phase/bass repairはすべて重い処理です。速度優先なら `Standard` と `Noise off` を使ってください。
+`Max` / `Ultra`、長尺音源、float32、denoise、phase/bass repairはすべて重い処理です。速度優先なら `Standard` と `Noise off`、品質とのバランスなら `High` を使ってください。`htdemucs_ft` は4モデルのアンサンブルなので、`High` / `Max` / `Ultra` の分離表示は `model 1/4 · shift 1/4`、`model 2/4 · shift 1/2` のように表示します。各shiftが100%になったあと次へ進むのは正常です。現在のUltraは `4モデル × 4シフト = 16回` の推論です。
+
+旧Ultra相当の64回推論を比較検証したい場合だけ、起動前に次を指定します。通常利用には推奨しません。
+
+```sh
+STEMDECK_QUALITY_PRESET=ultra STEMDECK_DEMUCS_SHIFTS=16 ./run.sh start
+```
 
 ## 設定変数
 
@@ -319,11 +334,16 @@ Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucs
 |---|---|
 | `STEMDECK_QUALITY_PRESET` | 既定品質を指定します。`standard`、`high`、`max`、`ultra` |
 | `STEMDECK_DEMUCS_DEVICE` | 起動時の既定デバイスを指定します。`cuda`、`mps`、`cpu` |
-| `STEMDECK_DEMUCS_DEVICE` | `cuda`、`mps`、`cpu` を強制します |
-| `STEMDECK_PIPELINE_CONCURRENCY` | 同一バックエンド内の重い処理の同時実行数 |
-| `STEMDECK_PIPELINE_LOCK` | 複数バックエンド間の共有ロックファイル |
+| `STEMDECK_PIPELINE_CONCURRENCY` | マシン全体で同時に走らせるDemucs分離数 |
+| `STEMDECK_PIPELINE_LOCK` | 複数バックエンド間で共有するDemucsスロットのロックファイル |
+| `STEMDECK_DEMUCS_JOBS` | 1曲内のDemucs CPUワーカー数。自動設定は曲並列との過剰実行を避けます |
+| `STEMDECK_STEM_POST_LIMITER_PEAK` | Stem安定化とミックス書き出しのピーク上限。既定`0.98` |
+| `STEMDECK_MIX_LIMITER_ATTACK_MS` | ミックスlimiterのlook-ahead attack。既定`5`ms |
+| `STEMDECK_MIX_LIMITER_RELEASE_MS` | ミックスlimiterのrelease。既定`50`ms |
 | `STEMDECK_MAX_PENDING_JOBS` | キュー受付上限 |
 | `STEMDECK_MAX_DURATION_SEC` | 入力音源の最大長 |
+| `STEMDECK_TIMEOUT_DEMUCS_STALL` | Demucsから進捗出力がない状態を許容する秒数 |
+| `STEMDECK_TIMEOUT_DEMUCS_TOTAL` | Demucs総実行時間の上限。既定43200秒（12時間）、`0`で無効 |
 | `STEMDECK_JOBS_DIR` | ジョブ保存先 |
 | `STEMDECK_DATA_DIR` | portable modeのデータルート |
 | `STEMDECK_FFMPEG` | ffmpeg実行ファイル |
@@ -375,16 +395,18 @@ Apple Siliconでは通常 `STEMDECK_DEMUCS_DEVICE` を指定しなくてもMPS�
 - `LICENSE`
 - `NOTICE`
 - `THIRD_PARTY_NOTICES.txt`
+- `THIRD_PARTY_LICENSES.txt`
+- `THIRD_PARTY_INVENTORY.json`
 
-FFmpeg、PyTorch、Demucs、Tauri/Rust crate、Python runtime など、実際に同梱する依存関係のライセンスも最終配布物に合わせて確認してください。
+FFmpeg、PyTorch、Demucsコードとモデル重み、Tauri/Rust crate、Python runtime など、実際に同梱または初回取得する依存関係のライセンス・利用条件も最終配布物に合わせて確認してください。
 
 ### 商用利用する場合の確認
 
-Apache License 2.0 の範囲では、商用利用、社内利用、有償配布、改変版の配布は可能です。ただし、以下のような形は避けてください。
+Apache License 2.0 がカバーするコードの範囲では、商用利用、社内利用、有償配布、改変版の配布は可能です。ただし、現在標準で取得するDemucs学習済み重みは、開発者によりMIT対象外かつ個人・研究用途の成果物と説明されています。商用利用では許諾取得、別モデルへの置換、または標準重みの無効化が必要です。以下のような形は避けてください。
 
 - 元プロジェクトの公式版や公式販売物のように見せる
 - 元プロジェクトから承認、提携、認定、サポートを受けているように見せる
-- `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を外して配布する
+- `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、`THIRD_PARTY_INVENTORY.json` を外して配布する
 - `StemDeck` / `STEMDECK` の名称やロゴを、出所説明を超えて独自商品の商標のように使う
 - FFmpeg、PyTorch、Demucs、yt-dlp などの同梱物のライセンス確認をせずに販売・再配布する
 - ユーザーが権利を持たない音源を処理できるサービスとして、著作権や利用規約の整理なしに公開する
@@ -393,7 +415,7 @@ Apache License 2.0 の範囲では、商用利用、社内利用、有償配布�
 
 ## 品質評価ベンチマーク
 
-`scripts/benchmark_audio.py` を使うと、stem合計が原音にどれくらい近いかをJSONで確認できます。品質プリセット、denoise、phase repair、bass repairを比較する時の基準として使ってください。
+`scripts/benchmark_audio.py` を使うと、左右チャンネルを保持したstem合計が原音にどれくらい近いかをJSONで確認できます。品質プリセット、denoise、phase repair、bass repairを比較する時の基準として使ってください。
 
 ```sh
 uv run python scripts/benchmark_audio.py \
@@ -409,12 +431,22 @@ uv run python scripts/benchmark_audio.py \
 uv run python scripts/benchmark_audio.py --job-dir jobs/<job-id>
 ```
 
+正解コードを `開始秒 終了秒 C:maj` 形式の `.lab` で用意できる場合は、
+MITライセンスの`mir_eval`でWCSRを測定できます。
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-chords /path/to/reference.lab
+```
+
 主に見る値:
 
 - `residual_percent`: stem合計と原音の残差。小さいほど原音再構成に近い。
 - `correlation`: 原音とstem合計の相関。1に近いほど近い。
 - `stem_sum_clipping_percent`: stem合計で1.0を超えたサンプル割合。大きい場合は合成時のクリップに注意。
 - `chords.segment_count` / `chords.average_confidence`: コードMIDI生成の区間数と平均信頼度。
+- `chord_reference.*_wcsr`: 正解ラベルに対する時間重み付きコード一致率。1に近いほど良い。
 
 注意: `residual_percent` が小さいほど常に「stem単体が良い」とは限りません。phase repairを強くすると原音再構成は改善しても、stem間の分離感や漏れとはトレードオフになる場合があります。
 

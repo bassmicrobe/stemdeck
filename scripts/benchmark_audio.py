@@ -34,6 +34,11 @@ def main() -> int:
     parser.add_argument("--source", type=Path, help="Original source audio to compare against.")
     parser.add_argument("--stems-dir", type=Path, help="Directory containing stem WAV files.")
     parser.add_argument("--metadata", type=Path, help="metadata.json containing chord progression.")
+    parser.add_argument(
+        "--reference-chords",
+        type=Path,
+        help="Ground-truth chord .lab file for mir_eval WCSR metrics.",
+    )
     parser.add_argument("--baseline", type=Path, help="Previous suite JSON to compare against.")
     parser.add_argument("--sr", type=int, default=44100, help="Benchmark decode sample rate.")
     parser.add_argument(
@@ -56,6 +61,7 @@ def main() -> int:
         report = benchmark_job_dir(
             args.job_dir,
             source=args.source,
+            reference_chords_path=args.reference_chords,
             sr=args.sr,
             duration=args.duration,
         )
@@ -66,6 +72,7 @@ def main() -> int:
             source=args.source,
             stems_dir=args.stems_dir,
             metadata_path=args.metadata,
+            reference_chords_path=args.reference_chords,
             sr=args.sr,
             duration=args.duration,
         )

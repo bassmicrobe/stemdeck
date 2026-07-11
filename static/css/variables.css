@@ -3,19 +3,19 @@
   color-scheme: dark;
 
   /* Surfaces */
-  --bg:            #03070a;
-  --bg-2:          rgba(7,16,20,0.86);
-  --panel:         rgba(8,19,24,0.9);
-  --panel-2:       rgba(11,28,34,0.92);
-  --panel-3:       rgba(16,41,47,0.95);
-  --border:        rgba(74,255,236,0.16);
-  --border-strong: rgba(74,255,236,0.34);
+  --bg:            #08050f;
+  --bg-2:          rgba(15,9,27,0.9);
+  --panel:         rgba(20,13,35,0.92);
+  --panel-2:       rgba(28,18,48,0.94);
+  --panel-3:       rgba(40,25,67,0.96);
+  --border:        rgba(190,145,255,0.17);
+  --border-strong: rgba(190,145,255,0.36);
 
   /* Text */
-  --fg:      #ecfffb;
-  --fg-2:    #bdf7ef;
-  --muted:   #75a8a7;
-  --muted-2: #4c7479;
+  --fg:      #fbf7ff;
+  --fg-2:    #ddd1f2;
+  --muted:   #a294b8;
+  --muted-2: #70637f;
 
   /* Stem colours */
   --vocals: #ff3d8b;
@@ -26,8 +26,10 @@
   --other:  #42e8ff;
 
   /* Accent */
-  --accent:   #2fffe3;
-  --accent-2: #eaff32;
+  --accent:   #ad72ff;
+  --accent-2: #ff66c4;
+  --action:   #7484d8;
+  --action-2: #a47fd3;
   --neon-pink:   #ff3d8b;
   --neon-orange: #ff7a1a;
   --neon-blue:   #42e8ff;
@@ -35,8 +37,8 @@
   /* Legacy compat aliases used by waves.css / player.js */
   --gold:        var(--accent);
   --gold-bright: var(--accent-2);
-  --gold-soft:   rgba(47,255,227,0.16);
-  --gold-line:   rgba(47,255,227,0.32);
+  --gold-soft:   rgba(173,114,255,0.16);
+  --gold-line:   rgba(173,114,255,0.32);
   --ink:         var(--fg);
   --ink-dim:     var(--fg-2);
   --ink-faint:   var(--muted);
@@ -44,7 +46,7 @@
   --line-strong: var(--border-strong);
   --glass-line:  var(--border);
   --danger:      #ff5470;
-  --focus-ring:  rgba(47,255,227,0.58);
+  --focus-ring:  rgba(173,114,255,0.62);
 
   /* Typography */
   --font-sans: 'Space Grotesk', -apple-system, system-ui, sans-serif;
@@ -62,9 +64,9 @@
   --t-base: 120ms;
   --easing: cubic-bezier(0.2,0.8,0.2,1);
   --shadow-panel:
-    0 0 0 1px rgba(47,255,227,0.12),
+    0 0 0 1px rgba(173,114,255,0.14),
     0 18px 46px rgba(0,0,0,0.52),
-    0 0 34px rgba(47,255,227,0.08);
+    0 0 34px rgba(173,114,255,0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {

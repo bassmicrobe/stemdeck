@@ -13,7 +13,7 @@ from app.core.config import (
     BACKGROUND_PROCESS_PRIORITY,
 )
 from app.core.models import Job, JobCancelled
-from app.core.registry import set_proc
+from app.core.registry import add_proc, remove_proc
 
 logger = logging.getLogger("stemdeck.pipeline.process")
 
@@ -118,7 +118,7 @@ def run_tracked_process(
         stderr=subprocess.PIPE,
         env=env,
     )
-    set_proc(job.id, proc)
+    add_proc(job.id, proc)
     try:
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -127,7 +127,7 @@ def run_tracked_process(
             stdout, stderr = proc.communicate()
             raise
     finally:
-        set_proc(job.id, None)
+        remove_proc(job.id, proc)
     if job.cancel_requested:
         raise JobCancelled()
     return ProcessResult(

@@ -10,7 +10,7 @@ Install:
 First launch:
 
 - LayerLab is a thin native app. It downloads a pinned, checksummed
-  LayerLab runtime pack on first launch.
+  bundled LayerLab runtime pack on first launch.
 - The setup screen shows the expected runtime download size, current
   workspace/cache usage, the data directory, and the bundled license notice.
 - The runtime installs to:
@@ -19,6 +19,10 @@ First launch:
   ~/Library/Application Support/LayerLab/ffmpeg
 - Demucs model weights download on first use and are cached under:
   ~/Library/Application Support/LayerLab/models
+- The default FFmpeg/ffprobe download is the disclosed evermeet.cx
+  8.1.1-tessus GPL-3.0-or-later build. It is not bundled in this DMG.
+- Demucs code is MIT, but the downloaded pretrained weights are not covered by
+  that code license; upstream describes them as personal/research-use artifacts.
 
 Uninstall:
 
@@ -42,6 +46,8 @@ Notes:
   conditions are met, but it does not grant trademark rights. Do not present
   this package as an official StemDeck release, official commercial offering,
   certified build, or upstream-supported product.
-- Third-party notices are included in THIRD_PARTY_NOTICES.txt. Final public
-  releases should verify the exact Python, FFmpeg, Demucs, PyTorch, Tauri, and
-  Rust dependency licenses used in the shipped artifacts.
+- Exact third-party component, version, delivery, and license details are in
+  THIRD_PARTY_NOTICES.txt. Full texts are in THIRD_PARTY_LICENSES.txt and the
+  machine-readable mapping is in THIRD_PARTY_INVENTORY.json.
+- Commercial use of the Apache-2.0-covered application code does not grant
+  commercial rights to the default Demucs pretrained weights.

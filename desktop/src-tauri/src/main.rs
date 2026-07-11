@@ -263,8 +263,7 @@ fn main() {
 fn documents_stemdeck_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let documents = app.path().document_dir().map_err(|e| e.to_string())?;
     let dir = documents.join("LayerLab");
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("failed to create ~/Documents/LayerLab: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create ~/Documents/LayerLab: {e}"))?;
     Ok(dir)
 }
 
@@ -467,7 +466,11 @@ async fn download_runtime_pack(app_handle: tauri::AppHandle) -> Result<RuntimeAr
         fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
     }
-    download_file_with_progress(&manifest.runtime_url, &archive, &app_handle).await?;
+    if let Some(bundled) = bundled_runtime_archive_path(&root, &manifest) {
+        copy_runtime_archive_with_progress(&bundled, &archive, &app_handle)?;
+    } else {
+        download_file_with_progress(&manifest.runtime_url, &archive, &app_handle).await?;
+    }
     verify_runtime_archive(&manifest, &archive)
 }
 
@@ -1387,7 +1390,11 @@ fn build_maintenance_report(
                 remove_path_best_effort(&path, &mut removed_paths, &mut warnings);
             }
         }
-        cleanup_download_temps(&data_dir.join("downloads"), &mut removed_paths, &mut warnings);
+        cleanup_download_temps(
+            &data_dir.join("downloads"),
+            &mut removed_paths,
+            &mut warnings,
+        );
         cleanup_empty_job_dirs(&jobs_dir, &mut removed_paths, &mut warnings);
     }
 
@@ -1513,8 +1520,7 @@ fn path_age(path: &Path) -> Option<Duration> {
 #[tauri::command]
 fn analyze_wav_file(path: String, bins: Option<usize>) -> Result<AudioAnalysis, String> {
     let path_buf = PathBuf::from(&path);
-    let mut file =
-        fs::File::open(&path_buf).map_err(|e| format!("failed to open {path}: {e}"))?;
+    let mut file = fs::File::open(&path_buf).map_err(|e| format!("failed to open {path}: {e}"))?;
     let format = parse_wav_format(&mut file)?;
     if format.sample_rate == 0 || format.channels == 0 || format.block_align == 0 {
         return Err("invalid WAV format".to_string());
@@ -1675,7 +1681,8 @@ fn decode_wav_sample(bytes: &[u8], format: WavFormat) -> Result<f32, String> {
             Ok(value as f32 / 32768.0)
         }
         (1, 24) => {
-            let raw = i32::from(bytes[0]) | (i32::from(bytes[1]) << 8) | (i32::from(bytes[2]) << 16);
+            let raw =
+                i32::from(bytes[0]) | (i32::from(bytes[1]) << 8) | (i32::from(bytes[2]) << 16);
             let signed = if raw & 0x80_0000 != 0 {
                 raw | !0xFF_FFFF
             } else {
@@ -1817,14 +1824,78 @@ fn validate_runtime_manifest(manifest: &RuntimeManifest) -> Result<(), String> {
     Ok(())
 }
 
-fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf {
-    let name = manifest
+fn runtime_archive_name(manifest: &RuntimeManifest) -> String {
+    manifest
         .archive_name
-        .clone()
-        .or_else(|| manifest.runtime_url.rsplit('/').next().map(str::to_string))
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("LayerLab-runtime-macOS-{}.tar.zst", manifest.arch));
-    data_dir.join("downloads").join(name)
+        .as_deref()
+        .and_then(|value| Path::new(value).file_name())
+        .and_then(|value| value.to_str())
+        .or_else(|| {
+            manifest
+                .runtime_url
+                .rsplit('/')
+                .next()
+                .filter(|value| !value.trim().is_empty())
+        })
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("LayerLab-runtime-macOS-{}.tar.zst", manifest.arch))
+}
+
+fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf {
+    data_dir
+        .join("downloads")
+        .join(runtime_archive_name(manifest))
+}
+
+fn bundled_runtime_archive_path(root: &Path, manifest: &RuntimeManifest) -> Option<PathBuf> {
+    let path = root.join(runtime_archive_name(manifest));
+    path.is_file().then_some(path)
+}
+
+fn copy_runtime_archive_with_progress(
+    source: &Path,
+    target: &Path,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    let total = source
+        .metadata()
+        .map_err(|e| format!("failed to stat bundled runtime {}: {e}", source.display()))?
+        .len();
+    let tmp = target.with_extension("download");
+    if tmp.exists() {
+        fs::remove_file(&tmp).map_err(|e| format!("failed to remove {}: {e}", tmp.display()))?;
+    }
+
+    let mut input = fs::File::open(source)
+        .map_err(|e| format!("failed to open bundled runtime {}: {e}", source.display()))?;
+    let mut output =
+        fs::File::create(&tmp).map_err(|e| format!("failed to create {}: {e}", tmp.display()))?;
+    let mut buffer = [0_u8; 1024 * 1024];
+    let mut received = 0_u64;
+    loop {
+        let read = input
+            .read(&mut buffer)
+            .map_err(|e| format!("failed to read bundled runtime {}: {e}", source.display()))?;
+        if read == 0 {
+            break;
+        }
+        output
+            .write_all(&buffer[..read])
+            .map_err(|e| format!("failed to write bundled runtime to {}: {e}", tmp.display()))?;
+        received += read as u64;
+        let _ = app_handle.emit(
+            "runtime-download-progress",
+            DownloadProgress {
+                received,
+                total: Some(total),
+            },
+        );
+    }
+    output
+        .sync_all()
+        .map_err(|e| format!("failed to sync bundled runtime {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, target)
+        .map_err(|e| format!("failed to move runtime pack to {}: {e}", target.display()))
 }
 
 async fn download_file_with_progress(
@@ -2772,6 +2843,38 @@ mod tests {
         tempfile::tempdir().expect("failed to create temp dir")
     }
 
+    fn runtime_manifest(archive_name: Option<&str>) -> super::RuntimeManifest {
+        super::RuntimeManifest {
+            version: "0.7.0-alpha.17".to_string(),
+            arch: "arm64".to_string(),
+            runtime_url: "https://example.com/LayerLab-runtime-macOS-arm64.tar.zst".to_string(),
+            runtime_sha256: "0".repeat(64),
+            runtime_size: Some(123),
+            archive_name: archive_name.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn runtime_archive_name_strips_path_components() {
+        let manifest = runtime_manifest(Some("../../LayerLab-runtime-macOS-arm64.tar.zst"));
+        assert_eq!(
+            super::runtime_archive_name(&manifest),
+            "LayerLab-runtime-macOS-arm64.tar.zst"
+        );
+    }
+
+    #[test]
+    fn bundled_runtime_archive_is_discovered_under_app_root() {
+        let dir = make_tmp();
+        let manifest = runtime_manifest(Some("LayerLab-runtime-macOS-arm64.tar.zst"));
+        let archive = dir.path().join("LayerLab-runtime-macOS-arm64.tar.zst");
+        fs::write(&archive, b"runtime").unwrap();
+        assert_eq!(
+            super::bundled_runtime_archive_path(dir.path(), &manifest),
+            Some(archive)
+        );
+    }
+
     #[test]
     fn version_mismatch_detected() {
         let dir = make_tmp();
@@ -2826,10 +2929,7 @@ mod tests {
         // We can't safely delete real WebKit dirs in a test, but we can verify
         // the function handles NotFound gracefully by checking the logic:
         let tmp = make_tmp();
-        let fake_webkit = tmp
-            .path()
-            .join("WebKit")
-            .join("com.bassmicrobe.layerlab");
+        let fake_webkit = tmp.path().join("WebKit").join("com.bassmicrobe.layerlab");
         // Never created → remove_dir_all should return NotFound, which we ignore.
         let result = fs::remove_dir_all(&fake_webkit);
         assert!(result.is_err());

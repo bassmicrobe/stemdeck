@@ -3,14 +3,17 @@ from __future__ import annotations
 import csv
 import logging
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 
 import numpy as np
 
-from app.core.models import Job
+from app.core.config import BACKGROUND_CPU_THREADS
+from app.core.models import Job, JobCancelled
 from app.pipeline.analyze import _load_audio_ffmpeg
+from app.pipeline.midi_analysis import analyze_chord_midi, write_midi_analysis
 
 logger = logging.getLogger("stemdeck.chords")
 
@@ -19,13 +22,17 @@ _TPB = 480
 _CHORD_STEM_WEIGHTS = {
     "piano": 1.25,
     "guitar": 1.10,
-    "other": 0.55,
+    # Recent source-separation ACR evaluation found that emphasizing the
+    # accompaniment stem improves chord recall. Reliability weighting below
+    # prevents a loud single-note riff from dominating the estimate.
+    "other": 0.95,
 }
 CHORD_MIDI_STYLES = ("auto", "triads", "sevenths")
 CHORD_MIDI_GRIDS = ("beat", "bar")
 _BASS_ROOT_BOOST = 0.16
 _BASS_BLOCK_ROOT_BOOST = 0.24
 _MIN_STABLE_CHORD_CONFIDENCE = 0.56
+_CHROMA_CHUNK_SEC = 180.0
 
 
 @dataclass(frozen=True)
@@ -78,6 +85,19 @@ _MINOR_KEY_PROFILE = np.asarray(
 _DIATONIC_MAJOR = {0, 2, 4, 5, 7, 9, 11}
 _DIATONIC_MINOR = {0, 2, 3, 5, 7, 8, 10}
 _PITCH_TO_INDEX = {pitch: idx for idx, pitch in enumerate(_PITCHES)}
+_FLAT_TO_SHARP = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#"}
+_QUALITY_ALIASES = {
+    "maj": "",
+    "major": "",
+    "min": "m",
+    "minor": "m",
+    "min7": "m7",
+    "min6": "m6",
+    "maj6": "6",
+    "min9": "m9",
+    "minmaj7": "mMaj7",
+    "min-maj7": "mMaj7",
+}
 
 
 def _varlen(value: int) -> bytes:
@@ -131,9 +151,31 @@ def normalize_chord_midi_grid(value: str | None) -> str:
     return grid if grid in CHORD_MIDI_GRIDS else "beat"
 
 
+def _canonical_chord_label(label: str | None) -> str:
+    """Normalize JAMS/MIREX and display labels to LayerLab's compact form."""
+    text = (label or "").strip().replace("♯", "#").replace("♭", "b")
+    if not text or text.upper() in {"N", "N.C.", "NC", "X"}:
+        return "N.C."
+    if ":" in text:
+        root_text, quality_text = text.split(":", 1)
+    else:
+        root_text = next(
+            (pitch for pitch in sorted((*_PITCHES, *_FLAT_TO_SHARP), key=len, reverse=True) if text.startswith(pitch)),
+            "",
+        )
+        quality_text = text[len(root_text) :]
+    root = _FLAT_TO_SHARP.get(root_text, root_text)
+    if root not in _PITCH_TO_INDEX:
+        return "N.C."
+    quality, slash, bass = quality_text.partition("/")
+    quality = _QUALITY_ALIASES.get(quality.lower(), quality)
+    suffix = f"/{_FLAT_TO_SHARP.get(bass, bass)}" if slash and bass in (*_PITCHES, *_FLAT_TO_SHARP) else ""
+    return f"{root}{quality}{suffix}"
+
+
 def _split_chord_label(label: str | None) -> tuple[int | None, str]:
-    text = (label or "").strip()
-    if not text or text == "N.C.":
+    text = _canonical_chord_label(label)
+    if text == "N.C.":
         return None, ""
     for pitch in sorted(_PITCH_TO_INDEX, key=len, reverse=True):
         if text.startswith(pitch):
@@ -144,7 +186,7 @@ def _split_chord_label(label: str | None) -> tuple[int | None, str]:
 def _segment_from_metadata(item: dict) -> ChordSegment | None:
     if not isinstance(item, dict):
         return None
-    label = str(item.get("label") or "N.C.")
+    label = _canonical_chord_label(str(item.get("label") or "N.C."))
     root, suffix = _split_chord_label(label)
     intervals = _intervals_for_suffix(suffix) if root is not None else ()
     try:
@@ -170,6 +212,7 @@ def _optional_int(value: object) -> int | None:
 
 
 def _intervals_for_suffix(suffix: str) -> tuple[int, ...]:
+    suffix = suffix.split("/", 1)[0]
     if suffix == "m":
         return (0, 3, 7)
     if suffix == "7":
@@ -184,6 +227,24 @@ def _intervals_for_suffix(suffix: str) -> tuple[int, ...]:
         return (0, 5, 7)
     if suffix == "dim":
         return (0, 3, 6)
+    if suffix == "dim7":
+        return (0, 3, 6, 9)
+    if suffix == "hdim7":
+        return (0, 3, 6, 10)
+    if suffix == "aug":
+        return (0, 4, 8)
+    if suffix == "6":
+        return (0, 4, 7, 9)
+    if suffix == "m6":
+        return (0, 3, 7, 9)
+    if suffix == "9":
+        return (0, 4, 7, 10, 14)
+    if suffix == "maj9":
+        return (0, 4, 7, 11, 14)
+    if suffix == "m9":
+        return (0, 3, 7, 10, 14)
+    if suffix == "mMaj7":
+        return (0, 3, 7, 11)
     return (0, 4, 7)
 
 
@@ -478,7 +539,11 @@ def _select_chord_sequence(
 ) -> list[_ChordCandidate]:
     if not vectors:
         return []
-    key_context = key_context or _estimate_key_context(vectors)
+    inferred_key = _estimate_key_context(vectors)
+    if key_context is None or (
+        inferred_key is not None and inferred_key != key_context and len(vectors) >= 8
+    ):
+        key_context = inferred_key
     ranked = [_rank_chord_candidates(vector, key_context=key_context, limit=8) for vector in vectors]
     if len(ranked) == 1:
         return [ranked[0][0]]
@@ -562,43 +627,146 @@ def _load_chroma_source(
     weight: float,
     end_time: float,
     harmonic: bool,
+    bass_focus: bool = False,
+    job: Job | None = None,
 ) -> _ChromaSource | None:
-    loaded = _load_audio_ffmpeg(path, sr=22050, duration=min(180.0, end_time + 1.0))
-    if loaded is None:
-        return None
-
     import librosa
 
-    y, sr = loaded
-    if float(np.sqrt(np.mean(np.square(y)))) < 1e-6:
-        return None
+    chroma_chunks: list[np.ndarray] = []
+    time_chunks: list[np.ndarray] = []
     hop_length = 512
-    y_chroma = librosa.effects.harmonic(y) if harmonic else y
-    chroma = librosa.feature.chroma_cqt(y=y_chroma, sr=sr, hop_length=hop_length)
-    try:
-        cens = librosa.feature.chroma_cens(y=y_chroma, sr=sr, hop_length=hop_length)
-    except Exception as exc:
-        logger.debug("chroma_cens unavailable for %s: %s", path, exc)
-    else:
-        frame_count = min(chroma.shape[1], cens.shape[1])
-        if frame_count > 0:
-            cqt = _normalize_chroma_frames(chroma[:, :frame_count])
-            cens = _normalize_chroma_frames(cens[:, :frame_count])
-            # CQT is more detailed; CENS is more stable against timbre/noise.
-            chroma = (0.68 * cqt) + (0.32 * cens)
-    if chroma.shape[1] >= 3:
-        chroma = (np.roll(chroma, 1, axis=1) + (2.0 * chroma) + np.roll(chroma, -1, axis=1)) / 4.0
-        chroma[:, 0] = chroma[:, 1]
-        chroma[:, -1] = chroma[:, -2]
-    frame_times = librosa.frames_to_time(np.arange(chroma.shape[1]), sr=sr, hop_length=hop_length)
-    return _ChromaSource(name=name, weight=weight, chroma=chroma, frame_times=frame_times)
+    start = 0.0
+    total = max(0.0, end_time + 1.0)
+    while start < total:
+        if job is not None and job.cancel_requested:
+            raise JobCancelled()
+        length = min(_CHROMA_CHUNK_SEC, total - start)
+        loaded = _load_audio_ffmpeg(
+            path,
+            sr=22050,
+            duration=length,
+            start=start,
+            job=job,
+        )
+        if loaded is None:
+            start += length
+            continue
+
+        y, sr = loaded
+        if float(np.sqrt(np.mean(np.square(y)))) < 1e-6:
+            start += length
+            continue
+        y_chroma = librosa.effects.harmonic(y) if harmonic else y
+        n_octaves = 4 if bass_focus else 7
+        try:
+            tuning = float(librosa.estimate_tuning(y=y_chroma, sr=sr))
+        except Exception:
+            tuning = 0.0
+        bins_per_octave = 36
+        cqt_spectrum = np.abs(
+            librosa.cqt(
+                y_chroma,
+                sr=sr,
+                hop_length=hop_length,
+                n_bins=n_octaves * bins_per_octave,
+                bins_per_octave=bins_per_octave,
+                tuning=tuning,
+            )
+        )
+        chroma = librosa.feature.chroma_cqt(
+            C=cqt_spectrum,
+            sr=sr,
+            hop_length=hop_length,
+            n_octaves=n_octaves,
+            bins_per_octave=bins_per_octave,
+            tuning=tuning,
+        )
+        try:
+            cens = librosa.feature.chroma_cens(
+                C=cqt_spectrum,
+                sr=sr,
+                hop_length=hop_length,
+                n_octaves=n_octaves,
+                bins_per_octave=bins_per_octave,
+                tuning=tuning,
+            )
+        except Exception as exc:
+            logger.debug("chroma_cens unavailable for %s: %s", path, exc)
+        else:
+            frame_count = min(chroma.shape[1], cens.shape[1])
+            if frame_count > 0:
+                cqt = _normalize_chroma_frames(chroma[:, :frame_count])
+                cens = _normalize_chroma_frames(cens[:, :frame_count])
+                chroma = (0.68 * cqt) + (0.32 * cens)
+        if chroma.shape[1] >= 3:
+            chroma = (
+                np.roll(chroma, 1, axis=1) + (2.0 * chroma) + np.roll(chroma, -1, axis=1)
+            ) / 4.0
+            chroma[:, 0] = chroma[:, 1]
+            chroma[:, -1] = chroma[:, -2]
+        frame_times = (
+            librosa.frames_to_time(
+                np.arange(chroma.shape[1]),
+                sr=sr,
+                hop_length=hop_length,
+            )
+            + start
+        )
+        # CQT padding can emit a frame a few milliseconds past the decoded
+        # window. Trim it so concatenated chunk times remain sorted.
+        keep = frame_times < (start + length + 1e-6)
+        if np.any(keep):
+            chroma_chunks.append(np.asarray(chroma[:, keep], dtype=np.float32))
+            time_chunks.append(np.asarray(frame_times[keep], dtype=np.float64))
+        start += length
+
+    if not chroma_chunks:
+        return None
+    return _ChromaSource(
+        name=name,
+        weight=weight,
+        chroma=np.concatenate(chroma_chunks, axis=1),
+        frame_times=np.concatenate(time_chunks),
+    )
+
+
+def _load_chroma_sources(
+    specs: list[tuple[str, Path, float, bool, bool]],
+    *,
+    end_time: float,
+    job: Job | None,
+) -> list[_ChromaSource | None]:
+    """Load independent harmonic sources in parallel with bounded memory use."""
+
+    def load(spec: tuple[str, Path, float, bool, bool]) -> _ChromaSource | None:
+        name, path, weight, harmonic, bass_focus = spec
+        return _load_chroma_source(
+            path,
+            name=name,
+            weight=weight,
+            end_time=end_time,
+            harmonic=harmonic,
+            bass_focus=bass_focus,
+            job=job,
+        )
+
+    worker_count = max(1, min(2, BACKGROUND_CPU_THREADS, len(specs)))
+    if worker_count == 1:
+        return [load(spec) for spec in specs]
+    with ThreadPoolExecutor(
+        max_workers=worker_count,
+        thread_name_prefix="layerlab-chroma",
+    ) as executor:
+        futures = [executor.submit(load, spec) for spec in specs]
+        return [future.result() for future in futures]
 
 
 def _mean_normalized_chroma(source: _ChromaSource, start: float, end: float) -> np.ndarray | None:
-    mask = (source.frame_times >= start) & (source.frame_times < end)
-    if not np.any(mask):
+    left = int(np.searchsorted(source.frame_times, start, side="left"))
+    right = int(np.searchsorted(source.frame_times, end, side="left"))
+    if right <= left:
         return None
-    frames = np.asarray(source.chroma[:, mask], dtype=np.float32)
+    frames = np.asarray(source.chroma[:, left:right], dtype=np.float32)
     frame_sums = frames.sum(axis=0, keepdims=True)
     good = frame_sums[0] > 1e-8
     if not np.any(good):
@@ -631,6 +799,7 @@ def _combine_harmony_chroma(
             if confidence < 0.25:
                 continue
             weight *= 0.35 + (0.65 * confidence)
+        weight *= 0.25 + (0.75 * _source_chord_reliability(vector))
         combined += vector * weight
         total_weight += weight
 
@@ -638,6 +807,16 @@ def _combine_harmony_chroma(
         return None
     combined /= total_weight
     return combined
+
+
+def _source_chord_reliability(chroma: np.ndarray) -> float:
+    """Estimate whether a source contains a chord rather than one melody note."""
+    normalized = _normalize_chroma(chroma)
+    if normalized is None:
+        return 0.0
+    ordered = np.sort(normalized)
+    secondary_energy = float(ordered[-2] + ordered[-3])
+    return min(1.0, max(0.0, (secondary_energy - 0.08) / 0.55))
 
 
 def _bass_root_hint(
@@ -761,10 +940,15 @@ def _combine_beatwise_chroma(
         beat_end = beat_bounds[idx + 1]
         if beat_end <= beat_start:
             continue
-        beat_vector = _combine_harmony_chroma(chord_sources, beat_start, beat_end)
+        # Trim a small boundary region so drum attacks and previous-chord tails
+        # do not dominate short quarter-note windows.
+        margin = min(0.06, (beat_end - beat_start) * 0.10)
+        inner_start = beat_start + margin
+        inner_end = max(inner_start, beat_end - margin)
+        beat_vector = _combine_harmony_chroma(chord_sources, inner_start, inner_end)
         if beat_vector is None:
             continue
-        hint = _bass_root_hint(bass_source, beat_start, beat_end)
+        hint = _bass_root_hint(bass_source, inner_start, inner_end)
         beat_with_bass = _apply_bass_root_hint(beat_vector, hint, boost=_BASS_ROOT_BOOST * 1.15)
         _, _, _, confidence = _score_chord(beat_with_bass)
         duration_weight = max(0.05, beat_end - beat_start)
@@ -806,6 +990,7 @@ def detect_chord_segments(
     beats_per_chord: int = 1,
     stems_dir: Path | None = None,
     key_context: tuple[int, str] | None = None,
+    job: Job | None = None,
 ) -> list[ChordSegment]:
     """Estimate sustained chord labels between detected quarter-note beats.
 
@@ -820,19 +1005,27 @@ def detect_chord_segments(
     if end_time <= 0:
         return []
     chord_paths, bass_path = _available_chord_source_paths(source, stems_dir)
-    chord_sources = [
-        loaded
+    load_specs = [
+        (
+            name,
+            path,
+            weight,
+            # Dedicated piano/guitar stems are already strongly harmonic.
+            # Avoiding another HPSS pass is faster and preserves attacks.
+            name in {"original", "other"},
+            False,
+        )
         for name, path, weight in chord_paths
-        if (loaded := _load_chroma_source(path, name=name, weight=weight, end_time=end_time, harmonic=True))
-        is not None
+    ]
+    if bass_path is not None:
+        load_specs.append(("bass", bass_path, 1.0, False, True))
+    loaded_sources = _load_chroma_sources(load_specs, end_time=end_time, job=job)
+    chord_sources = [
+        loaded for loaded in loaded_sources[: len(chord_paths)] if loaded is not None
     ]
     if not chord_sources:
         return []
-    bass_source = (
-        _load_chroma_source(bass_path, name="bass", weight=1.0, end_time=end_time, harmonic=False)
-        if bass_path is not None
-        else None
-    )
+    bass_source = loaded_sources[-1] if bass_path is not None else None
 
     beat_bounds = [float(t) for t in beat_times if 0 <= float(t) <= end_time]
     if len(beat_bounds) < 2:
@@ -848,6 +1041,8 @@ def detect_chord_segments(
 
     spans: list[tuple[float, int, float, int, np.ndarray]] = []
     for (start, start_beat), (end, end_beat) in zip(bounds, bounds[1:], strict=False):
+        if job is not None and job.cancel_requested:
+            raise JobCancelled()
         if end <= start:
             continue
         vector = _combine_beatwise_chroma(
@@ -881,6 +1076,46 @@ def detect_chord_segments(
     return _smooth_short_segments(_merge_segments(segments))
 
 
+def _clean_beat_times(beat_times: list[float] | None) -> list[float]:
+    cleaned: list[float] = []
+    for raw in beat_times or []:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(value) or value < 0 or (cleaned and value - cleaned[-1] < 0.08):
+            continue
+        cleaned.append(value)
+    return cleaned
+
+
+def _beat_offset_ticks(beat_times: list[float] | None, tempo_bpm: int) -> int:
+    beats = _clean_beat_times(beat_times)
+    if not beats:
+        return 0
+    return max(0, round(beats[0] * tempo_bpm / 60.0 * _TPB))
+
+
+def _tempo_map_events(
+    beat_times: list[float] | None,
+    tempo_bpm: int,
+) -> list[tuple[int, int]]:
+    """Build quarter-note tempo events anchored to detected audio beats."""
+    base_tempo_us = int(round(60_000_000 / tempo_bpm))
+    events: dict[int, int] = {0: base_tempo_us}
+    beats = _clean_beat_times(beat_times)
+    if len(beats) < 2:
+        return sorted(events.items())
+
+    intervals = np.diff(np.asarray(beats, dtype=np.float64))
+    offset = _beat_offset_ticks(beats, tempo_bpm)
+    for idx, raw_interval in enumerate(intervals):
+        interval = float(raw_interval)
+        tempo_us = max(1, min(0xFFFFFF, int(round(interval * 1_000_000))))
+        events[offset + (idx * _TPB)] = tempo_us
+    return sorted(events.items())
+
+
 def _note_numbers(root: int, intervals: tuple[int, ...]) -> list[int]:
     base = 48 + root  # C3 octave, safe for chord-pad playback.
     notes = [base + interval for interval in intervals]
@@ -896,14 +1131,22 @@ def write_chord_midi(
     bpm: int | None,
     title: str | None = None,
     markers: bool = False,
+    beat_times: list[float] | None = None,
 ) -> None:
     tempo_bpm = max(30, min(240, int(bpm or 120)))
-    tempo_us = int(round(60_000_000 / tempo_bpm))
+    beat_offset_ticks = _beat_offset_ticks(beat_times, tempo_bpm)
     conductor_events = bytearray()
     conductor_events += _meta(0, 0x03, _midi_text("LayerLab Tempo", "LayerLab Tempo", 64))
-    conductor_events += _meta(0, 0x51, tempo_us.to_bytes(3, "big"))
     conductor_events += _meta(0, 0x58, bytes((4, 2, 24, 8)))  # 4/4, 24 MIDI clocks/click.
     conductor_events += _meta(0, 0x01, _midi_text(f"BPM {tempo_bpm}", f"BPM {tempo_bpm}", 32))
+    tempo_cursor = 0
+    for tick, event_tempo_us in _tempo_map_events(beat_times, tempo_bpm):
+        conductor_events += _meta(
+            max(0, tick - tempo_cursor),
+            0x51,
+            event_tempo_us.to_bytes(3, "big"),
+        )
+        tempo_cursor = tick
     conductor_events += _meta(0, 0x2F, b"")
 
     events = bytearray()
@@ -913,8 +1156,8 @@ def write_chord_midi(
     cursor_ticks = 0
     for seg in segments:
         if seg.start_beat is not None and seg.end_beat is not None:
-            start_tick = max(0, int(seg.start_beat) * _TPB)
-            end_tick = max(start_tick + 1, int(seg.end_beat) * _TPB)
+            start_tick = max(0, beat_offset_ticks + (int(seg.start_beat) * _TPB))
+            end_tick = max(start_tick + 1, beat_offset_ticks + (int(seg.end_beat) * _TPB))
         else:
             start_tick = int(round(seg.start * tempo_bpm / 60.0 * _TPB))
             end_tick = max(start_tick + 1, int(round(seg.end * tempo_bpm / 60.0 * _TPB)))
@@ -972,12 +1215,19 @@ def generate_chord_midi(
             duration_sec=job.duration_sec,
             stems_dir=stems_dir or (job_dir / "stems"),
             key_context=_parse_key_context(job.key),
+            job=job,
         )
         if not segments:
             return None
         out = job_dir / "stems" / "chords.mid"
         out.parent.mkdir(exist_ok=True)
-        write_chord_midi(out, segments, bpm=job.bpm, title=job.title)
+        write_chord_midi(
+            out,
+            segments,
+            bpm=job.bpm,
+            title=job.title,
+            beat_times=job.beat_times,
+        )
         job.chord_progression = [
             {
                 "label": seg.label,
@@ -990,8 +1240,21 @@ def generate_chord_midi(
             for seg in segments
         ]
         job.chord_midi_url = f"/api/jobs/{job.id}/chords.mid"
+        midi_analysis = analyze_chord_midi(
+            out,
+            segments,
+            source_key=job.key,
+            bpm=job.bpm,
+        )
+        if midi_analysis is not None:
+            analysis_path = job_dir / "stems" / "midi-analysis.json"
+            write_midi_analysis(analysis_path, midi_analysis)
+            job.midi_analysis = midi_analysis
+            job.midi_analysis_url = f"/api/jobs/{job.id}/midi-analysis.json"
         logger.info("chord MIDI generated for job %s (%s segments)", job.id, len(segments))
         return out
+    except JobCancelled:
+        raise
     except Exception:
         logger.warning("chord MIDI generation skipped for job %s", job.id, exc_info=True)
         return None

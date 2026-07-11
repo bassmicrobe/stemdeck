@@ -9,7 +9,7 @@ LayerLab は、音源をローカル環境で stem 分離するためのデス�
 - 元プロジェクト: [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck)
 - ライセンス: Apache License 2.0
 - 本リポジトリ内のライセンス表記: [LICENSE](LICENSE), [NOTICE](NOTICE)
-- 配布物に含める表記: `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`
+- 配布物に含める表記: `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`, `THIRD_PARTY_LICENSES.txt`, `THIRD_PARTY_INVENTORY.json`
 
 Apache License 2.0 では、再配布時にライセンス本文を渡すこと、変更したファイルに変更があることを示すこと、NOTICE がある場合はその表示を保持することが求められます。本 fork では `NOTICE` に元プロジェクトへの帰属と変更概要を記載しています。
 
@@ -21,14 +21,18 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 
 ただし、以下は守ってください。
 
-- `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を配布物に含める。
+- `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、`THIRD_PARTY_INVENTORY.json` を配布物に含める。
 - 元の StemDeck と本 fork の帰属表示、変更版であること、非公式であることを隠さない。
 - 元プロジェクトの公式版、公式販売、公式認定、公式サポートのように見せない。
 - `StemDeck` / `STEMDECK` などの名称・ロゴ・商標的表示は、出所説明に必要な範囲を超えて使わない。独自サービス名や独自ブランドで配布する場合も、説明文では「StemDeckをベースにした非公式変更版」と明記する。
 - 同梱する FFmpeg、PyTorch、Demucs、yt-dlp、Python runtime、Tauri/Rust crate など第三者依存のライセンスを、実際の配布物に合わせて確認する。
 - 音源処理サービスとして提供する場合は、処理対象音源の著作権、配信サイトの利用規約、ユーザーアップロード物の扱いを別途確認する。
 
-つまり「勝手に商用利用してはいけない」というより、**Apache-2.0 の条件、NOTICE/帰属表示、商標・公式誤認の回避、第三者依存のライセンス確認を満たせば商用利用は可能**という整理です。本READMEは法的助言ではないため、公開販売や法人サービス化の前には実際の配布物を前提に専門家へ確認することを推奨します。
+ただし、これは Apache-2.0 がカバーするソースコードについての説明です。別途取得するモデル重み、FFmpegバイナリ、フォント、画像、商標、ユーザーが処理する音源まで自動的に商用利用可能になるわけではありません。
+
+特に Demucs は、本体コードが MIT である一方、公式リポジトリの開発者回答では、公開済み学習済み重みは MIT の対象外で、学習データの制約から個人・研究用途の成果物と説明されています。LayerLab は重みをインストーラーへ同梱せず初回分離時に取得しますが、この構成によって商用利用権が追加されるわけではありません。商用販売・法人サービス・有償Webサービスで使う場合は、重みの権利許諾を得る、商用利用条件が明確な別モデルへ置き換える、または標準重みの自動利用を無効化してください。
+
+したがって、**LayerLab/StemDeck由来コード自体は条件を守れば商用利用可能ですが、現在の標準Demucs重みを含む処理系全体を無条件に商用利用可能とは案内できません**。本READMEは法的助言ではないため、公開販売や法人サービス化の前には実際の配布物・取得モデル・更新方式を前提に専門家へ確認することを推奨します。
 
 ## この fork で加えた主な変更
 
@@ -38,17 +42,23 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 - 画面内の `Logs` から、ジョブ単位または現在セッション全体の処理段階、進捗、警告、失敗理由を確認できる診断ビューを追加。
 - 複数曲キュー中も、完了済みの選択曲を前面に残して試聴やダウンロードを続けられるバックグラウンド抽出に対応。
 - 同じ曲を `Quality` / `Device` / `Clean` / 選択stem の組み合わせごとに別プロファイルとして複数回抽出できるように対応。画面表示、ダウンロードファイル名、stem ZIP内の `LAYERLAB_PROFILE.txt` で設定を確認可能。
-- クライアントマシンのCPU/GPU/メモリ状況に応じて、重い解析・stem分離パイプラインの同時実行数を自動判定。
+- クライアントマシンのCPU/GPU/メモリ状況に応じてDemucs同時実行数を自動判定。GPU分離だけを共有ロックし、別ジョブの取得・解析・後処理は並行できるよう改善。
 - ジョブごとに `Auto` / `CPU` / `Apple GPU(MPS)` / `NVIDIA CUDA` の処理デバイスを選択可能。
 - `ffprobe` がない環境でも `ffmpeg` fallback で duration を読めるよう改善。
-- `imageio-ffmpeg` を使った portable FFmpeg fallback を追加。
+- ローカル開発時は `imageio-ffmpeg` をFFmpeg探索fallbackとして利用。公開デスクトップruntimeではwheel内のGPL版実行ファイルを除外。
 - BPM、Tempo Stability、拍グリッド検出を追加。波形上に検出拍を表示し、曲ごとのメタデータとして保存。
-- piano/guitar stem を優先したchroma解析、bass root別解析、4分音符グリッド上の拍ごとの再推定からコード進行を推定生成し、弱い1拍誤検出を抑制したうえでExportメニューから `*_chords.mid` / `*_chords.csv` として書き出せるように追加。書き出し時に `Auto` / `Triads only` / `Allow 7ths`、`1/4 beat grid` / `1 bar blocks`、MIDI marker有無を選択可能。
-- 高精度プリセット `High` / `Max` / `Ultra` を追加し、`htdemucs_ft`、shift average、overlap、float32 出力を利用。
-- 音圧が高い音源向けに前処理、ゲイン復元、float32 維持、クリップ抑制を強化。
+- 全品質で MIT ライセンスの `Beat This! final0` を使って拍とダウンビートをニューラル検出。モデル未取得、オフライン、推論失敗時は既存の librosa 解析へ自動フォールバック。
+- piano/guitar stem優先chroma、bass root別解析、音源ごとのチューニング補正、単音リフの信頼度抑制、4分音符ごとの再推定からコード進行を生成。孤立した欠落拍を補間し、MIDIには音源先頭オフセットと拍ごとのテンポマップを埋め込むため、可変テンポ曲でもDAWの拍位置を維持。
+- コード解析は同一CQTをCQT/CENS特徴で共有し、独立したstem特徴を最大2本まで並列計算。音響結果を変えず長尺曲のMIDI生成時間を短縮。
+- BSD-3-Clause ライセンスの `music21` で生成MIDIを検証し、推定キー、音域、長さ、ローマ数字コード進行を `midi-analysis.json` に保存。
+- 高精度プリセット `High` / `Max` / `Ultra` を追加し、`htdemucs_ft`、shift average、明示的なoverlap、float32 出力を利用。Standardは`overlap=0.20`、Highは`0.20`、Max/Ultraは`0.25`。
+- Demucs自身の平均/標準偏差正規化を利用し、音圧の高い音源でも不要な正規化WAVを作らず、float32維持と出力クリップ抑制を強化。
 - ベース欠け補正、stem 合計と原音の位相/残差補正を追加。
 - 分離後の各 stem に任意のノイズ除去 `Noise off` / `Light denoise` / `Strong denoise` を追加。
-- 評価用ベンチマーク `scripts/benchmark_audio.py` を追加し、stem合計と原音の残差、クリップリスク、コードMIDIメタデータをJSONで比較できるように追加。`--jobs-root` と `--baseline` で複数ジョブの回帰比較にも対応。
+- 評価用ベンチマーク `scripts/benchmark_audio.py` を追加し、stem合計残差、クリップリスク、コードMIDIメタデータをJSONで比較可能。正解`.lab`を渡すとMITの`mir_eval`でroot/maj-min/triad/tetrad WCSRも測定。
+- YouTube入力はメタデータ取得を1回に集約し、長さ超過をダウンロード前に拒否。ローカル/YouTubeともDemucsが直接読める入力は再変換せず、互換性変換が必要な場合も解析と分離で1つのWAVを共有。
+- ジョブごとに複数のffmpeg子プロセスを追跡し、並列解析中のキャンセルでも全プロセスを停止。
+- ミックス書き出しはmake-up gainなしのlook-ahead limiterでピークだけを抑制。WAVは一時ファイルでヘッダーを確定してから返し、プレイヤー上で異常に長い再生時間になる問題を防止。
 - 実 ffmpeg による WAV 合成/置き換えテストとパイプラインテストを追加。
 - Tauri/Rust 側に runtime setup、FFmpeg取得、GPU検出、backend起動、保守/掃除、軽量WAV解析を実装。
 - macOS/Windows 配布向けに署名、Notarize、容量、ライセンス表記の確認導線を追加。
@@ -68,7 +78,7 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 
 ### 品質評価ベンチマーク
 
-品質プリセット、ノイズ除去、phase/bass repair の比較にはベンチマークスクリプトを使えます。stem WAVを合計し、原音との差分、相関、クリップリスク、コード進行メタデータをJSONで出力します。
+品質プリセット、ノイズ除去、phase/bass repair の比較にはベンチマークスクリプトを使えます。左右チャンネルを保持してstem WAVを合計し、原音との差分、相関、実サンプルのクリップリスク、コード進行メタデータをJSONで出力します。
 
 ```sh
 uv run python scripts/benchmark_audio.py \
@@ -82,6 +92,14 @@ uv run python scripts/benchmark_audio.py \
 
 ```sh
 uv run python scripts/benchmark_audio.py --job-dir jobs/<job-id>
+```
+
+正解コードを `開始秒 終了秒 C:maj` 形式の `.lab` で用意できる場合は、コード認識をWCSRで評価できます。
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-chords /path/to/reference.lab
 ```
 
 完了済みジョブでは容量節約のため原音が削除されている場合があります。その場合、stem合計誤差まで測るには `--source` で元音源を指定してください。
@@ -147,14 +165,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
 
 ## 初回セットアップ導線
 
-デスクトップ版は薄い Tauri アプリとして起動し、初回セットアップでローカル処理に必要な runtime を用意します。LayerLab は upstream 版と衝突しにくいよう、既定のアプリデータと書き出し先を `LayerLab` 系のフォルダに分離します。
+デスクトップ版は Tauri アプリとして起動し、初回セットアップでローカル処理に必要な runtime を用意します。macOS の自己完結DMGには Python runtime archive を同梱し、GitHub Releaseから取得せずローカルへ検証・展開します。LayerLab は upstream 版と衝突しにくいよう、既定のアプリデータと書き出し先を `LayerLab` 系のフォルダに分離します。
 
-- Python runtime を確認またはダウンロード。
+- 同梱Python runtimeをSHA-256検証して展開。軽量オンラインビルドではダウンロードへフォールバック。
 - workspace と data folder を作成。
 - FFmpeg / ffprobe を確認またはダウンロード。
 - Apple Silicon MPS または NVIDIA CUDA を検出し、必要ならGPU向け設定を行う。
 - 同時実行数は既定で自動判定される。MPS/CUDA ではメモリ安全性を優先して通常1本、CPUのみで十分なコアとメモリがある環境では2本まで並列実行する。必要なら `STEMDECK_PIPELINE_CONCURRENCY=1` から `4` で上書き可能。
-- 複数のローカルLayerLabバックエンドが同時に起動しても、`STEMDECK_PIPELINE_LOCK` を基準に自動判定した同時実行数ぶんの共有スロットを使い、マシン全体で過剰な Demucs 同時実行を防ぐ。
+- 複数のローカルLayerLabバックエンドが同時に起動しても、`STEMDECK_PIPELINE_LOCK` を基準に共有スロットを使い、マシン全体で過剰なDemucs同時実行だけを防ぐ。取得・解析・後処理・完了曲の試聴はブロックしない。
 - Demucs model は初回分離時にキャッシュされる。
 - セットアップ画面に runtime download サイズ、jobs/cache 使用量、data folder、ライセンス表記の案内を表示する。
 
@@ -200,7 +218,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
 
 公開時は `unofficial fork test build` として GitHub Pre-release にする方針です。Release本文の冒頭で、元プロジェクトの公式版ではないこと、元プロジェクトと提携・承認関係がないこと、Apache License 2.0 に基づく fork であることを明記してください。
 
-更新時も `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を配布物に含めてください。第三者ライブラリや FFmpeg build のライセンスは、最終的に配布する実バイナリに合わせて確認してください。
+更新時も `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、`THIRD_PARTY_INVENTORY.json` を配布物に含めてください。リリースビルドは実際のPython runtimeと対象OSのRust依存グラフからこれらを再生成し、ライセンス宣言または本文が欠ける依存がある場合は失敗します。
+
+音楽解析OSSの採用・見送り理由とライセンス確認結果は
+[OSS_COMPONENTS.md](OSS_COMPONENTS.md) にまとめています。
+
+現在のmacOS arm64実ランタイムから生成した監査結果:
+
+- [第三者コンポーネント一覧](packaging/generated/macos-arm64/THIRD_PARTY_NOTICES.md)
+- [機械可読インベントリ](packaging/generated/macos-arm64/THIRD_PARTY_INVENTORY.json)
+- [ライセンス/NOTICE全文](packaging/generated/macos-arm64/THIRD_PARTY_LICENSES.txt)
 
 ## 容量の目安
 
@@ -215,17 +242,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
 
 ## ライセンス上の注意
 
-本READMEは法的助言ではありません。配布前には、実際に同梱する Python runtime、PyTorch、Demucs、FFmpeg build、Tauri/Rust crate、その他依存関係のライセンスを確認してください。
+本READMEは法的助言ではありません。配布前には、実際に同梱する Python runtime、PyTorch、Demucsコード、初回取得するDemucs重み、FFmpeg build、Tauri/Rust crate、フォント、画像、その他依存関係のライセンス・利用条件を確認してください。
 
 本 fork で守るべき最低限の方針:
 
 - 元プロジェクトの `LICENSE` と `NOTICE` を削除しない。
 - 変更点を `NOTICE`、README、Git履歴で追えるようにする。
-- 配布物のルートまたはアプリリソースに `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` を含める。
+- 配布物のルートまたはアプリリソースに `LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt`、`THIRD_PARTY_LICENSES.txt`、`THIRD_PARTY_INVENTORY.json` を含める。
 - 公開配布時は、元プロジェクトの公式版ではなく `LayerLab` という変更版 fork test build であることを明示する。
 - 元プロジェクトとの提携、承認、推奨を示唆しない。
-- FFmpeg は build により LGPL/GPL 条件が変わるため、使用する配布元とライセンスを明記する。
-- `THIRD_PARTY_NOTICES.txt` は最終成果物の依存関係に合わせて更新する。
+- packaged runtimeからは `imageio-ffmpeg` wheel内のGPL版FFmpeg実行ファイルを除外する。デスクトップ版が初回取得するmacOS既定buildは evermeet.cx の `8.1.1-tessus` GPL-3.0-or-later buildとして明記する。
+- FFmpeg実行ファイルをミラーまたは同梱する場合は、その正確なbuildに対応するソース、ビルド構成、外部ライブラリの条件を満たす。
+- DemucsコードのMITと、個人・研究用途と説明されている学習済み重みを混同しない。
+- `THIRD_PARTY_NOTICES.txt`、全文、JSONインベントリは最終成果物の依存関係から自動生成する。
 
 ## 確認コマンド
 

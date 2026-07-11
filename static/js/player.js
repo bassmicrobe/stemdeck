@@ -622,6 +622,7 @@ export function destroyPlayer() {
   _currentProfileLabel = "";
   _currentProfileSlug = "";
   _chordMidiUrl = null;
+  _midiAnalysisUrl = null;
   updateStemProfileBadge("");
   bpmChip.textContent = "\u2014 BPM";
   keyChip.textContent = "\u2014 \u2014";
@@ -712,6 +713,7 @@ const _LOADING_MIN_MS = 900;
 let _currentStems = [];
 let _mixUrl = null;
 let _chordMidiUrl = null;
+let _midiAnalysisUrl = null;
 let _currentTitle = "";
 let _currentProfileLabel = "";
 let _currentProfileSlug = "";
@@ -816,6 +818,7 @@ export function wireUpAudio(
   profileKey = "",
   beatTimes = [],
   chordMidiUrl = null,
+  midiAnalysisUrl = null,
 ) {
   const app = document.querySelector(".app");
   app?.classList.remove("is-import");
@@ -866,6 +869,7 @@ export function wireUpAudio(
   _currentStems = stems;
   _mixUrl = mixUrl || null;
   _chordMidiUrl = chordMidiUrl || null;
+  _midiAnalysisUrl = midiAnalysisUrl || null;
   _currentTitle = title || "";
   _currentProfileLabel = profileLabel || "";
   _currentProfileSlug = _profileSlug(profileLabel, profileKey);
@@ -1317,7 +1321,6 @@ export function updateFooterTrack({ title, thumbnail, key, bpm, stemCount, profi
   if (footerTitle && title !== undefined) footerTitle.textContent = title;
   if (footerMeta) {
     const parts = [];
-    if (profileLabel) parts.push(profileLabel);
     if (key) parts.push(key);
     if (bpm) parts.push(`${Math.round(bpm)} BPM`);
     if (stemCount != null) parts.push(`${stemCount} Stems`);
@@ -1426,8 +1429,14 @@ function _chordExportSuffix({ style = "auto", grid = "beat", markers = false } =
 }
 
 export function downloadChordMidi(options = {}) {
-  if (!currentJobId || !_chordMidiUrl) return false;
-  const format = options.format === "csv" ? "csv" : "midi";
+  if (!currentJobId) return false;
+  const format = ["csv", "json"].includes(options.format) ? options.format : "midi";
+  if (format === "json") {
+    if (!_midiAnalysisUrl) return false;
+    _triggerDownload(_midiAnalysisUrl, `${_exportBase()}_midi-analysis.json`);
+    return true;
+  }
+  if (!_chordMidiUrl) return false;
   const style = options.style || "auto";
   const grid = options.grid || "beat";
   const markers = Boolean(options.markers) && format === "midi";

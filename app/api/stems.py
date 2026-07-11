@@ -19,6 +19,7 @@ from app.core.config import (
     STEM_NAMES,
     TIMEOUT_FFMPEG,
     ffmpeg_executable,
+    output_limiter_filter,
     wav_codec_for_quality_preset,
 )
 from app.core.registry import get as registry_get
@@ -96,6 +97,36 @@ async def _stream_ffmpeg(cmd: list[str]):
         await proc.wait()
 
 
+async def _render_ffmpeg_temp(cmd: list[str], *, suffix: str) -> Path:
+    """Render a seekable file so WAV headers contain a real frame count."""
+    fd, tmp = tempfile.mkstemp(prefix="layerlab_export_", suffix=suffix)
+    os.close(fd)
+    tmp_path = Path(tmp)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            cmd[0],
+            "-y",
+            *cmd[1:],
+            str(tmp_path),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=TIMEOUT_FFMPEG)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise HTTPException(status_code=504, detail="audio export timed out") from None
+        if proc.returncode != 0 or tmp_path.stat().st_size <= 44:
+            detail = (stderr or b"").decode("utf-8", errors="replace").strip()
+            logger.error("ffmpeg export failed: %s", detail or f"exit {proc.returncode}")
+            raise HTTPException(status_code=500, detail="audio export failed")
+        return tmp_path
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 @router.get("/jobs/{job_id}/stems/peaks.json")
 async def get_stem_peaks(job_id: str) -> Response:
     """Return pre-computed waveform peaks for all stems."""
@@ -162,7 +193,14 @@ async def get_chord_midi(
     fd, tmp = tempfile.mkstemp(prefix="layerlab_chords_", suffix=".mid")
     os.close(fd)
     tmp_path = Path(tmp)
-    write_chord_midi(tmp_path, segments, bpm=job.bpm, title=job.title, markers=markers)
+    write_chord_midi(
+        tmp_path,
+        segments,
+        bpm=job.bpm,
+        title=job.title,
+        markers=markers,
+        beat_times=job.beat_times,
+    )
     suffix = _chord_variant_suffix(normalized_style, normalized_grid, markers)
     return FileResponse(
         tmp_path,
@@ -193,6 +231,24 @@ async def get_chord_csv(
         chord_segments_to_csv(segments),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/jobs/{job_id}/midi-analysis.json")
+async def get_midi_analysis(job_id: str) -> FileResponse:
+    """Download music21 validation and harmonic analysis for the chord MIDI."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if job is None or job.status != "done":
+        raise HTTPException(status_code=404, detail="job not ready")
+    path = (JOBS_DIR / job_id / "stems" / "midi-analysis.json").resolve()
+    if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
+        raise HTTPException(status_code=404, detail="MIDI analysis not found")
+    return FileResponse(
+        path,
+        media_type="application/json; charset=utf-8",
+        filename=f"{_download_base(job)}_midi-analysis.json",
     )
 
 
@@ -233,12 +289,13 @@ async def get_stem(
         wav_codec_for_quality_preset(job.quality_preset),
         "-f",
         "wav",
-        "pipe:1",
     ]
-    return StreamingResponse(
-        _stream_ffmpeg(cmd),
+    rendered = await _render_ffmpeg_temp(cmd, suffix=".wav")
+    return FileResponse(
+        rendered,
         media_type="audio/wav",
-        headers={"Content-Disposition": f'attachment; filename="{_stem_download_filename(job, name, "wav", region=True)}"'},
+        filename=_stem_download_filename(job, name, "wav", region=True),
+        background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
     )
 
 
@@ -294,9 +351,9 @@ async def get_mixdown(
     gains: str = Query(..., description="Comma-separated linear gains, parallel to stems"),
     start: float | None = Query(default=None, ge=0, description="Trim start in seconds"),
     end: float | None = Query(default=None, gt=0, description="Trim end in seconds"),
-) -> StreamingResponse:
-    """Render a fresh mixdown of the given lanes at the given gains, streamed as
-    WAV or MP3. Mirrors the studio mixer (per-stem volume, mute, solo) so the
+) -> FileResponse | StreamingResponse:
+    """Render a fresh mixdown of the given lanes at the given gains. Mirrors
+    the studio mixer (per-stem volume, mute, solo) so the
     exported file matches what is heard. The master fader is intentionally not
     applied -- it is a monitoring level, not part of the mix. Optional ?start=&end=
     trims to a loop region."""
@@ -336,24 +393,36 @@ async def get_mixdown(
     cmd: list[str] = [ffmpeg_executable(), "-nostdin", "-loglevel", "error"]
     for p in paths:
         cmd += [*pre_seek, "-i", str(p)]
-    # Apply each lane's gain, then sum with amix (normalize=0 keeps levels faithful,
-    # matching collect.py). A single audible lane skips amix (a 1-input amix is a no-op).
+    # Apply each lane's gain, sum without normalization, then catch only peaks
+    # above the output ceiling. level=0 prevents automatic make-up gain.
     filters = [f"[{i}:a]volume={g:.6f}[a{i}]" for i, g in enumerate(parsed_gains)]
     n = len(paths)
     if n > 1:
         labels = "".join(f"[a{i}]" for i in range(n))
-        filters.append(f"{labels}amix=inputs={n}:normalize=0[mix]")
-        out_label = "[mix]"
+        filters.append(
+            f"{labels}amix=inputs={n}:normalize=0,{output_limiter_filter()}[mix]"
+        )
     else:
-        out_label = "[a0]"
+        filters.append(f"[a0]{output_limiter_filter()}[mix]")
+    out_label = "[mix]"
     codec = _mixdown_codec_args(ext, job.quality_preset)
-    cmd += ["-filter_complex", ";".join(filters), "-map", out_label, *post_seek, *codec, "pipe:1"]
+    cmd += ["-filter_complex", ";".join(filters), "-map", out_label, *post_seek, *codec]
 
     media_type = MIXDOWN_MEDIA_TYPES[ext]
+    filename = _mixdown_filename(job, ext, region=start is not None)
+    if ext == "wav":
+        rendered = await _render_ffmpeg_temp(cmd, suffix=".wav")
+        return FileResponse(
+            rendered,
+            media_type=media_type,
+            filename=filename,
+            background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
+        )
+    cmd.append("pipe:1")
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{_mixdown_filename(job, ext, region=start is not None)}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

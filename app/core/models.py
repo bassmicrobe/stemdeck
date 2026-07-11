@@ -90,8 +90,12 @@ class Job:
     dynamic_range: float | None = None  # peak_db - integrated LUFS (dB)
     tempo_stability: int | None = None  # 0-100, beat interval consistency
     beat_times: list[float] | None = None  # detected beat timestamps, seconds
+    downbeat_times: list[float] | None = None  # detected bar/downbeat timestamps, seconds
+    beat_tracker: str | None = None  # librosa or beat_this:<model>
     chord_progression: list[dict] | None = None  # estimated chord guide segments
     chord_midi_url: str | None = None
+    midi_analysis: dict[str, Any] | None = None
+    midi_analysis_url: str | None = None
     stem_presence: dict[str, int] | None = None  # per-stem RMS 0-100
     sections: list[dict] | None = None  # [{id, name, start, end, color}]
     tags: list[str] | None = None  # YouTube tags + categories, lowercased, max 8
@@ -233,8 +237,11 @@ class Job:
             "dynamic_range": self.dynamic_range,
             "tempo_stability": self.tempo_stability,
             "beat_times": self.beat_times,
+            "downbeat_times": self.downbeat_times,
+            "beat_tracker": self.beat_tracker,
             "chord_progression": self.chord_progression,
             "chord_midi_url": self.chord_midi_url,
+            "midi_analysis_url": self.midi_analysis_url,
             "stem_presence": self.stem_presence,
             "sections": self.sections,
             "tags": self.tags,

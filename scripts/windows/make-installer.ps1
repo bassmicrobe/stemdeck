@@ -120,7 +120,14 @@ if (-not $SkipPortableBuild) {
 
 $PortableRoot = (Resolve-Path $PortableRoot).Path
 $exePath = Join-Path $PortableRoot "LayerLab.exe"
-foreach ($required in @($exePath, (Join-Path $PortableRoot "LICENSE"), (Join-Path $PortableRoot "NOTICE"), (Join-Path $PortableRoot "THIRD_PARTY_NOTICES.txt"))) {
+foreach ($required in @(
+  $exePath,
+  (Join-Path $PortableRoot "LICENSE"),
+  (Join-Path $PortableRoot "NOTICE"),
+  (Join-Path $PortableRoot "THIRD_PARTY_NOTICES.txt"),
+  (Join-Path $PortableRoot "THIRD_PARTY_LICENSES.txt"),
+  (Join-Path $PortableRoot "THIRD_PARTY_INVENTORY.json")
+)) {
   if (-not (Test-Path $required)) {
     throw "Required portable artifact is missing: $required"
   }

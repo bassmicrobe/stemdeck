@@ -1,0 +1,4770 @@
+{
+  "schemaVersion": 1,
+  "componentCount": 403,
+  "components": [
+    {
+      "ecosystem": "external-download",
+      "name": "FFmpeg / ffprobe macOS builds by evermeet.cx",
+      "version": "8.1.1-tessus",
+      "license": "GPL-3.0-or-later build; includes separately licensed external libraries",
+      "delivery": "downloaded directly from evermeet.cx during first-run; not bundled",
+      "url": "https://evermeet.cx/ffmpeg/info/ffmpeg/8.1.1",
+      "licenseSections": [
+        "44f9ec83ab281e03560b0befc4c945fa52518949d809bd2fb6d3b8932bd31372",
+        "fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0"
+      ]
+    },
+    {
+      "ecosystem": "external-download",
+      "name": "FFmpeg Windows build by gyan.dev",
+      "license": "GPL build; exact version is recorded at installation time",
+      "delivery": "downloaded directly from gyan.dev during first-run; not bundled",
+      "url": "https://www.gyan.dev/ffmpeg/builds/",
+      "version": "",
+      "licenseSections": [
+        "44f9ec83ab281e03560b0befc4c945fa52518949d809bd2fb6d3b8932bd31372",
+        "fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0"
+      ]
+    },
+    {
+      "ecosystem": "font",
+      "name": "JetBrains Mono",
+      "license": "OFL-1.1",
+      "delivery": "downloaded at runtime from Google Fonts; not bundled",
+      "url": "https://github.com/JetBrains/JetBrainsMono",
+      "version": "",
+      "licenseSections": [
+        "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+      ]
+    },
+    {
+      "ecosystem": "font",
+      "name": "Space Grotesk",
+      "license": "OFL-1.1",
+      "delivery": "downloaded at runtime from Google Fonts; not bundled",
+      "url": "https://github.com/floriankarsten/space-grotesk",
+      "version": "",
+      "licenseSections": [
+        "8eea8287e5876b539670cadb82e99f9a7afddec6f6730811be1daf25d2e9bcfd"
+      ]
+    },
+    {
+      "ecosystem": "javascript",
+      "name": "wavesurfer-multitrack",
+      "version": "0.4.12",
+      "license": "BSD-3-Clause",
+      "delivery": "bundled",
+      "url": "https://www.npmjs.com/package/wavesurfer-multitrack/v/0.4.12",
+      "licenseSections": [
+        "0fc992dc27cc34dde78bfeb024b4cadff6320f0dcbee2f1228efaeb533ca1364"
+      ]
+    },
+    {
+      "ecosystem": "model",
+      "name": "Beat This! published model weights",
+      "version": "small0 / final0",
+      "license": "MIT; upstream warns that training-data rights may affect some use cases",
+      "delivery": "downloaded on first high-quality analysis; not bundled",
+      "url": "https://github.com/CPJKU/beat_this#license",
+      "licenseSections": [
+        "41bd95cc974773316cef426dec818fc83554b627e7814a6b3447b08cb3682c44",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "model",
+      "name": "Demucs pretrained model weights",
+      "version": "htdemucs_6s / htdemucs_ft",
+      "license": "Not covered by the Demucs MIT code license; upstream states personal/research usage",
+      "delivery": "downloaded on first separation; not bundled",
+      "url": "https://github.com/facebookresearch/demucs/issues/384#issuecomment-1262197483",
+      "licenseSections": [
+        "58a94b47b17924337a7247b31765285ae09d40060d09918067bfe0202c81dd2f"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-doc",
+      "version": "0.0.4",
+      "license": "MIT",
+      "url": "https://github.com/fastapi/annotated-doc",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "annotated-types",
+      "version": "0.7.0",
+      "license": "MIT",
+      "url": "https://github.com/annotated-types/annotated-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "antlr4-python3-runtime",
+      "version": "4.9.3",
+      "license": "BSD",
+      "url": "http://www.antlr.org",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b1b379fcaf3219593a4c433feb1b35c780bed23fafaae440b1ae2771a9521e3a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "anyio",
+      "version": "4.14.0",
+      "license": "MIT",
+      "url": "https://anyio.readthedocs.io/en/latest/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "audioop-lts",
+      "version": "0.2.2",
+      "license": "PSF-2.0",
+      "url": "https://github.com/AbstractUmbra/audioop",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "audioread",
+      "version": "3.1.0",
+      "license": "MIT",
+      "url": "https://github.com/beetbox/audioread/issues",
+      "delivery": "bundled",
+      "licenseSections": [
+        "e00fff68a75a582132842e33426730699255986f1dec362252f7423db027019d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "beat-this",
+      "version": "1.1.0",
+      "license": "MIT",
+      "url": "https://github.com/CPJKU/beat_this",
+      "delivery": "bundled",
+      "licenseSections": [
+        "909ab6549794a18e9bb243aacfadda4a5f308436fc2846f350755c53c4f06ae1"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "certifi",
+      "version": "2026.6.17",
+      "license": "MPL-2.0",
+      "url": "https://github.com/certifi/python-certifi",
+      "delivery": "bundled",
+      "licenseSections": [
+        "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "cffi",
+      "version": "2.0.0",
+      "license": "MIT",
+      "url": "https://cffi.readthedocs.io/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2a67a60bbfb33759d67d645ff131b8e6d6bc4cafc232d751fcac3eda4d314cc8",
+        "50ae4b3f1b8928e185116c834123e0e0db007fcd73a18e6b4975f01fa352aed9"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "chardet",
+      "version": "7.4.3",
+      "license": "0BSD",
+      "url": "https://github.com/chardet/chardet",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0d4cf67e7a26e9957b8948e7dfc0e380e61b427a94b061e618889aba89bb9616"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "charset-normalizer",
+      "version": "3.4.7",
+      "license": "MIT",
+      "url": "https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "click",
+      "version": "8.4.1",
+      "license": "BSD-3-Clause",
+      "url": "https://click.palletsprojects.com/page/changes/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "cloudpickle",
+      "version": "3.1.2",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/cloudpipe/cloudpickle",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3029ea34173e9fdc233ad315dc6b100bd1ea71f529b1c1af97664a272fdc55f5"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "contourpy",
+      "version": "1.3.3",
+      "license": "See included license text",
+      "url": "https://github.com/contourpy/contourpy",
+      "delivery": "bundled",
+      "licenseSections": [
+        "34170979fc64f4f5e6dfa66ef27dec314ffffc5852000c60f4836ec1dfbf156e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "cycler",
+      "version": "0.12.1",
+      "license": "See included license text",
+      "url": "https://matplotlib.org/cycler/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "7eec27ee66da53ba5912cb00b3521ac4428834bb37d0691080bf5d543b0cbb31"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "decorator",
+      "version": "5.3.1",
+      "license": "BSD-2-Clause",
+      "url": "",
+      "delivery": "bundled",
+      "licenseSections": [
+        "bd12cc51405c10872497c10ca21601f1d4abc50496595cc89e89ab5dad24fb62"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "demucs",
+      "version": "4.0.1",
+      "license": "MIT",
+      "url": "https://github.com/facebookresearch/demucs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "dora_search",
+      "version": "0.1.12",
+      "license": "MIT",
+      "url": "https://github.com/facebookresearch/dora",
+      "delivery": "bundled",
+      "licenseSections": [
+        "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "einops",
+      "version": "0.8.2",
+      "license": "MIT",
+      "url": "https://github.com/arogozhnikov/einops",
+      "delivery": "bundled",
+      "licenseSections": [
+        "30d984364296f51ffaecad4b01ee127e95250c5068918d4b66fc96206723e434"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "fastapi",
+      "version": "0.138.0",
+      "license": "MIT",
+      "url": "https://github.com/fastapi/fastapi",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4ec89ffc81485b97fec584b2d4a961032eeffe834453894fd9c1274906cc744e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "filelock",
+      "version": "3.29.4",
+      "license": "MIT",
+      "url": "https://py-filelock.readthedocs.io",
+      "delivery": "bundled",
+      "licenseSections": [
+        "608c89d5060ae9921adccf3236695bc654a9946e12323ef6c021dfa04e294d48"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "fonttools",
+      "version": "4.63.0",
+      "license": "MIT",
+      "url": "http://github.com/fonttools/fonttools",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6787208f83f659ccbc2223b2fde952ffa6f7e8aca62f1a8a2bf5bc51bb1b2383",
+        "94a83aaee0729a0f302d34acc4acecbd9d58366f262429075fe557e4a54b2e69"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "fsspec",
+      "version": "2026.6.0",
+      "license": "BSD-3-Clause",
+      "url": "https://filesystem-spec.readthedocs.io/en/latest/changelog.html",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2dc35496ce53a7307915c008a844aad53e772b49b34cdd00445067691407ec94"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT",
+      "url": "https://github.com/python-hyper/h11",
+      "delivery": "bundled",
+      "licenseSections": [
+        "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "httptools",
+      "version": "0.8.0",
+      "license": "MIT",
+      "url": "https://github.com/MagicStack/httptools",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2580ca6f428e469f8f6626f621ea867d5356638d97dc748b5790df8ae52b3926",
+        "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d",
+        "f4573e7cb7676745fb5b8d36fa548aa93e391cfb6872ddacd65130c45ea6a92d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "idna",
+      "version": "3.18",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/kjd/idna/blob/master/HISTORY.md",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "imageio-ffmpeg",
+      "version": "0.6.0",
+      "license": "BSD-2-Clause",
+      "url": "https://github.com/imageio/imageio-ffmpeg",
+      "delivery": "bundled",
+      "licenseSections": [
+        "eca73421d0c905a92e952a553d4d58919c5a507c2c2c76e3c0cf9ba408c299e4"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "license": "BSD",
+      "url": "https://jinja.palletsprojects.com/changes/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "joblib",
+      "version": "1.5.3",
+      "license": "BSD-3-Clause",
+      "url": "https://joblib.readthedocs.io",
+      "delivery": "bundled",
+      "licenseSections": [
+        "42612911c1872c5e4b43f6ae0e8ee59467cd350332241cf72ce90640264fae6a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "jsonpickle",
+      "version": "4.1.2",
+      "license": "BSD-3-Clause",
+      "url": "https://jsonpickle.readthedocs.io/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "da4d740e7bfe1e9777baeda3cf6534f568ecb2abb27b80e7e2c2f9f2864d839d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "julius",
+      "version": "0.2.8",
+      "license": "MIT",
+      "url": "https://github.com/adefossez/julius",
+      "delivery": "bundled",
+      "licenseSections": [
+        "60f83da40026e37e259b69158852384ff2ee20615d9103a3f86b6cff48784661"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "kiwisolver",
+      "version": "1.5.0",
+      "license": "See included license text",
+      "url": "https://github.com/nucleic/kiwi",
+      "delivery": "bundled",
+      "licenseSections": [
+        "529c40e5f67f2f88904657a9f7879ae2f8dc76bc9bfef9cb10d988b48804ed61"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "lameenc",
+      "version": "1.8.2",
+      "license": "See included license text",
+      "url": "https://github.com/chrisstaite/lameenc",
+      "delivery": "bundled",
+      "licenseSections": [
+        "401bf22911eb394110b5218e00b48caaddc523b8aa69ee7bca860737404d086a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "layerlab",
+      "version": "0.7.0a17",
+      "license": "Apache-2.0",
+      "url": "",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1d8e828e75e2f4a1a200998f8537442bba5ed9604d4bd542046a28da574410e0",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "lazy-loader",
+      "version": "0.5",
+      "license": "BSD-3-Clause",
+      "url": "https://scientific-python.org/specs/spec-0001/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "797b6937a4f976836efbbbb3ae333d7866ddc3eb3cb152972b2be348d3529372"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "librosa",
+      "version": "0.11.0",
+      "license": "ISC",
+      "url": "https://librosa.org/doc",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1746ca32b53fa31941c38b63a986e4126ab998e81a2f73a566000847a588e2a3"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "llvmlite",
+      "version": "0.47.0",
+      "license": "BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
+      "url": "https://github.com/numba/llvmlite",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5d0772f4dc4cb16e6bee2419bfa57c0a129808400e341b87fd9f87cbe6a5963d",
+        "dc527293cfc2e4b4d59042e0b204667162845d8548651932f5a9d2f4adfc928b"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "MarkupSafe",
+      "version": "3.0.3",
+      "license": "BSD-3-Clause",
+      "url": "https://palletsprojects.com/donate",
+      "delivery": "bundled",
+      "licenseSections": [
+        "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "matplotlib",
+      "version": "3.11.0",
+      "license": "See included license text",
+      "url": "https://matplotlib.org",
+      "delivery": "bundled",
+      "licenseSections": [
+        "822e8e528147569a41975592aee19c11992ab667ba50451cd929031d5fc74491",
+        "bab3d31dfef07f483624f2f65f2711e76065b8e7273278b1c071ede1041c9959",
+        "d75938dec098f06f0ac3c00853065d94f020be1c3c62ef1dc2975ba15b4d9b0e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "more-itertools",
+      "version": "11.1.0",
+      "license": "MIT",
+      "url": "https://more-itertools.readthedocs.io/en/stable/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "mpmath",
+      "version": "1.3.0",
+      "license": "BSD",
+      "url": "https://github.com/fredrik-johansson/mpmath",
+      "delivery": "bundled",
+      "licenseSections": [
+        "c26cae81da4508e5e249985777a33821f183223ebb74d7f8cfbf90fe7eef2fb7"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "msgpack",
+      "version": "1.2.1",
+      "license": "Apache-2.0",
+      "url": "https://msgpack.org/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9e98249234446e96ab6cd2ac59cbb2f7bfcb15a8e21a00548e1e14da939b6927"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "music21",
+      "version": "10.5.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/cuthbertLab/music21/releases/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "425c3fc0701ab4f07e9520bbc52d596a92c0ae81f5603ef7a44e93d567f2ffb2",
+        "66bebe57f2b32a5a13948b10861f435efe23a94d609300ca41c968001db58d61",
+        "9fdc902b727bce85d5445152a8f0f554632f9fe0ea2cc2b378f8e63d83324081",
+        "ec4a91f8896fa87f74522a54107674c99568da6c025df884c78f966c5377db13"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "narwhals",
+      "version": "2.22.1",
+      "license": "MIT",
+      "url": "https://github.com/narwhals-dev/narwhals",
+      "delivery": "bundled",
+      "licenseSections": [
+        "811445f30147b8f0c9d444c9025fd528f9532c54b7b83f6e2368473dc91cfdf0"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "networkx",
+      "version": "3.6.1",
+      "license": "BSD-3-Clause",
+      "url": "https://networkx.org/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3cf7c3a179d817b23b8b8568211769fefdf93797d207d984b8b2fa24d0220b33"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "numba",
+      "version": "0.65.1",
+      "license": "BSD",
+      "url": "https://numba.pydata.org",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3a70e0a21cad03147246f6363d07bf76fae216c72779707f4ae5db06bcacf067",
+        "fdc60ca21d827beb3835ffc6b7a99bda14a5cfcb379d0c82c05e3c1ff4a482f2"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "numpy",
+      "version": "2.4.6",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "url": "https://numpy.org",
+      "delivery": "bundled",
+      "licenseSections": [
+        "103166b62b80443afb9eb3488e052ea06be0cff566b908f199e561fde49af19f",
+        "211e7d737d6179a08f791ebb0a99897ce7cd2457410c542876d125576edfe910",
+        "3f2c1ffa76383a55ae0aac01c9737cd70050dff63e1f026694fbe9d662573c98",
+        "4a765ceefcddd40d6518f2f22f0fe2c6d532890be821d8bb1f2c21ebafed8817",
+        "5f6ed77cd0326d7a2598962550123657845db4e8095ee29904f70e2717c0816e",
+        "649a589ab31076e79e9ce62ba24eae9959598124176640dbc95f87bd10f34fcf",
+        "6f5828a57223d4cc7f8ea505a2623e7b978b242752c1515e355f46ba2cec1800",
+        "82606ac1b37d264a2260639f8a1646f2a66b713941447e01362e1fef587b73a8",
+        "9d4098846018319cd68e228ee6220361787f73bccbf00237a85e4fc9621b998f",
+        "a14cc25e10d40a3aa705b7de2fb764a6535d8ee9b2db4e1724900585457dfd55",
+        "a85ca13fdf90160b64a0698215868c13b74d835ad0a4e2ba44713b8c5058a056",
+        "b8b1fae5894cfbe213b47f1378bb2269cf82de18b34447e871c0225ace0d3ad7",
+        "c17011467b4fe6e20fbfbeda4df09e58c2bca5480a063e55735a4000a379aad9",
+        "e7d4f4fb20358f314210a892ae17351e04993813646f697ec387385ca2a36918",
+        "ef21afaad4bb20d2020491dc27ed55ba0d042f1b9487911a57f28b46b407a2b7",
+        "f419e990887622d00595611ea5da8497b906ab63ba868ed1f3d7b0384287e113",
+        "f7b14309e5f54e5022b26448eefd419988ada2aec01d3c1162d84a0ea8f21f2c"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "omegaconf",
+      "version": "2.3.1",
+      "license": "BSD",
+      "url": "https://github.com/omry/omegaconf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b31375ed5d5cbe7ec2d0c4c14df8afa7a8e5501bbe25f70b6cbc461685f4b91a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "openunmix",
+      "version": "1.3.0",
+      "license": "MIT",
+      "url": "https://github.com/sigsep/open-unmix-pytorch",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4f7b047ffafb9fbb39a40d605bab961b9b030711addce6e9d23886c2ae3b105e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "packaging",
+      "version": "26.2",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "url": "https://packaging.pypa.io/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+        "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pillow",
+      "version": "12.2.0",
+      "license": "MIT-CMU",
+      "url": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
+      "delivery": "bundled",
+      "licenseSections": [
+        "13e1d5014de0064b4b1ca4d837111797673cc91a116616e3dde555009243aaf6"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pip",
+      "version": "26.1.1",
+      "license": "MIT",
+      "url": "https://pip.pypa.io/en/stable/news/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+        "1b22b049b5267d6dfc23a67bf4a84d8ec04b9fdfb1a51d360e42b4342c8b4154",
+        "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+        "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca",
+        "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104",
+        "808e10c8a6ab8deb149ff9b3fb19f447a808094606d712a9ca57fead3552599d",
+        "81932e77fef4cec306da54caf7d4d221dfd0f6fb6da214c712e36cb95ac47906",
+        "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+        "86eeee87be2a43f3ff1f56496f451f69243926f025fedbb033666c304c4c161b",
+        "9e98249234446e96ab6cd2ac59cbb2f7bfcb15a8e21a00548e1e14da939b6927",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+        "b04d1b704ffd3cc4650f3cdbfaaf1b8df84a5d84c4426dc8c4b2cc0ebda77c93",
+        "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+        "b7a336abf3b04e180ec065cdd16e705d079e1cc7a14f910aa6e9187f36b9cd87",
+        "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+        "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+        "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+        "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+        "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "platformdirs",
+      "version": "4.10.0",
+      "license": "MIT",
+      "url": "https://platformdirs.readthedocs.io/en/latest/changelog.html",
+      "delivery": "bundled",
+      "licenseSections": [
+        "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pooch",
+      "version": "1.9.0",
+      "license": "BSD-3-Clause",
+      "url": "https://www.fatiando.org/pooch",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6400dc5b23d3c56c955ab82c44fe49db242d4d9a6d9b80f5575d8b9ccdbc4631",
+        "af0482d59fc7a9d68d9f64682c74ce6e8a4684406bb3a21a191ae329950916b4"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pycparser",
+      "version": "3.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/eliben/pycparser",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic",
+      "version": "2.13.4",
+      "license": "MIT",
+      "url": "https://github.com/pydantic/pydantic",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pydantic_core",
+      "version": "2.46.4",
+      "license": "MIT",
+      "url": "https://github.com/sponsors/samuelcolvin",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pyloudnorm",
+      "version": "0.2.0",
+      "license": "MIT",
+      "url": "https://github.com/csteinmetz1/pyloudnorm",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1616faebaa2add8b57d4f76403c0c4aa427fdb0d241d8e52b7a12dce4906beaa"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "pyparsing",
+      "version": "3.3.2",
+      "license": "MIT",
+      "url": "https://pyparsing-docs.readthedocs.io/en/latest/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a5425f9dc14ac74d4c5f0b679e941f2442e32cca7452a4418d5b1a49893ebe4e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "license": "Dual License",
+      "url": "https://dateutil.readthedocs.io/en/stable/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9313256b27c4a1b7666c433acbf70a447383df0ea8c4b59bee0b6e412a281f92"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-dotenv",
+      "version": "1.2.2",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/theskumar/python-dotenv",
+      "delivery": "bundled",
+      "licenseSections": [
+        "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "python-multipart",
+      "version": "0.0.32",
+      "license": "Apache-2.0",
+      "url": "https://github.com/Kludex/python-multipart",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "license": "MIT",
+      "url": "https://github.com/yaml/pyyaml/issues",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "requests",
+      "version": "2.34.2",
+      "license": "Apache-2.0",
+      "url": "https://requests.readthedocs.io",
+      "delivery": "bundled",
+      "licenseSections": [
+        "81932e77fef4cec306da54caf7d4d221dfd0f6fb6da214c712e36cb95ac47906",
+        "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "retrying",
+      "version": "1.4.2",
+      "license": "Apache-2.0",
+      "url": "https://github.com/groodt/retrying",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "9e54d0c6dbe158cbeb480e9121e9d87631cc810fc541c5ee9b6129d9c188913c"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "rotary-embedding-torch",
+      "version": "0.9.1",
+      "license": "MIT",
+      "url": "https://codeberg.og/lucidrains/rotary-embedding-torch",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fe74654058fe2ba069808dbf36defd6e207baf8859f36366a6a3ceae5aa6ecc5"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "scikit-learn",
+      "version": "1.9.0",
+      "license": "BSD-3-Clause",
+      "url": "https://scikit-learn.org",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0f195136a4bcede62f084107911fc1e1770edd07774b19e2345bde6d83e1c211",
+        "4ffd978e3fa18d058d98c66771cfea7ed634aaf7023cf9612b8b55eee9a8f0fe",
+        "58494398fe147fdce76a68b2decd4c08ce3a1ea237b6d6785001c15f822c6ed6",
+        "fc8dc597df0e3f51da65e2a71021e7f92e0b481998ec572a53c03ac0441db040"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "scipy",
+      "version": "1.18.0",
+      "license": "See included license text",
+      "url": "https://scipy.org/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "09a1b9e19573045b0784a181cc4bef677039d4f2111631c747bf72b7f19017d4",
+        "c254b2b5fd30ae3c89d36ba061730563b9760fca04f1b746a1b2c3157da2c789",
+        "c80c39b5fce06ba4897e14e0b0a88b54458334d951eb1361402ffad2cfb863b4",
+        "dfb8f5cfa6cdfe9b617c6113274536952808eba2cae425275e41593da5d4e998",
+        "ed9bf58c6d74d3fad9d92d1d67d9bff8141d8ab60de784516b0711364fd43357"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "setuptools",
+      "version": "82.0.1",
+      "license": "MIT",
+      "url": "https://github.com/pypa/setuptools",
+      "delivery": "bundled",
+      "licenseSections": [
+        "09c9bcea95ca086f8bc5bed174e40bc835b297d40fb5f86bbbb570fe0a5581a7",
+        "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46",
+        "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+        "2dddf08818297a3b89d43d95ff659d8da85741108c9136dfa3a4d856c0623bd8",
+        "30c23618679108f3e8ea1d2a658c7ca417bdfc891c98ef1a89fa4ff0c9828654",
+        "458502e12d97bbf64438606a20044aa85eb05fb0a8a807bb35dbec253fd1fc04",
+        "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d",
+        "6557adc4bc1d59232e27567a185dd70cf2ecca3154018b0be61ea29cf9e814e2",
+        "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+        "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683",
+        "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+        "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+        "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "six",
+      "version": "1.17.0",
+      "license": "MIT",
+      "url": "https://github.com/benjaminp/six",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4375ba20e2b9c6c4e7cad2940a628fd90e95cc3d50ee92aae755715d8ba1fbd0"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "soundfile",
+      "version": "0.14.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/bastibe/python-soundfile",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0dd2e411fed553ba891845077e5a32c5b726d1bbc46ff31a2118ae1ccf816752",
+        "35630e1f59b5c54b0bcbe2ec173bcf5a63b727a6e2f7834ca6d35a1af91a2b5f",
+        "75ed0ee4cb95f36e0bc89f55da831551982acf51593a0e1099213748ed478fa9"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "soxr",
+      "version": "1.1.0",
+      "license": "LGPL-2.1-or-later",
+      "url": "https://github.com/dofuuz/python-soxr",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0dab6c9ba63620eecc17bcec0ebf03439b5b95a43a492bc3e701abb794b2d349",
+        "a9f3d236f3c14a41a1293f176d4c7c46d85404403417fcb8df6d6c9707104e42",
+        "aeeb7bce59a3dcc7bb08a48a2f012f340c6b28ec50cd22f0ad93194a7d254420",
+        "dc98676341fdcd29d9f279c9679d6a75288785b174ded8d1b2e316c366166135"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "standard-aifc",
+      "version": "3.13.0",
+      "license": "PSF-2.0",
+      "url": "https://github.com/youknowone/python-deadlib",
+      "delivery": "bundled",
+      "licenseSections": [
+        "14949dab294d8379384238869abc035f4ef95bb1968b10f88554afa001ead28e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "standard-chunk",
+      "version": "3.13.0",
+      "license": "PSF-2.0",
+      "url": "https://github.com/youknowone/python-deadlib",
+      "delivery": "bundled",
+      "licenseSections": [
+        "14949dab294d8379384238869abc035f4ef95bb1968b10f88554afa001ead28e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "standard-sunau",
+      "version": "3.13.0",
+      "license": "PSF-2.0",
+      "url": "https://github.com/youknowone/python-deadlib",
+      "delivery": "bundled",
+      "licenseSections": [
+        "14949dab294d8379384238869abc035f4ef95bb1968b10f88554afa001ead28e"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "starlette",
+      "version": "1.3.1",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/Kludex/starlette",
+      "delivery": "bundled",
+      "licenseSections": [
+        "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "submitit",
+      "version": "1.5.4",
+      "license": "MIT",
+      "url": "https://github.com/facebookincubator/submitit",
+      "delivery": "bundled",
+      "licenseSections": [
+        "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "sympy",
+      "version": "1.13.1",
+      "license": "BSD",
+      "url": "https://github.com/sympy/sympy",
+      "delivery": "bundled",
+      "licenseSections": [
+        "007bc30a58fa40a996e772047120de4eaf31f5110e4f9c3b5f93fcdfbe2eaca1",
+        "07a5e9819f727b4986ad2829c7a29a6320d42575f720eb24d71b7fef573a0286",
+        "f4fa0dea50337e189d0f300e61c51ba39d714ed80d4d732385cea92442d112fa"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "threadpoolctl",
+      "version": "3.6.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/joblib/threadpoolctl",
+      "delivery": "bundled",
+      "licenseSections": [
+        "ecd5f3320c3064582c4ebd53e413d8cd3ee5bb85f039e4137a3e9d3497a43cd4"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "torch",
+      "version": "2.6.0",
+      "license": "BSD-3-Clause",
+      "url": "https://pytorch.org/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "68a9c1b6e95c97f05201cdb83aa072663a586e602c650a52551bc9379f55e3b9",
+        "c2cc7bf0caec7652c2b460a8a470bea1677f241e4ab8e431df34cf17f5a9fec0"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "torchaudio",
+      "version": "2.6.0",
+      "license": "BSD",
+      "url": "https://github.com/pytorch/audio",
+      "delivery": "bundled",
+      "licenseSections": [
+        "93a58861a858cc108e6b6b833e08e76e8b2a66339e4a8007c8a5a8c1ff9c40d6"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "tqdm",
+      "version": "4.68.3",
+      "license": "MPL-2.0 AND MIT",
+      "url": "https://tqdm.github.io",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "treetable",
+      "version": "0.2.6",
+      "license": "Unlicense",
+      "url": "https://github.com/adefossez/treetable",
+      "delivery": "bundled",
+      "licenseSections": [
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing-inspection",
+      "version": "0.4.2",
+      "license": "MIT",
+      "url": "https://github.com/pydantic/typing-inspection",
+      "delivery": "bundled",
+      "licenseSections": [
+        "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "typing_extensions",
+      "version": "4.15.0",
+      "license": "PSF-2.0",
+      "url": "https://github.com/python/typing_extensions/issues",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "urllib3",
+      "version": "2.7.0",
+      "license": "MIT",
+      "url": "https://github.com/urllib3/urllib3/blob/main/CHANGES.rst",
+      "delivery": "bundled",
+      "licenseSections": [
+        "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "uvicorn",
+      "version": "0.49.0",
+      "license": "BSD-3-Clause",
+      "url": "https://uvicorn.dev/release-notes",
+      "delivery": "bundled",
+      "licenseSections": [
+        "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "uvloop",
+      "version": "0.22.1",
+      "license": "MIT",
+      "url": "https://github.com/MagicStack/uvloop",
+      "delivery": "bundled",
+      "licenseSections": [
+        "377025287798f9dcd819e1f826fa5fc5e2f382528691ab0528c5cf8c8c282c27",
+        "6dd4c399f26de043d77a2ad7e31db4cb5bf08ea8368b0a42d6e158635cc8ab62"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "watchfiles",
+      "version": "1.2.0",
+      "license": "MIT",
+      "url": "https://github.com/samuelcolvin/watchfiles/releases",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4fd78355b67ce2677ede9fb6f63a250f377bb7e22088136a5f4699adb4bc069f"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "webcolors",
+      "version": "25.10.0",
+      "license": "BSD-3-Clause",
+      "url": "https://webcolors.readthedocs.io",
+      "delivery": "bundled",
+      "licenseSections": [
+        "224bb9063d1204f687477a680fab945debff8cf717c629510c1d7083d9a7969a"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "websockets",
+      "version": "16.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/python-websockets/websockets",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3d6a0c050d8bec52fabad502e45fb25bd02bcadbd70dea34d447b6a0ff4e6da8"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "wheel",
+      "version": "0.47.0",
+      "license": "MIT",
+      "url": "https://wheel.readthedocs.io/en/stable/news.html",
+      "delivery": "bundled",
+      "licenseSections": [
+        "30c23618679108f3e8ea1d2a658c7ca417bdfc891c98ef1a89fa4ff0c9828654"
+      ]
+    },
+    {
+      "ecosystem": "python",
+      "name": "yt-dlp",
+      "version": "2026.6.9",
+      "license": "Unlicense",
+      "url": "https://github.com/yt-dlp/yt-dlp#readme",
+      "delivery": "bundled",
+      "licenseSections": [
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "runtime",
+      "name": "Python",
+      "version": "3.13",
+      "license": "PSF-2.0 and bundled third-party notices",
+      "url": "https://www.python.org/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "adler2",
+      "version": "2.0.1",
+      "license": "0BSD OR MIT OR Apache-2.0",
+      "url": "https://github.com/oyvindln/adler2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "56a24963c5251611729d1b6cdd6510dd409e7a7a4ddb1955cd319c3a50678b31",
+        "861399f8c21c042b110517e76dc6b63a2b334276c8cf17412fc3c8908ca8dc17"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "aho-corasick",
+      "version": "1.1.4",
+      "license": "Unlicense OR MIT",
+      "url": "https://github.com/BurntSushi/aho-corasick",
+      "delivery": "bundled",
+      "licenseSections": [
+        "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
+        "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "alloc-no-stdlib",
+      "version": "2.0.4",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
+      "delivery": "bundled",
+      "licenseSections": [
+        "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "alloc-stdlib",
+      "version": "0.2.2",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5a93d5831e1297ab10fe643e1a631e83be392896da14ee2951285a79012df69d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "anyhow",
+      "version": "1.0.102",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/anyhow",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "atomic-waker",
+      "version": "1.1.2",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/smol-rs/atomic-waker",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "6226d0632e2e1a80c23597e964da9812ae193c535fe058154afb034e94167aa5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "base64",
+      "version": "0.21.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/marshallpierce/rust-base64",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7",
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "base64",
+      "version": "0.22.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/marshallpierce/rust-base64",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7",
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bit-set",
+      "version": "0.8.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/contain-rs/bit-set",
+      "delivery": "bundled",
+      "licenseSections": [
+        "af975c9737b3bdcdcf7ec3512b3dc936f91cc58a3c9152a8e4b0803f667df6b9",
+        "f51ac2c59a222f7476ce507ca879960e2b64ea64bb2786eefdbeb7b0b538d1b7"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bit-vec",
+      "version": "0.8.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/contain-rs/bit-vec",
+      "delivery": "bundled",
+      "licenseSections": [
+        "af975c9737b3bdcdcf7ec3512b3dc936f91cc58a3c9152a8e4b0803f667df6b9",
+        "f51ac2c59a222f7476ce507ca879960e2b64ea64bb2786eefdbeb7b0b538d1b7"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bitflags",
+      "version": "1.3.2",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/bitflags/bitflags",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bitflags",
+      "version": "2.11.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/bitflags/bitflags",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "block-buffer",
+      "version": "0.10.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/RustCrypto/utils",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6aed14a79871456730ce9c74d0e927e9097e63b4085c4395af363d431ede5c8f",
+        "d5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "block2",
+      "version": "0.6.2",
+      "license": "MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "brotli",
+      "version": "8.0.2",
+      "license": "BSD-3-Clause AND MIT",
+      "url": "https://github.com/dropbox/rust-brotli",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "brotli-decompressor",
+      "version": "5.0.0",
+      "license": "BSD-3-Clause/MIT",
+      "url": "https://github.com/dropbox/rust-brotli-decompressor",
+      "delivery": "bundled",
+      "licenseSections": [
+        "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bumpalo",
+      "version": "3.20.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/fitzgen/bumpalo",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "65f94e99ddaf4f5d1782a6dae23f35d4293a9a01444a13135a6887017d353cee"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "byteorder",
+      "version": "1.5.0",
+      "license": "Unlicense OR MIT",
+      "url": "https://github.com/BurntSushi/byteorder",
+      "delivery": "bundled",
+      "licenseSections": [
+        "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
+        "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "bytes",
+      "version": "1.11.1",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/bytes",
+      "delivery": "bundled",
+      "licenseSections": [
+        "45f522cacecb1023856e46df79ca625dfc550c94910078bd8aec6e02880b3d42"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "camino",
+      "version": "1.2.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/camino-rs/camino",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cargo-platform",
+      "version": "0.1.9",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/cargo",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "56a24963c5251611729d1b6cdd6510dd409e7a7a4ddb1955cd319c3a50678b31"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cargo_metadata",
+      "version": "0.19.2",
+      "license": "MIT",
+      "url": "https://github.com/oli-obk/cargo_metadata",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cfb",
+      "version": "0.7.3",
+      "license": "MIT",
+      "url": "https://github.com/mdsteele/rust-cfb",
+      "delivery": "bundled",
+      "licenseSections": [
+        "ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cfg-if",
+      "version": "1.0.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/cfg-if",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "chrono",
+      "version": "0.4.44",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/chronotope/chrono",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2200505ceae34bd9ff69176a068316956062b8827fe6b5bdb2746362ef638122"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cookie",
+      "version": "0.18.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/SergioBenitez/cookie-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9b1e51075f2956340762ed728426614237690b5b2895cbead9ecd5dc94c4e5af",
+        "f28420c1906af38be726cd7842798f0194b27c41d6051c0d1e9ee348b8a4a0ea"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "core-foundation",
+      "version": "0.10.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/core-foundation-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "core-foundation-sys",
+      "version": "0.8.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/core-foundation-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "core-graphics",
+      "version": "0.25.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/core-foundation-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3",
+        "ec82b96487e9e778ee610c7ab245162464782cfa1f555c2299333f8dbe5c036a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "core-graphics-types",
+      "version": "0.2.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/core-foundation-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cpufeatures",
+      "version": "0.2.17",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/RustCrypto/utils",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6aed14a79871456730ce9c74d0e927e9097e63b4085c4395af363d431ede5c8f",
+        "ae9baa7beea910273c2f384c2a6b721fb7bd02bda3436074a1072e4ee689f985"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "crc32fast",
+      "version": "1.5.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/srijs/rust-crc32fast",
+      "delivery": "bundled",
+      "licenseSections": [
+        "61d383b05b87d78f94d2937e2580cce47226d17823c0430fbcad09596537efcf",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "crossbeam-channel",
+      "version": "0.5.15",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/crossbeam-rs/crossbeam",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab",
+        "b16db96b93b1d7cf7bea533f572091ec6bca3234fbe0a83038be772ff391a44c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "crossbeam-utils",
+      "version": "0.8.21",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/crossbeam-rs/crossbeam",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "crypto-common",
+      "version": "0.1.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/RustCrypto/traits",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3521672491a3479422d5fe1aca6645dd2984090f85da6e5205abfb18fb7a6897",
+        "6aed14a79871456730ce9c74d0e927e9097e63b4085c4395af363d431ede5c8f"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cssparser",
+      "version": "0.36.0",
+      "license": "MPL-2.0",
+      "url": "https://github.com/servo/rust-cssparser",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "cssparser-macros",
+      "version": "0.6.1",
+      "license": "MPL-2.0",
+      "url": "https://github.com/servo/rust-cssparser",
+      "delivery": "bundled",
+      "licenseSections": [
+        "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ctor",
+      "version": "0.8.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/mmastrac/rust-ctor",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ctor-proc-macro",
+      "version": "0.0.7",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/mmastrac/rust-ctor",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "darling",
+      "version": "0.23.0",
+      "license": "MIT",
+      "url": "https://github.com/TedDriggs/darling",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "darling_core",
+      "version": "0.23.0",
+      "license": "MIT",
+      "url": "https://github.com/TedDriggs/darling",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "darling_macro",
+      "version": "0.23.0",
+      "license": "MIT",
+      "url": "https://github.com/TedDriggs/darling",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8ea93490d74a5a1b1af3ff71d786271b3f1e5f0bea79ac16e02ec533cef040d6"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "deranged",
+      "version": "0.5.8",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/jhpratt/deranged",
+      "delivery": "bundled",
+      "licenseSections": [
+        "231c837c45eb53f108fb48929e488965bc4fcc14e9ea21d35f50e6b99d98685b",
+        "8502aec5e5641474918f26b09b6a31981ea16bfbc3bdaecc88f33cb661bef58d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "derive_more",
+      "version": "2.1.1",
+      "license": "MIT",
+      "url": "https://github.com/JelteF/derive_more",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8a35369f3ca263b3c62fbb5032947e53b6bfebc6c8a4d1bb982de1c069f6fba5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "derive_more-impl",
+      "version": "2.1.1",
+      "license": "MIT",
+      "url": "https://github.com/JelteF/derive_more",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8a35369f3ca263b3c62fbb5032947e53b6bfebc6c8a4d1bb982de1c069f6fba5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "digest",
+      "version": "0.10.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/RustCrypto/traits",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6aed14a79871456730ce9c74d0e927e9097e63b4085c4395af363d431ede5c8f",
+        "9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dirs",
+      "version": "6.0.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/soc/dirs-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2efd6a447c8c5d5f27b34282a9b2bfa999b2c56b450cb25e336553da6eb0d1cd",
+        "6a2e0ade09a7d5f816f11566fee2b151b32235a7fad52b41d49cce96f833c1a9"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dirs-sys",
+      "version": "0.5.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dirs-dev/dirs-sys-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2efd6a447c8c5d5f27b34282a9b2bfa999b2c56b450cb25e336553da6eb0d1cd",
+        "6a2e0ade09a7d5f816f11566fee2b151b32235a7fad52b41d49cce96f833c1a9"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dispatch2",
+      "version": "0.3.1",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "displaydoc",
+      "version": "0.2.5",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/yaahc/displaydoc",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dom_query",
+      "version": "0.27.0",
+      "license": "MIT",
+      "url": "https://github.com/niklak/dom_query",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9766e5d58cae9d457057c7cdb2cde8bf357624329c1e5cc50ca9210149b77aed"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dpi",
+      "version": "0.1.2",
+      "license": "Apache-2.0 AND MIT",
+      "url": "https://github.com/rust-windowing/winit",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dtoa",
+      "version": "1.0.11",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/dtoa",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dtoa-short",
+      "version": "0.3.5",
+      "license": "MPL-2.0",
+      "url": "https://github.com/upsuper/dtoa-short",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dtor",
+      "version": "0.3.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/mmastrac/rust-ctor",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dtor-proc-macro",
+      "version": "0.0.6",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/mmastrac/rust-ctor",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dunce",
+      "version": "1.0.5",
+      "license": "CC0-1.0 OR MIT-0 OR Apache-2.0",
+      "url": "https://gitlab.com/kornelski/dunce",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "dyn-clone",
+      "version": "1.0.20",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/dyn-clone",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "embed_plist",
+      "version": "1.2.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/nvzqz/embed-plist-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "daacc37f680c7dd0a758ac99a109f2f57d9f21d3683df9e9245055922842a695"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "equivalent",
+      "version": "1.0.2",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/indexmap-rs/equivalent",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "7365cc8878a1d7ce155a58c4ca09c3d7a6be413efa5334a80ea842912b669349"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "erased-serde",
+      "version": "0.4.10",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/erased-serde",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "errno",
+      "version": "0.3.14",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/lambda-fairy/rust-errno",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8764a597675778ddfd4e25f81b08a05dbcf089ac05662df7613fe67f150e3aa2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "fastrand",
+      "version": "2.4.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/smol-rs/fastrand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "fdeflate",
+      "version": "0.3.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/image-rs/fdeflate",
+      "delivery": "bundled",
+      "licenseSections": [
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+        "c77a4cf9da729987d0fe7ccd811e3bd27393914ddf3d23467c18cc22954513b3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "filetime",
+      "version": "0.2.29",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/alexcrichton/filetime",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "flate2",
+      "version": "1.1.9",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/flate2-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "025436edff4cfcdde17a5811fdea78892d8482efd1abdec5a17872d07a4f2112",
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "fnv",
+      "version": "1.0.7",
+      "license": "Apache-2.0 / MIT",
+      "url": "https://github.com/servo/rust-fnv",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "65fdb6c76cd61612070c066eec9ecdb30ee74fb27859d0d9af58b9f499fd0c3e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "foldhash",
+      "version": "0.2.0",
+      "license": "Zlib",
+      "url": "https://github.com/orlp/foldhash",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1d4c38d56650edc2c673cadbec74bec14db1fe8f2f10f4e3477dcbb49563be40"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "foreign-types",
+      "version": "0.5.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/sfackler/foreign-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "333ea3aaa3cadb819f4acd9f9153f9feee060a995ca8710f32bc5bd9a4b91734",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "foreign-types-macros",
+      "version": "0.2.3",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/sfackler/foreign-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "333ea3aaa3cadb819f4acd9f9153f9feee060a995ca8710f32bc5bd9a4b91734",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "foreign-types-shared",
+      "version": "0.3.1",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/sfackler/foreign-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "333ea3aaa3cadb819f4acd9f9153f9feee060a995ca8710f32bc5bd9a4b91734",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "form_urlencoded",
+      "version": "1.2.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/rust-url",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-channel",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-core",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-io",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-macro",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-sink",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-task",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "futures-util",
+      "version": "0.3.32",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/futures-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd",
+        "8337133fbd3cd6b5de6ca9fd048a242a01045f3257add148a03c29f91e51e2b2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "generic-array",
+      "version": "0.14.7",
+      "license": "MIT",
+      "url": "https://github.com/fizyk20/generic-array.git",
+      "delivery": "bundled",
+      "licenseSections": [
+        "eb69613e00e596e13d2f58e820aee10e9d51754b91d7111bc997f1fc90791f66"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "getrandom",
+      "version": "0.2.17",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/getrandom",
+      "delivery": "bundled",
+      "licenseSections": [
+        "228e99750197fe32f2fe3075e772116b46edbc308b7473f8c30e8b26a4c0a1a4",
+        "42fa16951ce7f24b5a467a40e5b449a1d41e662f97ca779864f053f39e097737"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "getrandom",
+      "version": "0.3.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/getrandom",
+      "delivery": "bundled",
+      "licenseSections": [
+        "228e99750197fe32f2fe3075e772116b46edbc308b7473f8c30e8b26a4c0a1a4",
+        "29e9fe5074bd27e0e5d5d110394fbbcd841baee2651a3c4b4560a632702cede4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "getrandom",
+      "version": "0.4.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/getrandom",
+      "delivery": "bundled",
+      "licenseSections": [
+        "228e99750197fe32f2fe3075e772116b46edbc308b7473f8c30e8b26a4c0a1a4",
+        "523a42c25d245dde9c015f882cec7f4555aad883382a6cf19b4b7d9b2cd5419b"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "glob",
+      "version": "0.3.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/glob",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hashbrown",
+      "version": "0.12.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/hashbrown",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hashbrown",
+      "version": "0.17.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/hashbrown",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "heck",
+      "version": "0.5.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/withoutboats/heck",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hex",
+      "version": "0.4.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/KokaKiwi/rust-hex",
+      "delivery": "bundled",
+      "licenseSections": [
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
+        "f7bdb3426d045cd50efd4953026e3eb5a83d0199f458a075602611b9344da5b9"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "html5ever",
+      "version": "0.38.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/html5ever",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "http",
+      "version": "1.4.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/hyperium/http",
+      "delivery": "bundled",
+      "licenseSections": [
+        "336977372a4072c666d23fe62a915db7fea41c94130fb5ec9766d634269ae2a2",
+        "dc91f8200e4b2a1f9261035d4c18c33c246911a6c0f7b543d75347e61b249cff"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "http-body",
+      "version": "1.0.1",
+      "license": "MIT",
+      "url": "https://github.com/hyperium/http-body",
+      "delivery": "bundled",
+      "licenseSections": [
+        "cddabf8adc6ccd6c3e68f5d71eac9fae3094116623cf23a46af0a5fd6b8ee813"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "http-body-util",
+      "version": "0.1.3",
+      "license": "MIT",
+      "url": "https://github.com/hyperium/http-body",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b843fb7430efdf9732c834b6814beda44fccf3f0ddf7c9e030b39da17f6b159c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "httparse",
+      "version": "1.10.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/seanmonstar/httparse",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "1626f2c950cee975b5809748e288468141d09aa420314c7c9b35e6e62b772b2d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hyper",
+      "version": "1.9.0",
+      "license": "MIT",
+      "url": "https://github.com/hyperium/hyper",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2d01890414494742ba4a509fcec8efa40f6d8be22cbd72be7cff08d6fda4ec89"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hyper-rustls",
+      "version": "0.27.9",
+      "license": "Apache-2.0 OR ISC OR MIT",
+      "url": "https://github.com/rustls/hyper-rustls",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c",
+        "7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hyper-util",
+      "version": "0.1.20",
+      "license": "MIT",
+      "url": "https://github.com/hyperium/hyper-util",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9e0a97848ea543aef745c98e84fde696a9a3e0735538f6daefdd3cb1942effc1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "iana-time-zone",
+      "version": "0.1.65",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/strawlab/iana-time-zone",
+      "delivery": "bundled",
+      "licenseSections": [
+        "da28ccc6b158fc2d8cccc74e99794b1cff1d29bd7bbeb019442fcf0c04c6cad9",
+        "fd45b9dd6fed3821301722bd169967a9a0c9f2e8c5a6961e5bb67989d6b17bb5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ico",
+      "version": "0.5.0",
+      "license": "MIT",
+      "url": "https://github.com/mdsteele/rust-ico",
+      "delivery": "bundled",
+      "licenseSections": [
+        "41ca90213441b294e7517d5858f0cc85bc12e19ec044001b45bc213de461d33b"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_collections",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_locale_core",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_normalizer",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_normalizer_data",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_properties",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_properties_data",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "icu_provider",
+      "version": "2.2.0",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ident_case",
+      "version": "1.0.1",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/TedDriggs/ident_case",
+      "delivery": "bundled",
+      "licenseSections": [
+        "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "idna",
+      "version": "1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/rust-url/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "idna_adapter",
+      "version": "1.2.2",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/hsivonen/idna_adapter",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8b43ce8accd61e9d370b5ca9e9c4f953279b5c239926c62315b40e24df51b726"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "indexmap",
+      "version": "1.9.3",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/bluss/indexmap",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "ecc269ef87fd38a1d98e30bfac9ba964a9dbd9315c3770fed98d4d7cb5882055"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "indexmap",
+      "version": "2.14.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/indexmap-rs/indexmap",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "ecc269ef87fd38a1d98e30bfac9ba964a9dbd9315c3770fed98d4d7cb5882055"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "infer",
+      "version": "0.19.0",
+      "license": "MIT",
+      "url": "https://github.com/bojand/infer",
+      "delivery": "bundled",
+      "licenseSections": [
+        "270b0d81891aa44c7e8726cf9432dade9556a01c848bacd2f3ef839c9c1a1859"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ipnet",
+      "version": "2.12.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/krisprice/ipnet",
+      "delivery": "bundled",
+      "licenseSections": [
+        "47dc9ff29128ddfb4d6a0435383c9f89120bc374dbcc1dd00b933a0b28aa7865",
+        "6366ebae0a4c6d4a2d5f230c72ac776b34a1c638223e8a0b6ff34ee31b338f80"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "itoa",
+      "version": "1.0.18",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/itoa",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "json-patch",
+      "version": "3.0.1",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/idubrov/json-patch",
+      "delivery": "bundled",
+      "licenseSections": [
+        "87f7527b1066337751f7f4d717089bf514ff8f7ee7d66c4c5b891b09e744ec11",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "jsonptr",
+      "version": "0.6.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/chanced/jsonptr",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2bc107bdc18a74263d20bdefdb8073e17bc1a01b6b374dc5835683a33ee5ba7d",
+        "7320e6a3fa91141a06764cf2f24e7d32679f2bdd58e50daa647939fb612e817f"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "keyboard-types",
+      "version": "0.7.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/pyfisch/keyboard-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "dd57ede7eb6b56bc60b7c69f4b701b5550b9b5a1f4f47b98f26758ed74743f82"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "layerlab",
+      "version": "0.0.0",
+      "license": "Apache-2.0",
+      "url": "https://github.com/bassmicrobe/stemdeck",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "libc",
+      "version": "0.2.186",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/libc",
+      "delivery": "bundled",
+      "licenseSections": [
+        "123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "litemap",
+      "version": "0.8.2",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "lock_api",
+      "version": "0.4.14",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Amanieu/parking_lot",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "log",
+      "version": "0.4.29",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/log",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "lru-slab",
+      "version": "0.1.2",
+      "license": "MIT OR Apache-2.0 OR Zlib",
+      "url": "https://github.com/Ralith/lru-slab",
+      "delivery": "bundled",
+      "licenseSections": [
+        "09785877275ffada6c371b652a30e95c26b435126fc0fc62f1bc2d72171f80a4",
+        "1466d9b4f3a59bb8997fc8d5fa977ce3f6a24bb2358793c09bfdf007039f6486",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "markup5ever",
+      "version": "0.38.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/html5ever",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "memchr",
+      "version": "2.8.0",
+      "license": "Unlicense OR MIT",
+      "url": "https://github.com/BurntSushi/memchr",
+      "delivery": "bundled",
+      "licenseSections": [
+        "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
+        "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "mime",
+      "version": "0.3.17",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/hyperium/mime",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8b87502eddb2d7fa23d54ed2caf5681ab5fbbdc8eb553e8ade710240842f9097"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "miniz_oxide",
+      "version": "0.8.9",
+      "license": "MIT OR Zlib OR Apache-2.0",
+      "url": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0a54e647fe54104658b5e563c04c6f9edf251710e47bce692e0bd990a4ddaa39",
+        "4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b",
+        "799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "mio",
+      "version": "1.2.0",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/mio",
+      "delivery": "bundled",
+      "licenseSections": [
+        "07919255c7e04793d8ea760d6c2ce32d19f9ff02bdbdde3ce90b1e1880929a9b"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "muda",
+      "version": "0.19.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/muda",
+      "delivery": "bundled",
+      "licenseSections": [
+        "135bd40d7e81207369801d42a130c337371322df59687bf986fb8216352d71b6",
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "2ab5537b8c0cb1d475e2145b6a7994b04e7c71e6e5bd836f7f9c47c221a5ad9a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "new_debug_unreachable",
+      "version": "1.0.6",
+      "license": "MIT",
+      "url": "https://github.com/mbrubeck/rust-debug-unreachable",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f7715d38a3fa1b4ac97c5729740752505a39cb92ee83ab5b102aeb5eaa7cdea4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "num-conv",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/jhpratt/num-conv",
+      "delivery": "bundled",
+      "licenseSections": [
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+        "e2e245f2b566d0bfafb0f6a04c16b82d710c4e6e7d799e39bb4ef6e541b85b98"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "num-traits",
+      "version": "0.2.19",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-num/num-traits",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2",
+      "version": "0.6.4",
+      "license": "MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-app-kit",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-core-foundation",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-core-graphics",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-encode",
+      "version": "4.1.0",
+      "license": "MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-exception-helper",
+      "version": "0.1.1",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-foundation",
+      "version": "0.3.2",
+      "license": "MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-io-surface",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "objc2-web-kit",
+      "version": "0.3.2",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/madsmtm/objc2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "once_cell",
+      "version": "1.21.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/matklad/once_cell",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "option-ext",
+      "version": "0.2.0",
+      "license": "MPL-2.0",
+      "url": "https://github.com/soc/option-ext.git",
+      "delivery": "bundled",
+      "licenseSections": [
+        "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "parking_lot",
+      "version": "0.12.5",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Amanieu/parking_lot",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "parking_lot_core",
+      "version": "0.9.12",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Amanieu/parking_lot",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "percent-encoding",
+      "version": "2.3.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/rust-url/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf",
+      "version": "0.11.3",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf",
+      "version": "0.13.1",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_generator",
+      "version": "0.11.3",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_generator",
+      "version": "0.13.1",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_macros",
+      "version": "0.11.3",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_macros",
+      "version": "0.13.1",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_shared",
+      "version": "0.11.3",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "phf_shared",
+      "version": "0.13.1",
+      "license": "MIT",
+      "url": "https://github.com/rust-phf/rust-phf",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0ab4d106b6faac07fb6a051815fd1b4d862d730895e2d7d7358c2f13565e7a38"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "pin-project-lite",
+      "version": "0.2.17",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/taiki-e/pin-project-lite",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "plist",
+      "version": "1.9.0",
+      "license": "MIT",
+      "url": "https://github.com/ebarnard/rust-plist/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b61cf1a75b378860940eb420fd0fd1d8e747fd5dae5f5a2f2c9cd4454e1db78a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "png",
+      "version": "0.17.16",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/image-rs/image-png",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "eaf40297c75da471f7cda1f3458e8d91b4b2ec866e609527a13acfa93b638652"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "png",
+      "version": "0.18.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/image-rs/image-png",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "eaf40297c75da471f7cda1f3458e8d91b4b2ec866e609527a13acfa93b638652"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "potential_utf",
+      "version": "0.1.5",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "powerfmt",
+      "version": "0.2.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/jhpratt/powerfmt",
+      "delivery": "bundled",
+      "licenseSections": [
+        "070dbc7dda03a29296f2d58bdb9b7331af90f2abc9f31df22875d1eabaf29852",
+        "195928f85a6d2b9a00bb0892a507b9bd08050a971e8b4e923fd0b82ab44f9063"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ppv-lite86",
+      "version": "0.2.21",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/cryptocorrosion/cryptocorrosion",
+      "delivery": "bundled",
+      "licenseSections": [
+        "05f4c1c1e53c325ea27f4f2efeca0634575f8359c1f483205fb270f380cf5e4e",
+        "4cada0bd02ea3692eee6f16400d86c6508bbd3bafb2b65fed0419f36d4f83e8f"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "precomputed-hash",
+      "version": "0.1.1",
+      "license": "MIT",
+      "url": "https://github.com/emilio/precomputed-hash",
+      "delivery": "bundled",
+      "licenseSections": [
+        "7ca6700600dfa9c9497bf5556365067daa802c871ea78239f129309c7a2048f7"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "proc-macro2",
+      "version": "1.0.106",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/proc-macro2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "quick-xml",
+      "version": "0.39.3",
+      "license": "MIT",
+      "url": "https://github.com/tafia/quick-xml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f0cf9b1c62bbe3bd3a69f5f79c7158f513f612b4940a0a812d1db39d605318bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "quinn",
+      "version": "0.11.9",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/quinn-rs/quinn",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4b2d0aca6789fa39e03d6738e869ea0988cceba210ca34ebb59c15c463e93a04",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "quinn-proto",
+      "version": "0.11.14",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/quinn-rs/quinn",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4b2d0aca6789fa39e03d6738e869ea0988cceba210ca34ebb59c15c463e93a04",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "quinn-udp",
+      "version": "0.5.14",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/quinn-rs/quinn",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4b2d0aca6789fa39e03d6738e869ea0988cceba210ca34ebb59c15c463e93a04",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "quote",
+      "version": "1.0.45",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/quote",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand",
+      "version": "0.8.6",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/rand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+        "7fe0ec5fd291b829e20056d50b1c56f947d515655f7eddfe9ce493753550bff0",
+        "90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand",
+      "version": "0.9.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/rand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+        "7fe0ec5fd291b829e20056d50b1c56f947d515655f7eddfe9ce493753550bff0",
+        "90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand_chacha",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/rand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+        "7fe0ec5fd291b829e20056d50b1c56f947d515655f7eddfe9ce493753550bff0",
+        "90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand_core",
+      "version": "0.6.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/rand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+        "767317d72c1699ce7cb8d78de8a9db755e48d2c50da8afb7976f26662dbbfeb3",
+        "90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rand_core",
+      "version": "0.9.5",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-random/rand",
+      "delivery": "bundled",
+      "licenseSections": [
+        "209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b",
+        "767317d72c1699ce7cb8d78de8a9db755e48d2c50da8afb7976f26662dbbfeb3",
+        "90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "raw-window-handle",
+      "version": "0.6.2",
+      "license": "MIT OR Apache-2.0 OR Zlib",
+      "url": "https://github.com/rust-windowing/raw-window-handle",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9c5a80639a57c1c945570e7ebbca0706305849ce3c098021325cca9db2f7acc4",
+        "ae895c8576e682f310fb70d93d9f99b1dd82872094c54a8f6cdfe2ca5c2d6ecb",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ref-cast",
+      "version": "1.0.25",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/ref-cast",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ref-cast-impl",
+      "version": "1.0.25",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/ref-cast",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "regex",
+      "version": "1.12.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/regex",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "regex-automata",
+      "version": "0.4.14",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/regex",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "regex-syntax",
+      "version": "0.8.10",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/regex",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "reqwest",
+      "version": "0.12.28",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/seanmonstar/reqwest",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2ffc690bebe151fe6d903da809e36b6de0d692e075461f2862ef6bc6e51f7035",
+        "34f17d90673854314276164d17a4861400d4528066eb458a003fdb15ef98fbbe"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rfd",
+      "version": "0.16.0",
+      "license": "MIT",
+      "url": "https://github.com/PolyMeilex/rfd",
+      "delivery": "bundled",
+      "licenseSections": [
+        "65fc947f4bac882a2cd104ef73c246b1b037059df9f2b3a58b7f77f0b9e56071"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ring",
+      "version": "0.17.14",
+      "license": "Apache-2.0 AND ISC",
+      "url": "https://github.com/briansmith/ring",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0d872bb68596964630ba03fe6e4c9370181f9e8696971d419d3de55a3b984679",
+        "b3d734001a94efff3579978d953391aa7115f877657d25eb54037a43875d078a",
+        "f025ccfb7dfb6bdfedc75ca0f67acc69e6fb4998143d834f7c2f38a29989680f"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rustc-hash",
+      "version": "2.1.2",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/rust-lang/rustc-hash",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rustix",
+      "version": "1.1.4",
+      "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "url": "https://github.com/bytecodealliance/rustix",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9",
+        "ae6e99144a735503e5b54b92e09cf8dec2e7f2e25706ec5c98af2f7d2242dc75"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rustls",
+      "version": "0.23.40",
+      "license": "Apache-2.0 OR ISC OR MIT",
+      "url": "https://github.com/rustls/rustls",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c",
+        "7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rustls-pki-types",
+      "version": "1.14.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rustls/pki-types",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9117d922e667125508dde62b02c1f57ed22f5ad21eb536aa2e2d99e1c796e639",
+        "c12c816484f26d7d2c7d32c4b8c22eeb83456f9e2f52c139c557583ce3a391b1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "rustls-webpki",
+      "version": "0.103.13",
+      "license": "ISC",
+      "url": "https://github.com/rustls/webpki",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5b698ca13897be3afdb7174256fa1574f8c6892b8bea1a66dd6469d3fe27885a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "ryu",
+      "version": "1.0.23",
+      "license": "Apache-2.0 OR BSL-1.0",
+      "url": "https://github.com/dtolnay/ryu",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e",
+        "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "same-file",
+      "version": "1.0.6",
+      "license": "Unlicense/MIT",
+      "url": "https://github.com/BurntSushi/same-file",
+      "delivery": "bundled",
+      "licenseSections": [
+        "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c",
+        "cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "schemars",
+      "version": "0.8.22",
+      "license": "MIT",
+      "url": "https://github.com/GREsau/schemars",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "schemars",
+      "version": "0.9.0",
+      "license": "MIT",
+      "url": "https://github.com/GREsau/schemars",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "schemars",
+      "version": "1.2.1",
+      "license": "MIT",
+      "url": "https://github.com/GREsau/schemars",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "schemars_derive",
+      "version": "0.8.22",
+      "license": "MIT",
+      "url": "https://github.com/GREsau/schemars",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "scopeguard",
+      "version": "1.2.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/bluss/scopeguard",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "selectors",
+      "version": "0.36.1",
+      "license": "MPL-2.0",
+      "url": "https://github.com/servo/stylo",
+      "delivery": "bundled",
+      "licenseSections": [
+        "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "semver",
+      "version": "1.0.28",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/semver",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde",
+      "version": "1.0.228",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/serde-rs/serde",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde-untagged",
+      "version": "0.1.9",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/serde-untagged",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_core",
+      "version": "1.0.228",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/serde-rs/serde",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_derive",
+      "version": "1.0.228",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/serde-rs/serde",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_derive_internals",
+      "version": "0.29.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/serde-rs/serde",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_json",
+      "version": "1.0.149",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/serde-rs/json",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_repr",
+      "version": "0.1.20",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/serde-repr",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_spanned",
+      "version": "1.1.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/toml-rs/toml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_urlencoded",
+      "version": "0.7.1",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/nox/serde_urlencoded",
+      "delivery": "bundled",
+      "licenseSections": [
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e",
+        "b9eb266294324f672cbe945fe8f2e32f85024f0d61a1a7d14382cdde0ac44769"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_with",
+      "version": "3.19.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/jonasbb/serde_with/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serde_with_macros",
+      "version": "3.19.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/jonasbb/serde_with/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serialize-to-javascript",
+      "version": "0.1.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/chippers/serialize-to-javascript",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "e53a7165e8bc3ced5e5628404b3d2d28ecc14ad720f1c09ba28385d5151ecf93"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "serialize-to-javascript-impl",
+      "version": "0.1.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/chippers/serialize-to-javascript",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "e53a7165e8bc3ced5e5628404b3d2d28ecc14ad720f1c09ba28385d5151ecf93"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "servo_arc",
+      "version": "0.4.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/stylo",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "sha2",
+      "version": "0.10.9",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/RustCrypto/hashes",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6aed14a79871456730ce9c74d0e927e9097e63b4085c4395af363d431ede5c8f",
+        "b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "simd-adler32",
+      "version": "0.3.9",
+      "license": "MIT",
+      "url": "https://github.com/mcountryman/simd-adler32",
+      "delivery": "bundled",
+      "licenseSections": [
+        "42a35170233e83e18856792e748de4c1ce4a63b2afce9a370c89ef3fe23f9f2d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "siphasher",
+      "version": "1.0.3",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/jedisct1/rust-siphash",
+      "delivery": "bundled",
+      "licenseSections": [
+        "c962ee4d1d05ddc138b202b2540219ebc57893fcf97b364852094a9a94ce1365"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "slab",
+      "version": "0.4.12",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/slab",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8ce0830173fdac609dfb4ea603fdc002c2f4af0dc9b1a005653f5da9cf534b18"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "smallvec",
+      "version": "1.15.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/rust-smallvec",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0b28172679e0009b655da42797c03fd163a3379d5cfa67ba1f1655e974a2a1a9",
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "socket2",
+      "version": "0.6.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rust-lang/socket2",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "stable_deref_trait",
+      "version": "1.2.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/storyyeller/stable_deref_trait",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "3c125f249fc6fb19f2415d027a0d9a170860583960ea53d08ea1d2b3f269d153"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "string_cache",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/string-cache",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "strsim",
+      "version": "0.11.1",
+      "license": "MIT",
+      "url": "https://github.com/rapidfuzz/strsim-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1e697ce8d21401fbf1bddd9b5c3fd4c4c79ae1e3bdf51f81761c85e11d5a89cd"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "subtle",
+      "version": "2.6.1",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/dalek-cryptography/subtle",
+      "delivery": "bundled",
+      "licenseSections": [
+        "cc0332a88c2ea21d5f3c1298f966120f4c95196871c3f6bb4fcf615508b93fa1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "swift-rs",
+      "version": "1.0.7",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Brendonovich/swift-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "bbff99cfea30e0ed6e260eadbea125ca2f8134d4f1c0b562c942506f95fe15a5",
+        "f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "syn",
+      "version": "2.0.117",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/syn",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "sync_wrapper",
+      "version": "1.0.2",
+      "license": "Apache-2.0",
+      "url": "https://github.com/Actyx/sync_wrapper",
+      "delivery": "bundled",
+      "licenseSections": [
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "synstructure",
+      "version": "0.13.2",
+      "license": "MIT",
+      "url": "https://github.com/mystor/synstructure",
+      "delivery": "bundled",
+      "licenseSections": [
+        "219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tao",
+      "version": "0.35.2",
+      "license": "Apache-2.0",
+      "url": "https://github.com/tauri-apps/tao",
+      "delivery": "bundled",
+      "licenseSections": [
+        "02b6448337b757772d90e5f31caaa0f9e6afaad2221c01771d0a3deaa4d4196c",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tar",
+      "version": "0.4.45",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/alexcrichton/tar-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri",
+      "version": "2.11.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-codegen",
+      "version": "2.6.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-macros",
+      "version": "2.6.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-plugin-dialog",
+      "version": "2.7.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/plugins-workspace",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9c1db6b7e7eb83e1cb2af973b5df2bdc63651ede0f38506ab98dfa0940487759",
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-plugin-fs",
+      "version": "2.5.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/plugins-workspace",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9c1db6b7e7eb83e1cb2af973b5df2bdc63651ede0f38506ab98dfa0940487759",
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-plugin-store",
+      "version": "2.4.3",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/plugins-workspace",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9c1db6b7e7eb83e1cb2af973b5df2bdc63651ede0f38506ab98dfa0940487759",
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-runtime",
+      "version": "2.11.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-runtime-wry",
+      "version": "2.11.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tauri-utils",
+      "version": "2.9.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri",
+      "delivery": "bundled",
+      "licenseSections": [
+        "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tendril",
+      "version": "0.5.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/html5ever",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "60a7062291b01ba068f300612cdbdc20382ac1d4934f07bcdd7167c15299f309"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "thiserror",
+      "version": "1.0.69",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/thiserror",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "thiserror",
+      "version": "2.0.18",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/thiserror",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "thiserror-impl",
+      "version": "1.0.69",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/thiserror",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "thiserror-impl",
+      "version": "2.0.18",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/thiserror",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "time",
+      "version": "0.3.47",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/time-rs/time",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2537228d9a1b44a5dc595241349cae7090b326c8de165aaf89bfddef4a00d0fc",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "time-core",
+      "version": "0.1.8",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/time-rs/time",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2537228d9a1b44a5dc595241349cae7090b326c8de165aaf89bfddef4a00d0fc",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "time-macros",
+      "version": "0.2.27",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/time-rs/time",
+      "delivery": "bundled",
+      "licenseSections": [
+        "2537228d9a1b44a5dc595241349cae7090b326c8de165aaf89bfddef4a00d0fc",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tinystr",
+      "version": "0.8.3",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tinyvec",
+      "version": "1.11.0",
+      "license": "Zlib OR Apache-2.0 OR MIT",
+      "url": "https://github.com/Lokathor/tinyvec",
+      "delivery": "bundled",
+      "licenseSections": [
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "84b34dd7608f7fb9b17bd588a6bf392bf7de504e2716f024a77d89f1b145a151",
+        "fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tinyvec_macros",
+      "version": "0.1.1",
+      "license": "MIT OR Apache-2.0 OR Zlib",
+      "url": "https://github.com/Soveu/tinyvec_macros",
+      "delivery": "bundled",
+      "licenseSections": [
+        "1dd8eca0f83669e75fa119e34fb9e1be9d16e3e9b6368962b8019db6e8ae5f7b",
+        "6abdec69ada0c5f06d4819d9a0db0824ce54d610665df0b64c774480db9c1f2a",
+        "ff6cf3b90999858ea63e0937090e8b7320611b2bbd97eabe4e6b70c2020147e8"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tokio",
+      "version": "1.52.2",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/tokio",
+      "delivery": "bundled",
+      "licenseSections": [
+        "253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tokio-macros",
+      "version": "2.7.0",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/tokio",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0b83dc40cba89b9922bb84b0a9c7d2768ce37c1d7e138b7424fd4549915778c9"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tokio-rustls",
+      "version": "0.26.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/rustls/tokio-rustls",
+      "delivery": "bundled",
+      "licenseSections": [
+        "aacc68583a2ebef047784547317d915214d6a9a5abc580b72844eabbbac5e742",
+        "e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "toml",
+      "version": "1.1.2+spec-1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/toml-rs/toml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "toml_datetime",
+      "version": "1.1.1+spec-1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/toml-rs/toml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "toml_parser",
+      "version": "1.1.2+spec-1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/toml-rs/toml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "toml_writer",
+      "version": "1.1.1+spec-1.1.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/toml-rs/toml",
+      "delivery": "bundled",
+      "licenseSections": [
+        "6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6",
+        "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tower",
+      "version": "0.5.3",
+      "license": "MIT",
+      "url": "https://github.com/tower-rs/tower",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tower-http",
+      "version": "0.6.9",
+      "license": "MIT",
+      "url": "https://github.com/tower-rs/tower-http",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5049cf464977eff4b4fcfa7988d84e74116956a3eb9d5f1d451b3f828f945233"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tower-layer",
+      "version": "0.3.3",
+      "license": "MIT",
+      "url": "https://github.com/tower-rs/tower",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tower-service",
+      "version": "0.3.3",
+      "license": "MIT",
+      "url": "https://github.com/tower-rs/tower",
+      "delivery": "bundled",
+      "licenseSections": [
+        "4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tracing",
+      "version": "0.1.44",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/tracing",
+      "delivery": "bundled",
+      "licenseSections": [
+        "898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tracing-attributes",
+      "version": "0.1.31",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/tracing",
+      "delivery": "bundled",
+      "licenseSections": [
+        "898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tracing-core",
+      "version": "0.1.36",
+      "license": "MIT",
+      "url": "https://github.com/tokio-rs/tracing",
+      "delivery": "bundled",
+      "licenseSections": [
+        "898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tray-icon",
+      "version": "0.23.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/tauri-apps/tray-icon",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "2ab5537b8c0cb1d475e2145b6a7994b04e7c71e6e5bd836f7f9c47c221a5ad9a",
+        "44181d1db740d9841dbe6d7fa1963a23067f335567127fc15a9d050476af71a6"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "try-lock",
+      "version": "0.2.5",
+      "license": "MIT",
+      "url": "https://github.com/seanmonstar/try-lock",
+      "delivery": "bundled",
+      "licenseSections": [
+        "8b62775bacdfa5ae8390519b7cdf7ab7d6c53f008981f1b9abd6135ef745b67e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "typeid",
+      "version": "1.0.3",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/dtolnay/typeid",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "typenum",
+      "version": "1.20.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/paholg/typenum",
+      "delivery": "bundled",
+      "licenseSections": [
+        "36bb253818ac13761081556ff5c457d626da9df1eb4f56194d9ad3926c418a68",
+        "a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f",
+        "adb48f9ee5be072e48dea05c2a289da330aae14467f7474c4a1f00a81cf8d5ef"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unic-char-property",
+      "version": "0.9.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/open-i18n/rust-unic/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unic-char-range",
+      "version": "0.9.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/open-i18n/rust-unic/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unic-common",
+      "version": "0.9.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/open-i18n/rust-unic/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unic-ucd-ident",
+      "version": "0.9.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/open-i18n/rust-unic/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unic-ucd-version",
+      "version": "0.9.0",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/open-i18n/rust-unic/",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unicode-ident",
+      "version": "1.0.24",
+      "license": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "url": "https://github.com/dtolnay/unicode-ident",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e",
+        "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "unicode-segmentation",
+      "version": "1.13.2",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/unicode-rs/unicode-segmentation",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "23860c2a7b5d96b21569afedf033469bab9fe14a1b24a35068b8641c578ce24d",
+        "7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "untrusted",
+      "version": "0.9.0",
+      "license": "ISC",
+      "url": "https://github.com/briansmith/untrusted",
+      "delivery": "bundled",
+      "licenseSections": [
+        "7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "url",
+      "version": "2.5.8",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/rust-url",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "urlpattern",
+      "version": "0.3.0",
+      "license": "MIT",
+      "url": "https://github.com/denoland/rust-urlpattern",
+      "delivery": "bundled",
+      "licenseSections": [
+        "5cf1c9dc617e4cad7fa03181ff893601ad5243aa3be527ef39034e1cd6377676"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "utf-8",
+      "version": "0.7.6",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/SimonSapin/rust-utf8",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+        "b30df9a48463d1c99c6a66cdee623b1b0832c3811d58a80b338268d71cea190e"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "utf8_iter",
+      "version": "1.0.4",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/hsivonen/utf8_iter",
+      "delivery": "bundled",
+      "licenseSections": [
+        "3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "c30152c94a6d75e021adbc52b3a52470366a46edb917e17deae3259251af244c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "uuid",
+      "version": "1.23.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/uuid-rs/uuid",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "walkdir",
+      "version": "2.5.0",
+      "license": "Unlicense/MIT",
+      "url": "https://github.com/BurntSushi/walkdir",
+      "delivery": "bundled",
+      "licenseSections": [
+        "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f",
+        "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f",
+        "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "want",
+      "version": "0.3.1",
+      "license": "MIT",
+      "url": "https://github.com/seanmonstar/want",
+      "delivery": "bundled",
+      "licenseSections": [
+        "96d741569b18c61043e5ad2b8505b5e4891a27994b732b1da9f86f46be67f59a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "web_atoms",
+      "version": "0.2.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/servo/html5ever",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "webpki-roots",
+      "version": "1.0.7",
+      "license": "CDLA-Permissive-2.0",
+      "url": "https://github.com/rustls/webpki-roots",
+      "delivery": "bundled",
+      "licenseSections": [
+        "e271993808fec50ab29350b39539cdec611a9103f827e0aa26d61da70e2d33f8"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "window-vibrancy",
+      "version": "0.6.0",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/tauri-plugin-vibrancy",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "617b85f62a4f1b6a62d3d9f28f6d7003b7f68a70b7675a8174bbcc68401ac62d",
+        "7ccef0d35e8507fa02d7e904a5277d62723f9ec576d52f6a865cab7b4dbf12ad"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "winnow",
+      "version": "1.0.2",
+      "license": "MIT",
+      "url": "https://github.com/winnow-rs/winnow",
+      "delivery": "bundled",
+      "licenseSections": [
+        "cb5aedb296c5246d1f22e9099f925a65146f9f0d6b4eebba97fd27a6cdbbab2d"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "writeable",
+      "version": "0.6.3",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "wry",
+      "version": "0.55.1",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/tauri-apps/wry",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "ef88893533af22ffbb68ceef0724ba1389518df26165a34f3c99ad30b884df4f",
+        "f73041468536d0b5fd1a6610fa3f317e3dc6cf9a0c0591a5529d6556a0d8a2c3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "xattr",
+      "version": "1.6.1",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Stebalien/xattr",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "yoke",
+      "version": "0.8.2",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "yoke-derive",
+      "version": "0.8.2",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerocopy",
+      "version": "0.8.48",
+      "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "url": "https://github.com/google/zerocopy",
+      "delivery": "bundled",
+      "licenseSections": [
+        "24fa231567ace7e0cdd96e5b2e649b0445d280710f7018d01ba6411e06aa641e",
+        "83c1763356e822adde0a2cae748d938a73fdc263849ccff6b27776dff213bd32",
+        "cb84f28c8b267bfd66ccf1f43f63bd9c357bb479576e437243ca38dad2851808"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerofrom",
+      "version": "0.1.7",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerofrom-derive",
+      "version": "0.1.7",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zeroize",
+      "version": "1.8.2",
+      "license": "Apache-2.0 OR MIT",
+      "url": "https://github.com/RustCrypto/utils",
+      "delivery": "bundled",
+      "licenseSections": [
+        "0b04ee3ce0021a922f43f37a17fee09a5a1ee6d1f4e149d5bf75b72395a49c72",
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerotrie",
+      "version": "0.2.4",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerovec",
+      "version": "0.11.6",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zerovec-derive",
+      "version": "0.11.3",
+      "license": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/icu4x",
+      "delivery": "bundled",
+      "licenseSections": [
+        "f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zip",
+      "version": "2.4.2",
+      "license": "MIT",
+      "url": "https://github.com/zip-rs/zip2.git",
+      "delivery": "bundled",
+      "licenseSections": [
+        "13f16f8435b4242f494f038d761bd99c5af70395aa39274bd287d22c4d35c3b7"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zmij",
+      "version": "1.0.21",
+      "license": "MIT",
+      "url": "https://github.com/dtolnay/zmij",
+      "delivery": "bundled",
+      "licenseSections": [
+        "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zopfli",
+      "version": "0.8.3",
+      "license": "Apache-2.0",
+      "url": "https://github.com/zopfli-rs/zopfli",
+      "delivery": "bundled",
+      "licenseSections": [
+        "48974c2c308f9902b519404b24c35df4f0cfc4370945a854aaa058d3beafc2b4"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zstd",
+      "version": "0.13.3",
+      "license": "MIT",
+      "url": "https://github.com/gyscos/zstd-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zstd-safe",
+      "version": "7.2.4",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/gyscos/zstd-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8",
+        "a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "zstd-sys",
+      "version": "2.0.16+zstd.1.5.7",
+      "license": "MIT/Apache-2.0",
+      "url": "https://github.com/gyscos/zstd-rs",
+      "delivery": "bundled",
+      "licenseSections": [
+        "129e8edef29e9abcd2ebabe252f4ef1b1289cdca356bf0040284a2fbccfb96c8",
+        "48341f685c87304089aa099b23c386f8bacc519ef555aa7a13e239908907b3fd",
+        "a77b7cfeaf911ed410ffbe76f0cb2b24ad8a4d94e7ead5727e914425c416cc63",
+        "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "system",
+      "name": "Microsoft Edge WebView2",
+      "license": "Operating-system/runtime component; not redistributed by LayerLab portable package",
+      "delivery": "provided or installed separately on Windows",
+      "url": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "version": "",
+      "licenseSections": []
+    },
+    {
+      "ecosystem": "system",
+      "name": "WebKit / WKWebView",
+      "license": "Operating-system component; not redistributed by LayerLab",
+      "delivery": "provided by macOS",
+      "url": "https://webkit.org/licensing-webkit/",
+      "version": "",
+      "licenseSections": []
+    }
+  ]
+}
