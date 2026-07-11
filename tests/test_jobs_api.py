@@ -302,6 +302,22 @@ def test_cancel_queued_job_opens_queue_slot(client):
     assert replacement.status_code == 200
 
 
+def test_audio_ready_background_analysis_does_not_hold_queue_capacity(client):
+    created = [
+        client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).json()[
+            "job_id"
+        ]
+        for _ in range(MAX_PENDING_JOBS)
+    ]
+    for job_id in created:
+        _jobs[job_id].status = "processing"
+        _jobs[job_id].audio_ready = True
+
+    replacement = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
+
+    assert replacement.status_code == 200
+
+
 def test_cancel_queued_job_sets_completion_timestamp(client):
     created = client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"})
     job_id = created.json()["job_id"]
@@ -556,6 +572,22 @@ def test_sections_reject_running_job(client):
     _jobs[job.id] = job
     response = client.patch(f"/api/jobs/{job.id}/sections", json={"sections": []})
     assert response.status_code == 409
+
+
+def test_sections_accept_audio_ready_job(client, tmp_path):
+    job = Job(id="abcdefabcda7", status="processing", audio_ready=True)
+    _jobs[job.id] = job
+    (tmp_path / job.id).mkdir()
+    payload = {
+        "sections": [
+            {"id": "intro", "name": "Intro", "start": 0.0, "end": 4.0, "color": "#fff"}
+        ]
+    }
+
+    response = client.patch(f"/api/jobs/{job.id}/sections", json=payload)
+
+    assert response.status_code == 200
+    assert job.sections == payload["sections"]
 
 
 # ─── SSE job_id validation ────────────────────────────────────────────────────

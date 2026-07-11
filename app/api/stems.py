@@ -57,6 +57,14 @@ _ENCODE_ARGS = {
 MIXDOWN_MEDIA_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg", "flac": "audio/flac"}
 
 
+def _audio_is_ready(job) -> bool:
+    return bool(job and (job.status == "done" or job.audio_ready))
+
+
+def _analysis_is_ready(job) -> bool:
+    return bool(job and (job.status == "done" or job.analysis_ready))
+
+
 def _mixdown_codec_args(ext: str, job_quality_preset: str | None) -> list[str]:
     if ext == "wav":
         return ["-c:a", wav_codec_for_quality_preset(job_quality_preset), "-f", "wav"]
@@ -70,7 +78,7 @@ def _validate_stem_path(job_id: str, name: str):
     if name not in _ALLOWED_NAMES:
         raise HTTPException(status_code=404, detail="unknown stem")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     path = (JOBS_DIR / job_id / "stems" / f"{name}.wav").resolve()
     if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
@@ -133,7 +141,7 @@ async def get_stem_peaks(job_id: str) -> Response:
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     path = (JOBS_DIR / job_id / "stems" / "peaks.json").resolve()
     if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
@@ -177,7 +185,7 @@ async def get_chord_midi(
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _analysis_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
     normalized_grid = grid if grid in ("beat", "bar") else "beat"
@@ -220,7 +228,7 @@ async def get_chord_csv(
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _analysis_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
     normalized_grid = grid if grid in ("beat", "bar") else "beat"
@@ -240,7 +248,7 @@ async def get_midi_analysis(job_id: str) -> FileResponse:
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _analysis_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     path = (JOBS_DIR / job_id / "stems" / "midi-analysis.json").resolve()
     if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
@@ -262,7 +270,7 @@ async def get_stem(
     """Download a WAV stem. Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
 
     if start is None and end is None:
@@ -309,7 +317,7 @@ async def get_stem_mp3(
     """Stream a stem as MP3 (VBR ~190 kbps). Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
 
     if (start is None) != (end is None) or (start is not None and start >= end):
@@ -381,10 +389,10 @@ async def get_mixdown(
         )
 
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
 
-    # Validates job_id (404), job done (404), and path traversal (404) per stem.
+    # Validates job_id, audio readiness, and path traversal per stem.
     paths = [_validate_stem_path(job_id, name) for name in names]
 
     pre_seek = ["-ss", str(start)] if start is not None else []
@@ -537,7 +545,7 @@ async def get_all_stems_zip(
     if fmt not in ("wav", "mp3", "flac"):
         raise HTTPException(status_code=422, detail="format must be 'wav', 'mp3', or 'flac'")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
 
     # Resolve the requested subset (whitelisted) or fall back to all stems.

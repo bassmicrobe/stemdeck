@@ -1,2 +1,4 @@
 PROTOCOL_PREFIX = "LAYERLAB_JSON "
-ENGINE = "demucs-persistent-v1"
+ENGINE = "demucs-persistent-v2"
+PROTOCOL_VERSION = 2
+SUPPORTED_DEMUCS_VERSION = "4.0.1"

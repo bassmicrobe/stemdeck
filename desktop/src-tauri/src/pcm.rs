@@ -2,7 +2,10 @@ use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
-const ENGINE: &str = "layerlab-rust-pcm-v1";
+mod process;
+use process::process_wav;
+
+const ENGINE: &str = "layerlab-rust-pcm-v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +33,31 @@ pub struct FileResult {
     pub path: String,
     pub output: String,
     pub changed: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub gate_applied: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub stabilized: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GateSettings {
+    pub threshold_db: f32,
+    pub window_ms: u32,
+    pub hold_ms: u32,
+    pub attack_ms: u32,
+    pub release_ms: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StabilizeSettings {
+    pub peak: f32,
+    pub dc_threshold: f32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,6 +80,12 @@ pub enum PcmCommand {
         files: Vec<FilePair>,
         peak: f32,
         dc_threshold: f32,
+    },
+    Process {
+        files: Vec<FilePair>,
+        gate: Option<GateSettings>,
+        stabilize: Option<StabilizeSettings>,
+        bins: Option<usize>,
     },
 }
 
@@ -123,7 +157,7 @@ pub fn execute(command: PcmCommand) -> Result<PcmResponse, String> {
                         attack_ms,
                         release_ms,
                     )?;
-                    Ok(file_result(pair, changed))
+                    Ok(file_result(pair, changed, changed, false))
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             Ok(PcmResponse::success(results, Vec::new()))
@@ -141,19 +175,65 @@ pub fn execute(command: PcmCommand) -> Result<PcmResponse, String> {
                 .iter()
                 .map(|pair| {
                     let changed = stabilize_wav(pair, peak, dc_threshold.max(0.0))?;
-                    Ok(file_result(pair, changed))
+                    Ok(file_result(pair, changed, false, changed))
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             Ok(PcmResponse::success(results, Vec::new()))
         }
+        PcmCommand::Process {
+            files,
+            gate,
+            stabilize,
+            bins,
+        } => {
+            validate_pairs(&files)?;
+            if let Some(settings) = &gate {
+                settings.validate()?;
+            }
+            if let Some(settings) = &stabilize {
+                settings.validate()?;
+            }
+            let processed = files
+                .iter()
+                .map(|pair| process_wav(pair, gate.as_ref(), stabilize.as_ref(), bins))
+                .collect::<Result<Vec<_>, _>>()?;
+            let (results, analyses) = processed.into_iter().unzip();
+            Ok(PcmResponse::success(results, analyses))
+        }
     }
 }
 
-fn file_result(pair: &FilePair, changed: bool) -> FileResult {
+impl GateSettings {
+    fn validate(&self) -> Result<(), String> {
+        if !self.threshold_db.is_finite() || !(-160.0..=0.0).contains(&self.threshold_db) {
+            return Err("gate thresholdDb must be finite and within -160..0".to_string());
+        }
+        if self.window_ms == 0 || self.attack_ms == 0 || self.release_ms == 0 {
+            return Err("gate window, attack, and release must be positive".to_string());
+        }
+        Ok(())
+    }
+}
+
+impl StabilizeSettings {
+    fn validate(&self) -> Result<(), String> {
+        if !self.peak.is_finite() || !(0.0..=1.0).contains(&self.peak) || self.peak <= 0.0 {
+            return Err("stabilize peak must be within (0, 1]".to_string());
+        }
+        if !self.dc_threshold.is_finite() || self.dc_threshold < 0.0 {
+            return Err("stabilize dcThreshold must be finite and non-negative".to_string());
+        }
+        Ok(())
+    }
+}
+
+fn file_result(pair: &FilePair, changed: bool, gate_applied: bool, stabilized: bool) -> FileResult {
     FileResult {
         path: pair.input.display().to_string(),
         output: pair.output.display().to_string(),
         changed,
+        gate_applied,
+        stabilized,
     }
 }
 
@@ -261,7 +341,7 @@ fn gate_wav(
     Ok(true)
 }
 
-fn gate_gain(
+pub(crate) fn gate_gain(
     active: &[bool],
     window_ms: u32,
     hold_ms: u32,
@@ -357,7 +437,7 @@ fn stabilize_wav(pair: &FilePair, limit: f32, dc_threshold: f32) -> Result<bool,
     Ok(true)
 }
 
-fn wav_metadata(path: &PathBuf) -> Result<(WavSpec, u64), String> {
+pub(crate) fn wav_metadata(path: &PathBuf) -> Result<(WavSpec, u64), String> {
     let reader = WavReader::open(path)
         .map_err(|error| format!("failed to open WAV {}: {error}", path.display()))?;
     let spec = reader.spec();
@@ -378,7 +458,7 @@ fn validate_spec(spec: WavSpec) -> Result<(), String> {
     }
 }
 
-fn visit_samples<F>(path: &PathBuf, mut visitor: F) -> Result<(), String>
+pub(crate) fn visit_samples<F>(path: &PathBuf, mut visitor: F) -> Result<(), String>
 where
     F: FnMut(usize, usize, f32),
 {
@@ -419,7 +499,11 @@ where
     Ok(())
 }
 
-fn write_transformed<F>(input: &PathBuf, output: &PathBuf, mut transform: F) -> Result<(), String>
+pub(crate) fn write_transformed<F>(
+    input: &PathBuf,
+    output: &PathBuf,
+    mut transform: F,
+) -> Result<(), String>
 where
     F: FnMut(usize, usize, f32) -> f32,
 {

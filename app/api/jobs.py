@@ -447,13 +447,13 @@ class SectionsBody(BaseModel):
 
 @router.patch("/{job_id}/sections")
 def update_sections(job_id: str, body: SectionsBody) -> dict:
-    """Save named timeline sections (intro, verse, chorus, etc.) for a done job."""
+    """Save named timeline sections once stem audio is available."""
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    if job.status != "done":
+    if job.status != "done" and not job.audio_ready:
         raise HTTPException(status_code=409, detail="job is not ready")
 
     validated = [s.model_dump() for s in body.sections]

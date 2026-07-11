@@ -108,6 +108,216 @@ def present_stems(stems_dir: Path, stem_names: list[str] | None = None) -> list[
     return [name for name in names if (stems_dir / f"{name}.wav").is_file()]
 
 
+def _centered_moments(first: np.ndarray, second: np.ndarray) -> tuple[float, float, float]:
+    first_flat = first.reshape(-1)
+    second_flat = second.reshape(-1)
+    length = min(first_flat.size, second_flat.size)
+    if length == 0:
+        return 0.0, 0.0, 0.0
+    first_mean = float(np.mean(first_flat[:length], dtype=np.float64))
+    second_mean = float(np.mean(second_flat[:length], dtype=np.float64))
+    cross = 0.0
+    first_energy = 0.0
+    second_energy = 0.0
+    for start in range(0, length, 262_144):
+        end = min(length, start + 262_144)
+        first_chunk = first_flat[start:end].astype(np.float64) - first_mean
+        second_chunk = second_flat[start:end].astype(np.float64) - second_mean
+        cross += float(np.dot(first_chunk, second_chunk))
+        first_energy += float(np.dot(first_chunk, first_chunk))
+        second_energy += float(np.dot(second_chunk, second_chunk))
+    return cross, first_energy, second_energy
+
+
+def _signal_correlation(first: np.ndarray, second: np.ndarray) -> float | None:
+    cross, first_energy, second_energy = _centered_moments(first, second)
+    denominator = math.sqrt(first_energy * second_energy)
+    if denominator <= 1e-12:
+        return None
+    return cross / denominator
+
+
+def _stereo_phase_correlation(audio: np.ndarray) -> float | None:
+    if audio.ndim != 2 or audio.shape[1] != 2:
+        return None
+    return _signal_correlation(audio[:, 0], audio[:, 1])
+
+
+def _dropout_percent(reference: np.ndarray, estimate: np.ndarray, sr: int) -> float | None:
+    frame_length = max(1, round(sr * 0.05))
+    frame_count = min(len(reference), len(estimate)) // frame_length
+    if frame_count <= 0:
+        return None
+    reference_frames = reference[: frame_count * frame_length].reshape(frame_count, frame_length, 2)
+    estimate_frames = estimate[: frame_count * frame_length].reshape(frame_count, frame_length, 2)
+    reference_rms_parts = []
+    estimate_rms_parts = []
+    for start in range(0, frame_count, 256):
+        end = min(frame_count, start + 256)
+        reference_rms_parts.append(
+            np.sqrt(
+                np.mean(
+                    np.square(reference_frames[start:end], dtype=np.float64),
+                    axis=(1, 2),
+                )
+            )
+        )
+        estimate_rms_parts.append(
+            np.sqrt(
+                np.mean(
+                    np.square(estimate_frames[start:end], dtype=np.float64),
+                    axis=(1, 2),
+                )
+            )
+        )
+    reference_rms = np.concatenate(reference_rms_parts)
+    estimate_rms = np.concatenate(estimate_rms_parts)
+    active = reference_rms >= 10 ** (-50 / 20)
+    if not np.any(active):
+        return None
+    dropouts = estimate_rms[active] < (reference_rms[active] * 0.35)
+    return float(np.mean(dropouts) * 100.0)
+
+
+def _stem_pair_metrics(
+    reference: np.ndarray,
+    estimate: np.ndarray,
+    sr: int,
+    *,
+    moments: tuple[float, float, float] | None = None,
+) -> dict[str, Any]:
+    length = min(len(reference), len(estimate))
+    cross, target_energy, predicted_energy = moments or _centered_moments(
+        reference[:length], estimate[:length]
+    )
+    if target_energy <= 1e-12:
+        return {"available": False, "reason": "reference stem is silent"}
+    projection_energy = (cross * cross) / target_energy
+    scale_residual_energy = max(0.0, predicted_energy - projection_energy)
+    raw_residual_energy = max(0.0, predicted_energy + target_energy - (2.0 * cross))
+    epsilon = max(target_energy * 1e-12, 1e-20)
+    si_sdr = 10.0 * math.log10(
+        (projection_energy + epsilon) / (scale_residual_energy + epsilon)
+    )
+    sdr = 10.0 * math.log10((target_energy + epsilon) / (raw_residual_energy + epsilon))
+    reference_phase = _stereo_phase_correlation(reference[:length])
+    estimate_phase = _stereo_phase_correlation(estimate[:length])
+    return {
+        "available": True,
+        "duration_sec": _round(length / sr, 3),
+        "si_sdr_db": _round(si_sdr, 3),
+        "sdr_db": _round(sdr, 3),
+        "correlation": _round(cross / math.sqrt(target_energy * predicted_energy))
+        if predicted_energy > 1e-12
+        else None,
+        "dropout_percent": _round(_dropout_percent(reference[:length], estimate[:length], sr), 3),
+        "stereo_phase_correlation_error": _round(
+            abs(reference_phase - estimate_phase)
+            if reference_phase is not None and estimate_phase is not None
+            else None,
+            6,
+        ),
+    }
+
+
+def reference_stem_metrics(
+    reference_stems_dir: Path,
+    estimated_stems_dir: Path,
+    *,
+    stem_names: list[str] | None = None,
+    sr: int = 44100,
+    duration: float | None = 180.0,
+) -> dict[str, Any]:
+    """Score isolation against labelled stems; reconstruction residual is insufficient."""
+    names = stem_names or list(STEM_NAMES)
+    reference_names = present_stems(reference_stems_dir, names)
+    estimated_names = present_stems(estimated_stems_dir, names)
+    paired = [name for name in names if name in reference_names and name in estimated_names]
+    if not paired:
+        return {
+            "available": False,
+            "reason": "no matching labelled and estimated stems",
+            "missing_references": [name for name in names if name not in reference_names],
+            "missing_estimates": [name for name in names if name not in estimated_names],
+        }
+
+    references = {
+        name: decode_audio_stereo(reference_stems_dir / f"{name}.wav", sr=sr, duration=duration)
+        for name in reference_names
+    }
+    per_stem: dict[str, dict[str, Any]] = {}
+    for name in paired:
+        estimate = decode_audio_stereo(
+            estimated_stems_dir / f"{name}.wav",
+            sr=sr,
+            duration=duration,
+        )
+        target_length = min(len(references[name]), len(estimate))
+        pair_moments = _centered_moments(
+            references[name][:target_length],
+            estimate[:target_length],
+        )
+        metrics = _stem_pair_metrics(references[name], estimate, sr, moments=pair_moments)
+        if not metrics.get("available"):
+            per_stem[name] = metrics
+            continue
+        target_cross, target_energy, _ = pair_moments
+        target_projection = target_cross**2 / max(target_energy, 1e-20)
+        crosstalk: list[tuple[str, float]] = []
+        for other_name, other_audio in references.items():
+            if other_name == name:
+                continue
+            pair_length = min(len(estimate), len(other_audio))
+            leakage_cross, _, other_energy = _centered_moments(
+                estimate[:pair_length],
+                other_audio[:pair_length],
+            )
+            leakage_projection = leakage_cross**2 / max(other_energy, 1e-20)
+            leakage_db = 10.0 * math.log10(
+                (leakage_projection + 1e-20) / (target_projection + 1e-20)
+            )
+            crosstalk.append((other_name, leakage_db))
+        if crosstalk:
+            worst_name, worst_db = max(crosstalk, key=lambda item: item[1])
+            metrics["worst_crosstalk_stem"] = worst_name
+            metrics["worst_crosstalk_db"] = _round(worst_db, 3)
+        per_stem[name] = metrics
+
+    si_sdr_values = [
+        item["si_sdr_db"]
+        for item in per_stem.values()
+        if isinstance(item.get("si_sdr_db"), int | float)
+    ]
+    sdr_values = [
+        item["sdr_db"]
+        for item in per_stem.values()
+        if isinstance(item.get("sdr_db"), int | float)
+    ]
+    dropout_values = [
+        item["dropout_percent"]
+        for item in per_stem.values()
+        if isinstance(item.get("dropout_percent"), int | float)
+    ]
+    return {
+        "available": True,
+        "reference_stems_dir": str(reference_stems_dir),
+        "estimated_stems_dir": str(estimated_stems_dir),
+        "paired_stems": paired,
+        "missing_references": [name for name in names if name not in reference_names],
+        "missing_estimates": [name for name in names if name not in estimated_names],
+        "per_stem": per_stem,
+        "summary": {
+            "si_sdr_db_mean": _round(float(np.mean(si_sdr_values)) if si_sdr_values else None, 3),
+            "si_sdr_db_min": _round(float(np.min(si_sdr_values)) if si_sdr_values else None, 3),
+            "sdr_db_mean": _round(float(np.mean(sdr_values)) if sdr_values else None, 3),
+            "dropout_percent_mean": _round(
+                float(np.mean(dropout_values)) if dropout_values else None,
+                3,
+            ),
+        },
+    }
+
+
 def stem_sum_metrics(
     source: Path,
     stems_dir: Path,
@@ -323,6 +533,7 @@ def benchmark_audio(
     stems_dir: Path,
     metadata_path: Path | None = None,
     reference_chords_path: Path | None = None,
+    reference_stems_dir: Path | None = None,
     sr: int = 44100,
     duration: float | None = 180.0,
 ) -> dict[str, Any]:
@@ -341,6 +552,13 @@ def benchmark_audio(
     }
     if source is not None:
         metrics["stem_sum"] = stem_sum_metrics(source, stems_dir, sr=sr, duration=duration)
+    if reference_stems_dir is not None:
+        metrics["stem_reference"] = reference_stem_metrics(
+            reference_stems_dir,
+            stems_dir,
+            sr=sr,
+            duration=duration,
+        )
     if reference_chords_path is not None and metadata_path is not None:
         metrics["chord_reference"] = reference_chord_metrics(
             reference_chords_path,
@@ -354,6 +572,7 @@ def benchmark_job_dir(
     *,
     source: Path | None = None,
     reference_chords_path: Path | None = None,
+    reference_stems_dir: Path | None = None,
     sr: int = 44100,
     duration: float | None = 180.0,
 ) -> dict[str, Any]:
@@ -363,6 +582,7 @@ def benchmark_job_dir(
         stems_dir=stems_dir,
         metadata_path=job_dir / "metadata.json",
         reference_chords_path=reference_chords_path,
+        reference_stems_dir=reference_stems_dir,
         sr=sr,
         duration=duration,
     )

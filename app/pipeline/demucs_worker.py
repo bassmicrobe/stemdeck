@@ -3,10 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import shutil
 import sys
+import threading
+import time
 import traceback
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from importlib.metadata import version as package_version
+from inspect import signature
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -19,15 +25,118 @@ from demucs.htdemucs import HTDemucs
 from demucs.pretrained import get_model
 from demucs.separate import load_track
 
-from app.pipeline.demucs_protocol import ENGINE, PROTOCOL_PREFIX
+from app.core.config import DEMUCS_WORKER_HEARTBEAT_INTERVAL
+from app.pipeline.demucs_protocol import (
+    ENGINE,
+    PROTOCOL_PREFIX,
+    PROTOCOL_VERSION,
+    SUPPORTED_DEMUCS_VERSION,
+)
 
 _T = TypeVar("_T")
 _Emitter = Callable[[dict[str, Any]], None]
+_EMIT_LOCK = threading.Lock()
 
 
 def emit_protocol(event: dict[str, Any]) -> None:
-    sys.stdout.write(PROTOCOL_PREFIX + json.dumps(event, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    with _EMIT_LOCK:
+        sys.stdout.write(PROTOCOL_PREFIX + json.dumps(event, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
+
+
+def validate_demucs_compatibility() -> str:
+    """Fail before loading weights if the internal worker contract drifted."""
+    actual_version = package_version("demucs")
+    if actual_version != SUPPORTED_DEMUCS_VERSION:
+        raise RuntimeError(
+            f"LayerLab persistent worker requires Demucs {SUPPORTED_DEMUCS_VERSION}; "
+            f"found {actual_version}"
+        )
+    required_parameters = {
+        "model",
+        "mix",
+        "shifts",
+        "split",
+        "overlap",
+        "progress",
+        "device",
+        "num_workers",
+        "segment",
+    }
+    if not required_parameters.issubset(signature(apply_model).parameters):
+        raise RuntimeError("Demucs apply_model API is incompatible with the persistent worker")
+    if not callable(getattr(getattr(demucs_apply, "tqdm", None), "tqdm", None)):
+        raise RuntimeError("Demucs progress API is incompatible with the persistent worker")
+    return actual_version
+
+
+@contextmanager
+def inference_heartbeat(
+    request_id: str,
+    emitter: _Emitter = emit_protocol,
+    *,
+    interval: float = DEMUCS_WORKER_HEARTBEAT_INTERVAL,
+):
+    """Emit liveness while a single Demucs chunk blocks progress callbacks."""
+    stopped = threading.Event()
+
+    def _run() -> None:
+        while not stopped.wait(max(0.01, interval)):
+            emitter(
+                {
+                    "event": "heartbeat",
+                    "engine": ENGINE,
+                    "requestId": request_id,
+                    "phase": "inference",
+                    "time": time.time(),
+                }
+            )
+
+    thread = threading.Thread(target=_run, name="demucs-heartbeat", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stopped.set()
+        thread.join(timeout=max(0.1, interval + 0.1))
+
+
+def _process_exists(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
+
+    import ctypes
+
+    process_query_limited_information = 0x1000
+    error_invalid_parameter = 87
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if handle:
+        kernel32.CloseHandle(handle)
+        return True
+    return ctypes.get_last_error() != error_invalid_parameter
+
+
+def start_parent_watchdog(parent_pid: int) -> threading.Thread:
+    """Hard-stop an orphaned worker even if inference is blocked in Torch."""
+
+    def _watch() -> None:
+        while True:
+            if not _process_exists(parent_pid):
+                os._exit(1)
+            time.sleep(1.0)
+
+    thread = threading.Thread(target=_watch, name="demucs-parent-watchdog", daemon=True)
+    thread.start()
+    return thread
 
 
 class ProgressReporter:
@@ -175,17 +284,18 @@ def separate_track(
     original_tqdm = demucs_apply.tqdm.tqdm
     demucs_apply.tqdm.tqdm = reporter.wrap
     try:
-        sources = apply_model(
-            model,
-            normalized[None],
-            device=device,
-            shifts=shifts,
-            split=True,
-            overlap=overlap,
-            progress=True,
-            num_workers=jobs if device == "cpu" else 0,
-            segment=segment,
-        )[0]
+        with inference_heartbeat(request_id, emitter):
+            sources = apply_model(
+                model,
+                normalized[None],
+                device=device,
+                shifts=shifts,
+                split=True,
+                overlap=overlap,
+                progress=True,
+                num_workers=jobs if device == "cpu" else 0,
+                segment=segment,
+            )[0]
     finally:
         demucs_apply.tqdm.tqdm = original_tqdm
     restored_sources = (sources * reference_std) + reference_mean
@@ -238,6 +348,7 @@ def _load_model(model_name: str, device: str) -> object:
 def _serve(model_name: str, device: str) -> int:
     emit_protocol({"event": "starting", "engine": ENGINE, "model": model_name, "device": device})
     try:
+        demucs_version = validate_demucs_compatibility()
         model = _load_model(model_name, device)
     except Exception as error:
         traceback.print_exc(file=sys.stderr)
@@ -248,6 +359,8 @@ def _serve(model_name: str, device: str) -> int:
         {
             "event": "ready",
             "engine": ENGINE,
+            "protocolVersion": PROTOCOL_VERSION,
+            "demucsVersion": demucs_version,
             "model": model_name,
             "device": device,
             "modelCount": _model_count(model),
@@ -299,7 +412,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="LayerLab persistent Demucs worker")
     parser.add_argument("--model", required=True)
     parser.add_argument("--device", choices=("cpu", "mps", "cuda"), required=True)
+    parser.add_argument("--parent-pid", type=int, required=True)
     args = parser.parse_args()
+    if args.parent_pid <= 0 or args.parent_pid == os.getpid():
+        parser.error("--parent-pid must identify the backend process")
+    start_parent_watchdog(args.parent_pid)
     return _serve(args.model, args.device)
 
 

@@ -47,6 +47,7 @@ from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
 from app.pipeline.pcm_worker import (
+    PcmAnalysis,
     PcmResponse,
     mark_python_pcm_fallback,
     mark_rust_pcm,
@@ -426,6 +427,76 @@ def _run_rust_pcm_file_operation(
             output.unlink(missing_ok=True)
         return None
     return _commit_pcm_outputs(job, pairs, response)
+
+
+def process_stem_outputs_with_rust(
+    job: Job,
+    stems_dir: Path,
+    stem_names: list[str],
+) -> dict[str, PcmAnalysis] | None:
+    """Fuse final gate, stabilization, RMS, and waveform analysis in Rust."""
+    available = [
+        stems_dir / f"{name}.wav"
+        for name in stem_names
+        if (stems_dir / f"{name}.wav").is_file()
+    ]
+    if not available:
+        return None
+    pairs = [(path, path.with_suffix(".processed.wav")) for path in available]
+    gate = None
+    if stem_gate_enabled_for_preset(job.quality_preset):
+        gate = {
+            "thresholdDb": STEM_GATE_THRESHOLD_DB,
+            "windowMs": STEM_GATE_WINDOW_MS,
+            "holdMs": STEM_GATE_HOLD_MS,
+            "attackMs": STEM_GATE_ATTACK_MS,
+            "releaseMs": STEM_GATE_RELEASE_MS,
+        }
+    stabilize = None
+    if demucs_settings_for_preset(job.quality_preset).float32:
+        stabilize = {"peak": STEM_POST_LIMITER_PEAK, "dcThreshold": 1e-5}
+    response = run_pcm_command(
+        job,
+        {
+            "operation": "process",
+            "files": [
+                {"input": str(source), "output": str(output)} for source, output in pairs
+            ],
+            "gate": gate,
+            "stabilize": stabilize,
+            "bins": _PEAK_POINTS,
+        },
+    )
+    if response is None:
+        for _, output in pairs:
+            output.unlink(missing_ok=True)
+        return None
+
+    analyses = {item.path: item for item in response.analyses}
+    expected_paths = {str(path) for path in available}
+    if set(analyses) != expected_paths:
+        for _, output in pairs:
+            output.unlink(missing_ok=True)
+        logger.warning("Rust PCM fused analysis was incomplete for job %s", job.id)
+        return None
+    results = {item.path: item for item in response.files}
+    if set(results) != expected_paths:
+        for _, output in pairs:
+            output.unlink(missing_ok=True)
+        logger.warning("Rust PCM fused file result was incomplete for job %s", job.id)
+        return None
+    if _commit_pcm_outputs(job, pairs, response) is None:
+        return None
+
+    gate_applied = any(item.gate_applied for item in results.values())
+    job.stem_gate_applied = gate_applied
+    job.stem_gate_threshold_db = STEM_GATE_THRESHOLD_DB if gate_applied else None
+    logger.info(
+        "Rust PCM fused post-processing completed for %s stem(s) in job %s",
+        len(available),
+        job.id,
+    )
+    return {Path(path).stem: analysis for path, analysis in analyses.items()}
 
 
 def stabilize_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> None:
@@ -1144,12 +1215,17 @@ def compute_stem_peaks(
     stem_names: list[str],
     *,
     job: Job | None = None,
+    pcm_analyses: dict[str, PcmAnalysis] | None = None,
 ) -> None:
     """Compute and cache [min, max] waveform peaks for each stem.
     Failure is non-fatal — missing peaks.json degrades to client-side decode."""
-    peaks: dict[str, list[list[float]]] = {}
+    peaks: dict[str, list[list[float]]] = {
+        name: [[minimum, maximum] for minimum, maximum in analysis.min_max_peaks]
+        for name, analysis in (pcm_analyses or {}).items()
+        if name in stem_names and analysis.min_max_peaks
+    }
     paths = [stems_dir / f"{name}.wav" for name in stem_names]
-    available_paths = [path for path in paths if path.is_file()]
+    available_paths = [path for path in paths if path.is_file() and path.stem not in peaks]
     if job is not None and available_paths:
         response = run_pcm_command(
             job,
@@ -1171,15 +1247,18 @@ def compute_stem_peaks(
                     "Rust PCM waveform response was incomplete for job %s; using Python fallback",
                     job.id,
                 )
-                peaks = {}
-        if not peaks:
+                for path in available_paths:
+                    peaks.pop(path.stem, None)
+        if any(path.stem not in peaks for path in available_paths):
             mark_python_pcm_fallback(job)
 
-    if peaks:
+    if peaks and all(not path.is_file() or path.stem in peaks for path in paths):
         _write_peaks_json(stems_dir, peaks)
         return
 
     for name in stem_names:
+        if name in peaks:
+            continue
         path = stems_dir / f"{name}.wav"
         if not path.is_file():
             continue

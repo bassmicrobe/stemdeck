@@ -177,13 +177,13 @@ macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピ�
 
 複数のローカルLayerLabバックエンドが同時起動しても、`STEMDECK_PIPELINE_LOCK` を基準に同時実行数ぶんの共有スロットを使い、マシン全体で過剰なDemucs同時実行を防ぎます。
 
-Demucsは通常、モデル名と処理デバイスが同じ次の曲で常駐ワーカーを再利用します。モデル重みをディスクから読み直さないため、2曲目以降の開始待ちが短くなります。MPS/CUDAはメモリ安全性のため1ワーカー、CPUは自動同時実行数までです。別モデルへ切り替えた場合は、上限を超えないよう使用していないワーカーを終了します。
+Demucsは通常、モデル名と処理デバイスが同じ次の曲で常駐ワーカーを再利用します。モデル重みをディスクから読み直さないため、2曲目以降の開始待ちが短くなります。MPS/CUDAはメモリ安全性のため1ワーカー、CPUは自動同時実行数までです。別モデルへの切替、既定15分の未使用、空きメモリ低下ではアイドルワーカーを終了します。推論中はheartbeatを送り、backendが強制終了した場合も親監視で孤児ワーカーを残しません。
 
-分離後の無音ゲート、DC/ピーク安定化、RMS、波形ピーク生成は、同梱されたRustの`layerlab-pcm`で処理します。sidecarがない、非対応WAV、タイムアウト、応答検証失敗の場合は、元のstemを置換せずPython/soundfile処理へ戻ります。位相補正、bass dropout補正、denoise、圧縮音源変換は従来どおりPython/FFmpeg側です。
+分離後の無音ゲート、DC/ピーク安定化、RMS、波形ピーク生成は、同梱されたRustの`layerlab-pcm`で1回の統合処理として実行します。sidecarがない、非対応WAV、タイムアウト、応答検証失敗の場合は、元のstemを置換せずPython/soundfile処理へ戻ります。位相補正、bass dropout補正、denoise、圧縮音源変換は従来どおりPython/FFmpeg側です。Stem/Mix/波形が完成した時点で試聴と音声書き出しが有効になり、コード/MIDI解析だけがバックグラウンドで継続します。
 
 ## キャンセル
 
-処理中のジョブは `Cancel` でキャンセルできます。キャンセルすると、実行中のDemucs/ffmpegプロセスを停止し、途中生成物を削除します。
+処理中のジョブは `Cancel` でキャンセルできます。音声完成前は実行中のDemucs/ffmpegプロセスを停止し、途中生成物を削除します。Stem/Mixが`audio_ready`になった後は完成音声を保持し、バックグラウンドのコード解析だけを終了します。
 
 キャンセルできるのは前面で表示中のジョブです。バックグラウンドジョブを止めたい場合は、そのジョブを選択して状態を確認してください。
 
@@ -344,6 +344,9 @@ STEMDECK_QUALITY_PRESET=ultra STEMDECK_DEMUCS_SHIFTS=16 ./run.sh start
 | `STEMDECK_PIPELINE_LOCK` | 複数バックエンド間で共有するDemucsスロットのロックファイル |
 | `STEMDECK_DEMUCS_JOBS` | 1曲内のDemucs CPUワーカー数。自動設定は曲並列との過剰実行を避けます |
 | `LAYERLAB_DEMUCS_PERSISTENT_WORKER` | Demucs常駐ワーカー。既定`1`、`0`で曲ごとのCLI起動へ戻します |
+| `LAYERLAB_DEMUCS_WORKER_IDLE_TTL` | 未使用モデルを解放する秒数。既定`900`、`0`で無効 |
+| `LAYERLAB_DEMUCS_WORKER_MIN_FREE_MEMORY_GB` | 空きメモリが下回ると最古のアイドルモデルを解放。既定`2`、`0`で無効 |
+| `LAYERLAB_DEMUCS_WORKER_HEARTBEAT_INTERVAL` | 長い推論chunk中の生存通知間隔。既定`15`秒 |
 | `LAYERLAB_PCM_WORKER_ENABLED` | Rust WAV/PCM後処理。既定`1`、`0`でPython処理を強制します |
 | `LAYERLAB_PCM_WORKER` | `layerlab-pcm`実行ファイルの明示パス。デスクトップ版は自動設定します |
 | `LAYERLAB_PCM_WORKER_TIMEOUT` | Rust PCMコマンドごとの上限秒数。既定`600` |
@@ -450,6 +453,14 @@ uv run python scripts/benchmark_audio.py \
   --reference-chords /path/to/reference.lab
 ```
 
+正解stemがある場合は、同名WAVを置いたディレクトリを指定します。
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-stems-dir /path/to/labelled-stems
+```
+
 主に見る値:
 
 - `residual_percent`: stem合計と原音の残差。小さいほど原音再構成に近い。
@@ -457,6 +468,10 @@ uv run python scripts/benchmark_audio.py \
 - `stem_sum_clipping_percent`: stem合計で1.0を超えたサンプル割合。大きい場合は合成時のクリップに注意。
 - `chords.segment_count` / `chords.average_confidence`: コードMIDI生成の区間数と平均信頼度。
 - `chord_reference.*_wcsr`: 正解ラベルに対する時間重み付きコード一致率。1に近いほど良い。
+- `stem_reference.per_stem.*.si_sdr_db` / `sdr_db`: 正解stemに対する分離品質。大きいほど良い。
+- `stem_reference.per_stem.*.worst_crosstalk_db`: 最も強い他stem漏れ。より負の値ほど良い。
+- `stem_reference.per_stem.*.dropout_percent`: 正解が鳴っている50ms窓で大きく欠落した割合。小さいほど良い。
+- `stem_reference.per_stem.*.stereo_phase_correlation_error`: 正解とのステレオ位相相関差。小さいほど良い。
 
 注意: `residual_percent` が小さいほど常に「stem単体が良い」とは限りません。phase repairを強くすると原音再構成は改善しても、stem間の分離感や漏れとはトレードオフになる場合があります。
 

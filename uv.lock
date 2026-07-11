@@ -941,7 +941,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beat-this", specifier = ">=1.1,<2" },
-    { name = "demucs", specifier = ">=4.0.1" },
+    { name = "demucs", specifier = "==4.0.1" },
     { name = "fastapi", specifier = ">=0.115,!=0.136.3" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "imageio-ffmpeg", specifier = ">=0.5" },

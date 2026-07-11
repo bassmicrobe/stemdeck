@@ -19,9 +19,9 @@ _STAGE_RANGES: dict[str, tuple[float, float]] = {
     "gate": (0.95, 0.96),
     "stabilize": (0.96, 0.97),
     "presence": (0.97, 0.978),
-    "chords": (0.978, 0.985),
-    "mix": (0.985, 0.99),
-    "peaks": (0.99, 0.995),
+    "mix": (0.978, 0.985),
+    "peaks": (0.985, 0.99),
+    "chords": (0.99, 0.995),
 }
 
 

@@ -14,15 +14,24 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import (
+    DEMUCS_WORKER_IDLE_TTL,
+    DEMUCS_WORKER_MIN_FREE_MEMORY_GB,
+    DEMUCS_WORKER_REAP_INTERVAL,
     PIPELINE_CONCURRENCY,
     TIMEOUT_DEMUCS_STALL,
     TIMEOUT_DEMUCS_TOTAL,
     DemucsSettings,
     ffmpeg_executable,
 )
+from app.core.hardware import available_memory_gb
 from app.core.models import Job, JobCancelled
 from app.core.registry import add_proc, remove_proc
-from app.pipeline.demucs_protocol import PROTOCOL_PREFIX
+from app.pipeline.demucs_protocol import (
+    ENGINE,
+    PROTOCOL_PREFIX,
+    PROTOCOL_VERSION,
+    SUPPORTED_DEMUCS_VERSION,
+)
 from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
@@ -78,6 +87,8 @@ class PersistentDemucsWorker:
                 model,
                 "--device",
                 device,
+                "--parent-pid",
+                str(os.getpid()),
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -177,8 +188,12 @@ class PersistentDemucsWorker:
                 if message.get("model") != self.model or message.get("device") != self.device:
                     raise WorkerUnavailable("Demucs worker identity does not match its pool key")
                 engine = message.get("engine")
-                if not isinstance(engine, str) or not engine:
-                    raise WorkerUnavailable("Demucs worker has no engine identifier")
+                if engine != ENGINE:
+                    raise WorkerUnavailable("Demucs worker engine is incompatible")
+                if message.get("protocolVersion") != PROTOCOL_VERSION:
+                    raise WorkerUnavailable("Demucs worker protocol version is incompatible")
+                if message.get("demucsVersion") != SUPPORTED_DEMUCS_VERSION:
+                    raise WorkerUnavailable("Demucs worker package version is incompatible")
                 self.engine = engine
                 try:
                     self.model_count = max(1, min(64, int(message.get("modelCount") or 1)))
@@ -229,6 +244,8 @@ class PersistentDemucsWorker:
             if message.get("requestId") not in {None, request_id}:
                 raise WorkerJobError("Demucs worker returned a mismatched request identifier")
             event = message.get("event")
+            if event == "heartbeat":
+                continue
             if event == "progress":
                 try:
                     raw_fraction = float(message.get("fraction", 0.0))
@@ -307,11 +324,20 @@ class PersistentDemucsWorker:
 
 
 class DemucsWorkerPool:
-    def __init__(self) -> None:
+    def __init__(self, *, start_reaper: bool = True) -> None:
         self._condition = threading.Condition()
         self._workers: list[PersistentDemucsWorker] = []
         self._starting = 0
         self._stopping = False
+        self._reaper_stop = threading.Event()
+        self._reaper_thread: threading.Thread | None = None
+        if start_reaper:
+            self._reaper_thread = threading.Thread(
+                target=self._reaper_loop,
+                name="demucs-worker-reaper",
+                daemon=True,
+            )
+            self._reaper_thread.start()
 
     @property
     def capacity(self) -> int:
@@ -319,6 +345,58 @@ class DemucsWorkerPool:
 
     def _capacity_for(self, device: str) -> int:
         return self.capacity if device == "cpu" else 1
+
+    def _reaper_loop(self) -> None:
+        while not self._reaper_stop.wait(DEMUCS_WORKER_REAP_INTERVAL):
+            try:
+                self.reap_idle_workers()
+            except Exception:
+                logger.warning("Demucs idle-worker reaper failed", exc_info=True)
+
+    def reap_idle_workers(self, *, now: float | None = None) -> int:
+        """Release stale models and one oldest model under memory pressure."""
+        checked_at = time.monotonic() if now is None else now
+        with self._condition:
+            if not any(
+                not worker.busy and worker.proc.poll() is None for worker in self._workers
+            ):
+                return 0
+        free_memory = available_memory_gb()
+        memory_pressure = (
+            free_memory is not None
+            and DEMUCS_WORKER_MIN_FREE_MEMORY_GB > 0
+            and free_memory < DEMUCS_WORKER_MIN_FREE_MEMORY_GB
+        )
+        victims: list[PersistentDemucsWorker] = []
+        with self._condition:
+            idle = [
+                worker
+                for worker in self._workers
+                if not worker.busy and worker.proc.poll() is None
+            ]
+            victims = [
+                worker
+                for worker in idle
+                if DEMUCS_WORKER_IDLE_TTL > 0
+                and checked_at - worker.last_used >= DEMUCS_WORKER_IDLE_TTL
+            ]
+            if memory_pressure and idle:
+                oldest = min(idle, key=lambda item: item.last_used)
+                if oldest not in victims:
+                    victims.append(oldest)
+            for worker in victims:
+                self._workers.remove(worker)
+            if victims:
+                self._condition.notify_all()
+        for worker in victims:
+            worker.shutdown()
+        if victims:
+            logger.info(
+                "released %s idle Demucs worker(s); memory_available_gb=%s",
+                len(victims),
+                None if free_memory is None else round(free_memory, 2),
+            )
+        return len(victims)
 
     def acquire(self, job: Job, model: str, device: str) -> PersistentDemucsWorker:
         while True:
@@ -400,11 +478,14 @@ class DemucsWorkerPool:
                 "capacity": self.capacity,
                 "workers": len(alive),
                 "busy": sum(1 for worker in alive if worker.busy),
+                "idle": sum(1 for worker in alive if not worker.busy),
                 "models": sorted({f"{worker.model}:{worker.device}" for worker in alive}),
+                "idle_ttl_seconds": DEMUCS_WORKER_IDLE_TTL,
                 "stopped": self._stopping,
             }
 
     def shutdown(self) -> None:
+        self._reaper_stop.set()
         with self._condition:
             self._stopping = True
             while self._starting:
@@ -414,6 +495,9 @@ class DemucsWorkerPool:
             self._condition.notify_all()
         for worker in workers:
             worker.shutdown()
+        reaper = self._reaper_thread
+        if reaper is not None and reaper is not threading.current_thread():
+            reaper.join(timeout=2)
 
 
 _POOL = DemucsWorkerPool()

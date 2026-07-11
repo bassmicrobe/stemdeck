@@ -1190,6 +1190,12 @@ export function wireUpAudio(
   });
 }
 
+export function updateAnalysisDownloads(jobId, chordMidiUrl = null, midiAnalysisUrl = null) {
+  if (currentJobId !== jobId) return;
+  _chordMidiUrl = chordMidiUrl || null;
+  _midiAnalysisUrl = midiAnalysisUrl || null;
+}
+
 export function drawFooterPlaceholder() {
   _drawPlaceholderWave();
   const bar = document.getElementById("footer-waveform")?.closest(".footer-wave-bar");

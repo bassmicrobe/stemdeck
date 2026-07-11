@@ -23,6 +23,8 @@ class PcmFileResult:
     path: str
     output: str
     changed: bool
+    gate_applied: bool = False
+    stabilized: bool = False
 
 
 @dataclass(frozen=True)
@@ -112,7 +114,11 @@ def _parse_file_result(value: Any) -> PcmFileResult:
         raise ValueError("PCM file result output is invalid")
     if not isinstance(changed, bool):
         raise ValueError("PCM file result changed flag is invalid")
-    return PcmFileResult(path, output, changed)
+    gate_applied = value.get("gateApplied", False)
+    stabilized = value.get("stabilized", False)
+    if not isinstance(gate_applied, bool) or not isinstance(stabilized, bool):
+        raise ValueError("PCM file result processing flags are invalid")
+    return PcmFileResult(path, output, changed, gate_applied, stabilized)
 
 
 def _parse_analysis(value: Any) -> PcmAnalysis:

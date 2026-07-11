@@ -13,6 +13,7 @@ from app.pipeline.benchmark import (
     chord_metrics,
     compare_benchmark_reports,
     reference_chord_metrics,
+    reference_stem_metrics,
     stem_sum_metrics,
 )
 
@@ -93,6 +94,35 @@ def test_stem_sum_metrics_preserves_stereo_channels_for_peak_measurement(tmp_pat
     assert metrics["source_rms"] > 0.89
     assert metrics["source_peak_dbfs"] < 0
     assert metrics["stem_sum_clipping_samples"] == 0
+
+
+def test_reference_stem_metrics_reports_isolation_not_only_reconstruction(tmp_path: Path):
+    sr = 8000
+    t = np.linspace(0, 1, sr, endpoint=False)
+    bass = np.sin(2 * np.pi * 110 * t) * 0.25
+    vocals = np.sin(2 * np.pi * 440 * t) * 0.2
+    reference_dir = tmp_path / "reference"
+    estimated_dir = tmp_path / "estimated"
+    reference_dir.mkdir()
+    estimated_dir.mkdir()
+    _write_wav(reference_dir / "bass.wav", bass, sr)
+    _write_wav(reference_dir / "vocals.wav", vocals, sr)
+    _write_wav(estimated_dir / "bass.wav", bass + (vocals * 0.4), sr)
+    _write_wav(estimated_dir / "vocals.wav", vocals, sr)
+
+    metrics = reference_stem_metrics(
+        reference_dir,
+        estimated_dir,
+        stem_names=["bass", "vocals"],
+        sr=sr,
+        duration=1.0,
+    )
+
+    assert metrics["available"] is True
+    assert metrics["per_stem"]["vocals"]["si_sdr_db"] > 80
+    assert metrics["per_stem"]["bass"]["si_sdr_db"] < 15
+    assert metrics["per_stem"]["bass"]["worst_crosstalk_stem"] == "vocals"
+    assert metrics["summary"]["si_sdr_db_mean"] < metrics["per_stem"]["vocals"]["si_sdr_db"]
 
 
 def test_chord_metrics_summarizes_metadata(tmp_path: Path):
@@ -199,6 +229,27 @@ def test_benchmark_audio_without_source_reports_chords_only(tmp_path: Path):
 
     assert report["stem_sum"]["available"] is False
     assert report["stems"]["present"] == ["vocals"]
+
+
+def test_benchmark_audio_includes_labelled_reference_stem_metrics(tmp_path: Path):
+    reference_dir = tmp_path / "reference"
+    stems_dir = tmp_path / "stems"
+    reference_dir.mkdir()
+    stems_dir.mkdir()
+    samples = np.linspace(-0.5, 0.5, 8000, dtype=np.float32)
+    _write_wav(reference_dir / "vocals.wav", samples, 8000)
+    _write_wav(stems_dir / "vocals.wav", samples, 8000)
+
+    report = benchmark_audio(
+        source=None,
+        stems_dir=stems_dir,
+        reference_stems_dir=reference_dir,
+        sr=8000,
+        duration=1.0,
+    )
+
+    assert report["stem_reference"]["available"] is True
+    assert report["stem_reference"]["per_stem"]["vocals"]["si_sdr_db"] > 80
 
 
 def test_benchmark_jobs_root_and_compare_reports(tmp_path: Path):

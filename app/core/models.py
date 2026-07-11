@@ -96,6 +96,10 @@ class Job:
     chord_midi_url: str | None = None
     midi_analysis: dict[str, Any] | None = None
     midi_analysis_url: str | None = None
+    audio_ready: bool = False
+    audio_ready_at: float | None = None
+    analysis_ready: bool = False
+    analysis_error: str | None = None
     stem_presence: dict[str, int] | None = None  # per-stem RMS 0-100
     sections: list[dict] | None = None  # [{id, name, start, end, color}]
     tags: list[str] | None = None  # YouTube tags + categories, lowercased, max 8
@@ -244,6 +248,10 @@ class Job:
             "chord_progression": self.chord_progression,
             "chord_midi_url": self.chord_midi_url,
             "midi_analysis_url": self.midi_analysis_url,
+            "audio_ready": self.audio_ready,
+            "audio_ready_at": self.audio_ready_at,
+            "analysis_ready": self.analysis_ready,
+            "analysis_error": self.analysis_error,
             "stem_presence": self.stem_presence,
             "sections": self.sections,
             "tags": self.tags,

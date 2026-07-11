@@ -13,6 +13,7 @@ from app.pipeline.runner import (
     _pipeline_lock_files,
     _prepare_demucs_source,
     _prepare_local_source,
+    _run_common,
     run_local_pipeline,
     run_pipeline,
 )
@@ -41,6 +42,30 @@ async def test_pipeline_marks_done_on_success(tmp_path: Path):
 
     assert job.status == "done"
     assert job.progress == 1.0
+
+
+@pytest.mark.asyncio
+async def test_pipeline_preserves_ready_audio_when_background_analysis_fails(tmp_path: Path):
+    job = Job(id="abcdefabcde1")
+
+    def fail_after_audio_ready(job_arg, *_args):
+        job_dir = tmp_path / job_arg.id
+        stems_dir = job_dir / "stems"
+        stems_dir.mkdir(parents=True, exist_ok=True)
+        (stems_dir / "vocals.wav").write_bytes(b"ready")
+        job_arg.stems = [
+            {"name": "vocals", "url": f"/api/jobs/{job_arg.id}/stems/vocals.wav"}
+        ]
+        job_arg.audio_ready = True
+        raise RuntimeError("chord model crashed")
+
+    with patch("app.pipeline.runner._run_blocking", side_effect=fail_after_audio_ready):
+        await run_pipeline(job, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path)
+
+    assert job.status == "done"
+    assert job.analysis_ready is True
+    assert "preserved" in (job.analysis_error or "")
+    assert (tmp_path / job.id / "stems" / "vocals.wav").read_bytes() == b"ready"
 
 
 @pytest.mark.asyncio
@@ -242,3 +267,49 @@ def test_prepare_local_source_defers_decode_to_demucs_ffmpeg(tmp_path: Path):
 
     assert dest == source
     assert source.read_bytes() == b"ID3"
+
+
+def test_run_common_exposes_audio_before_chord_analysis(tmp_path: Path):
+    job = Job(id="abcdefabcde2", selected_stems=["vocals"])
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    vocals = stems_dir / "vocals.wav"
+    vocals.write_bytes(b"stem")
+    observed = {}
+
+    def fake_chords(job_arg, *_args, **_kwargs):
+        observed["audio_ready"] = job_arg.audio_ready
+        observed["analysis_ready"] = job_arg.analysis_ready
+        observed["stems"] = list(job_arg.stems)
+        observed["mix_url"] = job_arg.mix_url
+
+    with (
+        patch("app.pipeline.runner.analyze"),
+        patch("app.pipeline.runner.separate", return_value=tmp_path / "demucs"),
+        patch("app.pipeline.runner.collect", return_value=["vocals"]),
+        patch("app.pipeline.runner.restore_demucs_gain"),
+        patch("app.pipeline.runner.repair_bass_dropouts", return_value=False),
+        patch("app.pipeline.runner.repair_phase_coherence"),
+        patch("app.pipeline.runner.denoise_stem_outputs", return_value=False),
+        patch("app.pipeline.runner.process_stem_outputs_with_rust", return_value=None),
+        patch("app.pipeline.runner.gate_stem_outputs", return_value=False),
+        patch("app.pipeline.runner.stabilize_stem_outputs"),
+        patch("app.pipeline.runner.compute_stem_presence", return_value={"vocals": 100}),
+        patch("app.pipeline.runner.make_original_track", return_value=None),
+        patch("app.pipeline.runner.make_selected_mix", return_value=vocals),
+        patch("app.pipeline.runner.compute_stem_peaks"),
+        patch("app.pipeline.runner.generate_chord_midi", side_effect=fake_chords),
+        patch("app.pipeline.runner.cleanup_source"),
+    ):
+        _run_common(job, source, tmp_path)
+
+    assert observed == {
+        "audio_ready": True,
+        "analysis_ready": False,
+        "stems": [{"name": "vocals", "url": f"/api/jobs/{job.id}/stems/vocals.wav"}],
+        "mix_url": f"/api/jobs/{job.id}/stems/vocals.wav",
+    }
+    assert job.analysis_ready is True
+    assert job.audio_ready_at is not None

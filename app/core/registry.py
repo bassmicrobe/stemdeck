@@ -58,7 +58,9 @@ def register_if_capacity(job: Job, max_pending: int) -> bool:
     """Atomically check active count and register if under capacity.
     Returns True if registered, False if the queue is full."""
     with _lock:
-        active = sum(1 for j in _jobs.values() if j.status in _ACTIVE_STATUSES)
+        active = sum(
+            1 for j in _jobs.values() if j.status in _ACTIVE_STATUSES and not j.audio_ready
+        )
         if active >= max_pending:
             return False
         _jobs[job.id] = job

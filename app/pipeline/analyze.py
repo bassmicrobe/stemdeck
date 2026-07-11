@@ -7,6 +7,7 @@ from pathlib import Path
 from app.core.config import JOBS_DIR, MAX_DURATION_SEC, TIMEOUT_ANALYZE, ffmpeg_executable
 from app.core.models import Job, JobCancelled, _set
 from app.pipeline.beat_tracker import detect_beat_grid
+from app.pipeline.pcm_worker import PcmAnalysis
 from app.pipeline.process import run_tracked_process
 from app.pipeline.progress import set_stage_progress
 
@@ -245,17 +246,23 @@ def compute_stem_presence(
     selected_stems: list[str],
     *,
     job: Job | None = None,
+    pcm_analyses: dict[str, PcmAnalysis] | None = None,
 ) -> dict[str, int]:
     """Stream each stem WAV, compute full-track RMS, and normalize to 0-100."""
     import numpy as np
     import soundfile as sf
 
     result: dict[str, int] = {}
-    rms_values: dict[str, float] = {}
+    rms_values: dict[str, float] = {
+        name: max(0.0, float(analysis.rms))
+        for name, analysis in (pcm_analyses or {}).items()
+        if name in selected_stems
+        and analysis.duration_seconds > 0
+    }
 
     available = [stems_dir / f"{name}.wav" for name in selected_stems]
     available = [path for path in available if path.is_file()]
-    if job is not None and available:
+    if job is not None and available and not rms_values:
         from app.pipeline import pcm_worker
 
         response = pcm_worker.run_pcm_command(

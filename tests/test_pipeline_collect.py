@@ -21,6 +21,7 @@ from app.pipeline.collect import (
     denoise_stem_outputs,
     gate_stem_outputs,
     make_selected_mix,
+    process_stem_outputs_with_rust,
     repair_bass_dropouts,
     repair_phase_coherence,
     restore_demucs_gain,
@@ -402,6 +403,57 @@ def test_gate_stem_outputs_commits_valid_rust_outputs(tmp_path, monkeypatch):
 
     assert gate_stem_outputs(job, stems_dir, ["vocals"])
     assert stem.read_bytes() == b"rust-gated"
+    assert job.stem_gate_threshold_db == -54.0
+
+
+def test_process_stem_outputs_with_rust_commits_and_reuses_analysis(tmp_path, monkeypatch):
+    from app.pipeline import collect as collect_mod
+    from app.pipeline.pcm_worker import PcmAnalysis, PcmFileResult, PcmResponse
+
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    stem = stems_dir / "vocals.wav"
+    stem.write_bytes(b"original")
+
+    def fake_pcm(_job, payload, **_kwargs):
+        assert payload["operation"] == "process"
+        assert payload["bins"] == _PEAK_POINTS
+        output = Path(payload["files"][0]["output"])
+        output.write_bytes(b"rust-processed")
+        return PcmResponse(
+            engine="layerlab-rust-pcm-v1",
+            files=(
+                PcmFileResult(
+                    str(stem),
+                    str(output),
+                    True,
+                    gate_applied=True,
+                    stabilized=True,
+                ),
+            ),
+            analyses=(
+                PcmAnalysis(
+                    str(stem),
+                    44100,
+                    2,
+                    1.0,
+                    0.5,
+                    0.2,
+                    (0.5,),
+                    ((-0.5, 0.5),),
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(collect_mod, "run_pcm_command", fake_pcm)
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
+    analyses = process_stem_outputs_with_rust(job, stems_dir, ["vocals"])
+
+    assert stem.read_bytes() == b"rust-processed"
+    assert analyses is not None
+    assert analyses["vocals"].rms == 0.2
+    assert job.stem_gate_applied is True
     assert job.stem_gate_threshold_db == -54.0
 
 

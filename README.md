@@ -83,13 +83,13 @@ sample peak in dBFS. Every profile uses the accurate MIT-licensed Beat This!
 
 **Chord guide export.** LayerLab estimates quarter-note-grid chord labels from reliability-weighted piano/guitar chroma, a separate bass-root analysis, and per-source tuning correction. It fills isolated missed quarter notes, suppresses single-note-riff false positives and weak one-beat misreads, then exports MIDI or CSV. MIDI includes the detected audio lead-in and a per-beat tempo map so variable-tempo material stays aligned in a DAW. CQT/CENS reuse one spectrum and independent stem features run in a bounded two-worker pool without changing the resulting labels. BSD-3-Clause-licensed music21 validates each generated MIDI and writes a downloadable harmonic-analysis JSON with key, range, and Roman numerals.
 
-**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. With a labelled `.lab` reference it uses the development-only MIT-licensed `mir_eval` dependency to report root, major/minor, triad, and tetrad WCSR plus segmentation metrics.
+**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. Labelled reference stems add SI-SDR, SDR, crosstalk, dropout, and stereo-phase metrics so a reconstruction improvement cannot hide worse isolation. With a labelled `.lab` reference it uses the development-only MIT-licensed `mir_eval` dependency to report root, major/minor, triad, and tetrad WCSR plus segmentation metrics.
 
-**Non-blocking local queue.** Only Demucs inference occupies the shared CPU/GPU slot. Download, analysis, post-processing, playback, and exports can continue for other jobs while the next separation runs in the background. Every child process is tracked per job, so cancelling parallel analysis terminates all of its FFmpeg workers.
+**Non-blocking local queue.** Only Demucs inference occupies the shared CPU/GPU slot. Once stems, mix, and waveforms are ready, playback and downloads are enabled while chord/MIDI analysis continues in the background. Other jobs can acquire, analyze, and post-process concurrently. Every child process is tracked per job, so cancelling parallel analysis terminates all of its FFmpeg workers.
 
 **Safe mix rendering.** Mix exports use a no-make-up-gain look-ahead limiter only when peaks approach the output ceiling. WAV exports are finalized to a seekable temporary file before download, so the RIFF header contains the real frame count instead of a multi-hour placeholder duration.
 
-**Cancellable jobs.** Cancel mid-pipeline and the runner terminates the active subprocess immediately, deletes the partial job dir, and returns to ready.
+**Cancellable jobs.** Before audio is ready, cancellation terminates active subprocesses and removes partial output. Once stems are playable, cancelling or failing background chord analysis preserves the completed audio.
 
 **Library panel** with folder-based track organisation, drag-and-drop, search, and trash.
 
@@ -365,6 +365,16 @@ uv run python scripts/benchmark_audio.py \
   --reference-chords /path/to/reference.lab
 ```
 
+For meaningful separation scoring, provide ground-truth stem WAVs with matching names (`vocals.wav`, `bass.wav`, and so on):
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-stems-dir /path/to/labelled-stems
+```
+
+This reports SI-SDR/SDR, strongest cross-stem leakage, short-window dropout percentage, and stereo phase-correlation error per stem. Stem-sum residual alone measures reconstruction and can incorrectly reward bleed.
+
 Completed jobs may have their source audio removed to save disk space. In that case, pass `--source` explicitly if you want stem-sum residual metrics; without a source, the report still summarizes available stems and chord metadata.
 
 ---
@@ -385,6 +395,9 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
 | `STEMDECK_DEMUCS_JOBS` | auto | Demucs CPU chunk workers. Auto uses `0` for MPS/CUDA/macOS and whenever multiple CPU separations are enabled; a roomy CPU-only host limited to one separation may use `2`. |
 | `LAYERLAB_DEMUCS_PERSISTENT_WORKER` | `1` | Keep Demucs models loaded in bounded reusable worker processes. Set `0` to use the one-process-per-track CLI path. Startup/protocol failures fall back automatically. |
+| `LAYERLAB_DEMUCS_WORKER_IDLE_TTL` | `900` | Release an unused loaded model after this many seconds. `0` disables TTL eviction. |
+| `LAYERLAB_DEMUCS_WORKER_MIN_FREE_MEMORY_GB` | `2` | Release the oldest idle model when available physical memory falls below this threshold. `0` disables pressure eviction. |
+| `LAYERLAB_DEMUCS_WORKER_HEARTBEAT_INTERVAL` | `15` | Worker heartbeat interval during long inference chunks. |
 | `LAYERLAB_PCM_WORKER_ENABLED` | `1` | Use the Rust WAV/PCM sidecar for gate, stabilization, RMS, and waveform peaks when available. Set `0` to force the Python/soundfile path. |
 | `LAYERLAB_PCM_WORKER` | auto-detected | Explicit path to `layerlab-pcm` or `layerlab-pcm.exe`. Desktop builds set this to the bundled sidecar. |
 | `LAYERLAB_PCM_WORKER_TIMEOUT` | `600` | Per-command Rust PCM sidecar timeout in seconds. |

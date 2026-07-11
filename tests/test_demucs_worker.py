@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import queue
+import time
+from collections import deque
 from pathlib import Path
 
 import pytest
@@ -92,6 +95,29 @@ def test_progress_reporter_emits_monotonic_combined_passes():
     assert events[-1]["passTotal"] == 4
 
 
+def test_worker_compatibility_rejects_unpinned_demucs(monkeypatch):
+    from app.pipeline import demucs_worker
+
+    monkeypatch.setattr(demucs_worker, "package_version", lambda _name: "4.1.0")
+
+    with pytest.raises(RuntimeError, match="requires Demucs 4.0.1"):
+        demucs_worker.validate_demucs_compatibility()
+
+
+def test_heartbeat_emits_until_context_exits():
+    from app.pipeline.demucs_worker import inference_heartbeat
+
+    events = []
+    with inference_heartbeat("job-1", events.append, interval=0.01):
+        time.sleep(0.035)
+
+    heartbeat_count = sum(event.get("event") == "heartbeat" for event in events)
+    assert heartbeat_count >= 2
+    stopped_at = len(events)
+    time.sleep(0.025)
+    assert len(events) == stopped_at
+
+
 def test_worker_pool_keeps_gpu_capacity_at_one(monkeypatch):
     from app.pipeline import demucs_pool
 
@@ -101,6 +127,138 @@ def test_worker_pool_keeps_gpu_capacity_at_one(monkeypatch):
     assert pool._capacity_for("cpu") == 4
     assert pool._capacity_for("mps") == 1
     assert pool._capacity_for("cuda") == 1
+    pool.shutdown()
+
+
+def test_worker_pool_reaps_expired_idle_worker(monkeypatch):
+    from app.pipeline import demucs_pool
+
+    class FakeProcess:
+        def poll(self):
+            return None
+
+    class FakeWorker:
+        busy = False
+        last_used = 10.0
+        proc = FakeProcess()
+
+        def __init__(self):
+            self.shutdown_called = False
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    worker = FakeWorker()
+    monkeypatch.setattr(demucs_pool, "DEMUCS_WORKER_IDLE_TTL", 30)
+    pool = demucs_pool.DemucsWorkerPool(start_reaper=False)
+    pool._workers.append(worker)
+
+    assert pool.reap_idle_workers(now=41.0) == 1
+    assert worker.shutdown_called is True
+    assert pool.status()["workers"] == 0
+    pool.shutdown()
+
+
+def test_worker_pool_reaps_idle_worker_under_memory_pressure(monkeypatch):
+    from app.pipeline import demucs_pool
+
+    class FakeProcess:
+        def poll(self):
+            return None
+
+    class FakeWorker:
+        busy = False
+        last_used = 40.0
+        proc = FakeProcess()
+
+        def __init__(self):
+            self.shutdown_called = False
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    worker = FakeWorker()
+    monkeypatch.setattr(demucs_pool, "DEMUCS_WORKER_IDLE_TTL", 600)
+    monkeypatch.setattr(demucs_pool, "DEMUCS_WORKER_MIN_FREE_MEMORY_GB", 4.0)
+    monkeypatch.setattr(demucs_pool, "available_memory_gb", lambda: 1.0)
+    pool = demucs_pool.DemucsWorkerPool(start_reaper=False)
+    pool._workers.append(worker)
+
+    assert pool.reap_idle_workers(now=41.0) == 1
+    assert worker.shutdown_called is True
+    pool.shutdown()
+
+
+def test_worker_process_death_during_inference_is_not_retryable():
+    from app.pipeline.demucs_pool import PersistentDemucsWorker, WorkerJobError
+
+    class DeadProcess:
+        returncode = 9
+
+        def poll(self):
+            return 9
+
+    worker = PersistentDemucsWorker.__new__(PersistentDemucsWorker)
+    worker.proc = DeadProcess()
+    worker.messages = queue.Queue()
+    worker.tail = deque(["worker killed"], maxlen=40)
+    worker.last_activity = time.monotonic()
+
+    with pytest.raises(WorkerJobError, match="exited with 9"):
+        worker._next_event(
+            Job(id="abcdefabcdef"),
+            time.monotonic(),
+            inference_started=True,
+        )
+
+
+def test_worker_pool_switches_models_by_releasing_idle_worker(monkeypatch):
+    from app.core.registry import remove_proc
+    from app.pipeline import demucs_pool
+
+    class FakeProcess:
+        returncode = None
+        pid = 12345
+
+        def poll(self):
+            return self.returncode
+
+    class FakeWorker:
+        def __init__(self, model, device):
+            self.model = model
+            self.device = device
+            self.busy = True
+            self.ready = True
+            self.proc = FakeProcess()
+            self.last_used = time.monotonic()
+            self.shutdown_called = False
+
+        def ensure_ready(self, _job):
+            return None
+
+        def shutdown(self):
+            self.shutdown_called = True
+            self.proc.returncode = 0
+
+        def terminate(self, *, force=False):
+            del force
+            self.proc.returncode = 0
+
+    old = FakeWorker("old-model", "cpu")
+    old.busy = False
+    monkeypatch.setattr(demucs_pool, "PIPELINE_CONCURRENCY", 1)
+    monkeypatch.setattr(demucs_pool, "PersistentDemucsWorker", FakeWorker)
+    pool = demucs_pool.DemucsWorkerPool(start_reaper=False)
+    pool._workers.append(old)
+    job = Job(id="abcdefabcdef")
+
+    worker = pool.acquire(job, "new-model", "cpu")
+
+    assert old.shutdown_called is True
+    assert worker.model == "new-model"
+    remove_proc(job.id, worker.proc)
+    pool.release(worker, healthy=True)
+    pool.shutdown()
 
 
 def test_separate_track_matches_demucs_cli_normalization_and_output_tree(

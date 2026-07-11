@@ -71,6 +71,17 @@ def test_serves_done_job_stem(client, tmp_path):
     assert "stems_Standard_Noise_off_Auto_All_6_stem_vocals.wav" in r.headers["content-disposition"]
 
 
+def test_serves_audio_ready_stem_while_chord_analysis_continues(client, tmp_path):
+    job = Job(id="abcdefabcded", status="processing", audio_ready=True, analysis_ready=False)
+    _jobs[job.id] = job
+    _make_stem_file(tmp_path, job.id, "vocals", b"RIFF-ready")
+
+    response = client.get(f"/api/jobs/{job.id}/stems/vocals.wav")
+
+    assert response.status_code == 200
+    assert response.content == b"RIFF-ready"
+
+
 # --- peaks endpoint ---
 
 
@@ -92,6 +103,18 @@ def test_peaks_returns_json_for_done_job(client, tmp_path):
     assert r.headers["content-type"] == "application/json"
     assert "immutable" in r.headers.get("cache-control", "")
     assert r.json() == payload
+
+
+def test_peaks_returns_json_when_audio_is_ready(client, tmp_path):
+    job = Job(id="abcdefabcda0", status="processing", audio_ready=True)
+    _jobs[job.id] = job
+    payload = {"bass": [[-0.2, 0.2]]}
+    _make_peaks_file(tmp_path, job.id, payload)
+
+    response = client.get(f"/api/jobs/{job.id}/stems/peaks.json")
+
+    assert response.status_code == 200
+    assert response.json() == payload
 
 
 def test_peaks_404_when_file_missing(client, tmp_path):

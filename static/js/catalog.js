@@ -414,6 +414,10 @@ function stateMetadataToTrack(state, fallbackTrack) {
     stems: state.selected_stems || fallbackTrack.stems,
     selectedStems: state.selected_stems || fallbackTrack.selectedStems,
     audioStems: state.stems || fallbackTrack.audioStems || [],
+    audioReady: state.audio_ready ?? fallbackTrack.audioReady ?? false,
+    audioReadyAt: state.audio_ready_at ?? fallbackTrack.audioReadyAt ?? null,
+    analysisReady: state.analysis_ready ?? fallbackTrack.analysisReady ?? false,
+    analysisError: state.analysis_error ?? fallbackTrack.analysisError ?? null,
     qualityPreset: state.quality_preset || fallbackTrack.qualityPreset || "standard",
     stemDenoisePreset: state.stem_denoise_preset || fallbackTrack.stemDenoisePreset || "off",
     demucsDevice: state.demucs_device || fallbackTrack.demucsDevice || "auto",
@@ -474,6 +478,10 @@ function trackSubText(track, { inTrash = false } = {}) {
     return [profile, "Queued"].filter(Boolean).join(" · ");
   }
   if (PROCESSING_STATUSES.has(track?.status)) {
+    if (track.audioReady) {
+      const analysis = track.analysisReady ? "Analysis complete" : "Analyzing chords";
+      return [profile, "Audio ready", analysis].filter(Boolean).join(" · ");
+    }
     const label = RUNNING_STATUS_LABELS[track.status] || "Processing";
     const progress = track.progressPercent != null ? `${label} ${track.progressPercent}%` : label;
     const elapsed = track.processingSeconds != null ? fmtTime(Number(track.processingSeconds)) : "";
@@ -733,12 +741,12 @@ async function loadTrackIntoStudio(trackId) {
   // A reprocessing track may still carry the previous extraction's stems
   // (hadStoredAudio), but it isn't ready — loading it would replace the live
   // job-progress overlay with stale audio. Leave the progress UI in place.
-  if (PROCESSING_STATUSES.has(track.status)) {
+  if (PROCESSING_STATUSES.has(track.status) && !track.audioReady) {
     showJobProgress(trackId);
     return;
   }
   if (!track.audioStems?.length) return;
-  if (track.status !== "done" && !hadStoredAudio) return;
+  if (track.status !== "done" && !track.audioReady && !hadStoredAudio) return;
   applyStoredStemSelection(track);
   setCurrentTrack(trackId);
 
@@ -780,7 +788,7 @@ export function getCurrentTrack() {
 }
 
 export function isTrackPlayable(track) {
-  return track?.status === "done" && Boolean(track?.audioStems?.length);
+  return Boolean((track?.status === "done" || track?.audioReady) && track?.audioStems?.length);
 }
 
 // ─── Folder operations ───

@@ -4,7 +4,13 @@ import {
   eventSource, setEventSource, setCurrentJobId, currentJobId,
   demucsDevicePreset, effectiveSelectedStems, qualityPreset, selectedStems, stemDenoisePreset,
 } from "./state.js";
-import { destroyPlayer, wireUpAudio, setWaveformLoading, updateFooterTrack } from "./player.js";
+import {
+  destroyPlayer,
+  setWaveformLoading,
+  updateAnalysisDownloads,
+  updateFooterTrack,
+  wireUpAudio,
+} from "./player.js";
 import { stagePhrases } from "./phrases.js";
 import {
   addTrackToLibrary,
@@ -276,6 +282,7 @@ export function reset() {
 }
 
 function channelForStatus(state) {
+  if (state.audio_ready && state.status !== "done") return "Audio ready";
   if (state.status === "done") return "Extracted";
   if (state.status === "queued") return "Queued";
   return "Processing";
@@ -316,6 +323,10 @@ function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } 
       chordProgression: state.chord_progression ?? null,
       chordMidiUrl: state.chord_midi_url ?? null,
       midiAnalysisUrl: state.midi_analysis_url ?? null,
+      audioReady: state.audio_ready ?? false,
+      audioReadyAt: state.audio_ready_at ?? null,
+      analysisReady: state.analysis_ready ?? false,
+      analysisError: state.analysis_error ?? null,
       stemPresence: state.stem_presence,
       bassRepairApplied: state.bass_repair_applied ?? false,
       phaseRepairApplied: state.phase_repair_applied ?? false,
@@ -432,7 +443,7 @@ function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } 
   syncJobTimer(state, pct);
 
   // Cancel button is visible exactly while the job is in a non-terminal state.
-  jobCancelBtn.classList.toggle("hidden", terminal);
+  jobCancelBtn.classList.toggle("hidden", terminal || Boolean(state.audio_ready));
 
   if (state.status !== lastStatus) {
     if (terminal) stopPhraseRotation();
@@ -440,7 +451,35 @@ function applyState(state, { focus = true, ownStudio = monitoredJobOwnsStudio } 
     lastStatus = state.status;
   }
 
-  if (state.status === "error") {
+  const audioReady = Boolean(state.audio_ready && state.stems?.length);
+  if (audioReady && ownsStudio && !renderedJobs.has(state.job_id)) {
+    renderedJobs.add(state.job_id);
+    jobBox.classList.add("hidden");
+    wireUpAudio(
+      state.job_id,
+      state.stems,
+      state.duration || 0,
+      state.thumbnail,
+      state.mix_url ?? null,
+      state.title || "",
+      null,
+      state.profile_label || "",
+      state.profile_key || "",
+      state.beat_times || [],
+      state.chord_midi_url || null,
+      state.midi_analysis_url || null,
+    );
+    initSections(state.job_id, state.sections, state.duration || 0);
+  }
+  if (audioReady && state.analysis_ready) {
+    updateAnalysisDownloads(
+      state.job_id,
+      state.chord_midi_url || null,
+      state.midi_analysis_url || null,
+    );
+  }
+
+  if (state.status === "error" && !audioReady) {
     stopJobPolling();
     stopJobTimer();
     updateTrackStatus(state.job_id, "error");

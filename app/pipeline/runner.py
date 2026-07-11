@@ -26,6 +26,7 @@ from app.pipeline.collect import (
     gate_stem_outputs,
     make_original_track,
     make_selected_mix,
+    process_stem_outputs_with_rust,
     repair_bass_dropouts,
     repair_phase_coherence,
     restore_demucs_gain,
@@ -252,23 +253,26 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     set_stage_progress(job, "denoise", 0.0, stage="Checking stem denoise...")
     job.stem_denoise_applied = denoise_stem_outputs(job, stems_dir, found)
     set_stage_progress(job, "denoise", 1.0, stage="Stem denoise complete")
-    set_stage_progress(job, "gate", 0.0, stage="Gating near-silent stem bleed...")
-    job.stem_gate_applied = gate_stem_outputs(job, stems_dir, found)
-    set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
-    set_stage_progress(job, "stabilize", 0.0, stage="Stabilizing stems...")
-    stabilize_stem_outputs(job, stems_dir, found)
+    set_stage_progress(job, "gate", 0.0, stage="Finalizing stems with Rust PCM...")
+    pcm_analyses = process_stem_outputs_with_rust(job, stems_dir, found)
+    if pcm_analyses is None:
+        job.stem_gate_applied = gate_stem_outputs(job, stems_dir, found)
+        set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
+        set_stage_progress(job, "stabilize", 0.0, stage="Stabilizing stems...")
+        stabilize_stem_outputs(job, stems_dir, found)
+    else:
+        set_stage_progress(job, "gate", 1.0, stage="Stem gate and analysis complete")
+        set_stage_progress(job, "stabilize", 0.8, stage="Stem stabilization complete")
     set_stage_progress(job, "stabilize", 1.0, stage="Stems stabilized")
     _check_cancel(job)
     set_stage_progress(job, "presence", 0.0, stage="Measuring stem presence...")
-    job.stem_presence = compute_stem_presence(stems_dir, found, job=job)
+    job.stem_presence = compute_stem_presence(
+        stems_dir,
+        found,
+        job=job,
+        pcm_analyses=pcm_analyses,
+    )
     set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
-    set_stage_progress(job, "chords", 0.0, stage="Estimating chord MIDI...")
-    generate_chord_midi(job, source, job_dir, stems_dir=stems_dir)
-    set_stage_progress(job, "chords", 1.0, stage="Chord MIDI ready")
-    # Source (100-300 MB or the local upload) is no longer needed after
-    # collect; delete it before the ffmpeg amix steps in case scratch space
-    # is tight.
-    cleanup_source(job_dir)
     job.stems = [{"name": name, "url": f"/api/jobs/{job.id}/stems/{name}.wav"} for name in found]
     _check_cancel(job)
     set_stage_progress(job, "mix", 0.0, stage="Mixing tracks...")
@@ -293,8 +297,44 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     if mix_path is not None and mix_path.stem not in all_stem_names:
         all_stem_names.append(mix_path.stem)
     set_stage_progress(job, "peaks", 0.0, stage="Rendering waveforms...")
-    compute_stem_peaks(stems_dir, all_stem_names, job=job)
+    compute_stem_peaks(
+        stems_dir,
+        all_stem_names,
+        job=job,
+        pcm_analyses=pcm_analyses,
+    )
     set_stage_progress(job, "peaks", 1.0, stage="Waveforms ready")
+    _set(
+        job,
+        audio_ready=True,
+        audio_ready_at=time.time(),
+        analysis_ready=False,
+        analysis_error=None,
+        stage="Audio ready; analyzing chords in background...",
+    )
+    add_job_log(job, "Stem playback and downloads are ready", stage="audio_ready")
+    _write_metadata(job, job_dir)
+    persist_registry(job_dir.parent)
+
+    set_stage_progress(job, "chords", 0.0, stage="Analyzing chords in background...")
+    try:
+        generate_chord_midi(job, source, job_dir, stems_dir=stems_dir)
+    except JobCancelled:
+        _set(job, analysis_error="Chord analysis was cancelled")
+        add_job_log(
+            job,
+            "Chord analysis cancelled; completed audio was preserved",
+            level="warning",
+            stage="chords",
+        )
+    except Exception as error:
+        logger.warning("chord analysis failed after audio became ready for job %s", job.id, exc_info=True)
+        _set(job, analysis_error="Chord analysis failed; stem audio remains available")
+        add_job_log(job, error, level="warning", stage="chords")
+    finally:
+        _set(job, analysis_ready=True)
+        set_stage_progress(job, "chords", 1.0, stage="Background analysis complete")
+        cleanup_source(job_dir)
 
 
 def _run_blocking(job: Job, url: str, job_dir: Path) -> None:
@@ -329,7 +369,12 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "chord_midi_url": job.chord_midi_url,
         "midi_analysis": job.midi_analysis,
         "midi_analysis_url": job.midi_analysis_url,
+        "audio_ready": job.audio_ready,
+        "audio_ready_at": job.audio_ready_at,
+        "analysis_ready": job.analysis_ready,
+        "analysis_error": job.analysis_error,
         "stem_presence": job.stem_presence,
+        "sections": job.sections,
         "selected_stems": job.selected_stems,
         "quality_preset": job.quality_preset,
         "stem_denoise_preset": job.stem_denoise_preset,
@@ -373,6 +418,29 @@ async def _run_async(
         add_job_log(job, "Job entered the processing queue", stage="queued", progress=job.progress)
         await asyncio.to_thread(blocking_fn, job, *fn_args, job_dir)
     except Exception as e:
+        if job.audio_ready:
+            logger.warning(
+                "non-audio analysis failed after stems became ready for job %s",
+                job.id,
+                exc_info=True,
+            )
+            analysis_error = (
+                "Background analysis was cancelled; stem audio was preserved"
+                if isinstance(e, JobCancelled) or job.cancel_requested
+                else "Background analysis failed; stem audio was preserved"
+            )
+            _set(
+                job,
+                status="done",
+                progress=1.0,
+                stage="Audio ready; background analysis incomplete",
+                analysis_ready=True,
+                analysis_error=analysis_error,
+            )
+            add_job_log(job, analysis_error, level="warning", stage="done", progress=1.0)
+            _write_metadata(job, job_dir)
+            persist_registry(jobs_dir)
+            return
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
             add_job_log(job, e, level="error", stage="error", progress=job.progress)

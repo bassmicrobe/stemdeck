@@ -11,7 +11,9 @@ dependencies = [
     "fastapi>=0.115,!=0.136.3",
     "uvicorn[standard]>=0.30",
     "yt-dlp>=2024.12.0",
-    "demucs>=4.0.1",
+    # The persistent worker integrates with Demucs' apply/save internals. Keep
+    # this exact until a newer release passes the protocol compatibility suite.
+    "demucs==4.0.1",
     # Pin torch/torchaudio to 2.6.x where available — torchaudio 2.7+ removed its built-in
     # audio writer and now requires the separate `torchcodec` package, which
     # has ABI issues with torch 2.11. Demucs 4.0.1 calls torchaudio.save() to
