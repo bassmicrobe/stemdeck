@@ -177,6 +177,10 @@ macOS の場合は `.dmg` を開き、`LayerLab.app` を Applications にコピ�
 
 複数のローカルLayerLabバックエンドが同時起動しても、`STEMDECK_PIPELINE_LOCK` を基準に同時実行数ぶんの共有スロットを使い、マシン全体で過剰なDemucs同時実行を防ぎます。
 
+Demucsは通常、モデル名と処理デバイスが同じ次の曲で常駐ワーカーを再利用します。モデル重みをディスクから読み直さないため、2曲目以降の開始待ちが短くなります。MPS/CUDAはメモリ安全性のため1ワーカー、CPUは自動同時実行数までです。別モデルへ切り替えた場合は、上限を超えないよう使用していないワーカーを終了します。
+
+分離後の無音ゲート、DC/ピーク安定化、RMS、波形ピーク生成は、同梱されたRustの`layerlab-pcm`で処理します。sidecarがない、非対応WAV、タイムアウト、応答検証失敗の場合は、元のstemを置換せずPython/soundfile処理へ戻ります。位相補正、bass dropout補正、denoise、圧縮音源変換は従来どおりPython/FFmpeg側です。
+
 ## キャンセル
 
 処理中のジョブは `Cancel` でキャンセルできます。キャンセルすると、実行中のDemucs/ffmpegプロセスを停止し、途中生成物を削除します。
@@ -322,6 +326,8 @@ Apple Silicon ではMPSを使えますが、複数プロセスで同時にDemucs
 
 `Max` / `Ultra`、長尺音源、float32、denoise、phase/bass repairはすべて重い処理です。速度優先なら `Standard` と `Noise off`、品質とのバランスなら `High` を使ってください。`htdemucs_ft` は4モデルのアンサンブルなので、`High` / `Max` / `Ultra` の分離表示は `model 1/4 · shift 1/4`、`model 2/4 · shift 1/2` のように表示します。各shiftが100%になったあと次へ進むのは正常です。現在のUltraは `4モデル × 4シフト = 16回` の推論です。
 
+通常は同じモデル/デバイスの常駐ワーカーが次曲にも使われます。最初の曲、アプリ再起動直後、異なる品質モデルへの切替直後、キャンセル後はモデル再ロード分だけ開始が遅くなります。`/api/health` の `demucs_worker_pool` で常駐数、使用中数、モデルを確認できます。
+
 旧Ultra相当の64回推論を比較検証したい場合だけ、起動前に次を指定します。通常利用には推奨しません。
 
 ```sh
@@ -337,6 +343,10 @@ STEMDECK_QUALITY_PRESET=ultra STEMDECK_DEMUCS_SHIFTS=16 ./run.sh start
 | `STEMDECK_PIPELINE_CONCURRENCY` | マシン全体で同時に走らせるDemucs分離数 |
 | `STEMDECK_PIPELINE_LOCK` | 複数バックエンド間で共有するDemucsスロットのロックファイル |
 | `STEMDECK_DEMUCS_JOBS` | 1曲内のDemucs CPUワーカー数。自動設定は曲並列との過剰実行を避けます |
+| `LAYERLAB_DEMUCS_PERSISTENT_WORKER` | Demucs常駐ワーカー。既定`1`、`0`で曲ごとのCLI起動へ戻します |
+| `LAYERLAB_PCM_WORKER_ENABLED` | Rust WAV/PCM後処理。既定`1`、`0`でPython処理を強制します |
+| `LAYERLAB_PCM_WORKER` | `layerlab-pcm`実行ファイルの明示パス。デスクトップ版は自動設定します |
+| `LAYERLAB_PCM_WORKER_TIMEOUT` | Rust PCMコマンドごとの上限秒数。既定`600` |
 | `STEMDECK_STEM_POST_LIMITER_PEAK` | Stem安定化とミックス書き出しのピーク上限。既定`0.98` |
 | `STEMDECK_MIX_LIMITER_ATTACK_MS` | ミックスlimiterのlook-ahead attack。既定`5`ms |
 | `STEMDECK_MIX_LIMITER_RELEASE_MS` | ミックスlimiterのrelease。既定`50`ms |
@@ -486,6 +496,8 @@ uv run --extra dev pytest
 - bass dropout repair
 - phase repair
 - stem denoise
+- persistent Demucs worker pool
+- Rust WAV/PCM post-processing sidecar
 - 品質評価ベンチマーク
 - cross-process Demucs lock
 - portable FFmpeg fallback

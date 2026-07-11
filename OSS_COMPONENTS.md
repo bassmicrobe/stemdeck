@@ -17,6 +17,15 @@ MIT and BSD-3-Clause are permissive licenses compatible with this repository's
 Apache-2.0 distribution when their copyright and license notices are retained.
 The projects remain copyrighted and licensed by their respective authors.
 
+## Runtime audio infrastructure
+
+| Project | Purpose in LayerLab | License | Integration |
+| --- | --- | --- | --- |
+| [Hound](https://github.com/ruuda/hound) | WAV/PCM reading and writing | Apache-2.0 | The bundled Rust `layerlab-pcm` sidecar performs timeline-preserving gating, float32 DC/peak stabilization, RMS analysis, and waveform peak generation. Python/soundfile remains the fallback. |
+
+The release license generator reads the exact Cargo lockfile and includes
+Hound's Apache-2.0 license text and version in the generated third-party bundle.
+
 ## Evaluated but not integrated
 
 | Project | License / constraint | Decision |

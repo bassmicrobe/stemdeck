@@ -34,6 +34,11 @@ Rust crates used by the Tauri shell
 License: varies by crate
 Inventory source: desktop/src-tauri/Cargo.lock
 
+Hound
+License: Apache-2.0
+Website: https://github.com/ruuda/hound
+Used by the bundled layerlab-pcm WAV/PCM post-processing sidecar.
+
 FastAPI
 License: MIT
 Website: https://fastapi.tiangolo.com/
@@ -99,9 +104,8 @@ license; upstream maintainers describe them as personal/research-use artifacts.
 Commercial distribution/services require separate permission, replacement
 weights with suitable terms, or disabling the default weight workflow.
 
-Beat This! model weights are downloaded during first use of a High, Max, or
-Ultra analysis profile and are published under the MIT License by the Beat
-This! authors.
+Beat This! model weights are downloaded during first use of any analysis
+profile and are published under the MIT License by the Beat This! authors.
 
 Disclaimer
 ----------

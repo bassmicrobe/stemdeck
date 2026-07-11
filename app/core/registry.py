@@ -187,6 +187,8 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         stem_denoise_preset=str(meta.get("stem_denoise_preset") or "off"),
         demucs_device=str(meta.get("demucs_device") or "auto"),
         demucs_device_resolved=str(meta.get("demucs_device_resolved") or ""),
+        demucs_engine=str(meta.get("demucs_engine") or ""),
+        pcm_engine=str(meta.get("pcm_engine") or ""),
         mix_url=mix_url,
         created_at=job_dir.stat().st_mtime,
         title=meta.get("title"),

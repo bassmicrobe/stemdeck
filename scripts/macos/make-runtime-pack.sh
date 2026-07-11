@@ -11,6 +11,7 @@ STAGING="${BUILD_DIR}/runtime-staging-${ARCH}"
 RUNTIME_DIR="${STAGING}/runtime"
 PYTHON_DIR="${RUNTIME_DIR}/python"
 BACKEND_DIR="${RUNTIME_DIR}/backend"
+BIN_DIR="${RUNTIME_DIR}/bin"
 LICENSE_BUNDLE_DIR="${BUILD_DIR}/license-bundle-${ARCH}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
@@ -33,7 +34,7 @@ if [[ -z "$PYTHON_BIN" ]]; then
   done
 fi
 
-for cmd in ditto shasum tar "$PYTHON_BIN"; do
+for cmd in cargo ditto rustup shasum tar "$PYTHON_BIN"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: required command not found on PATH: $cmd" >&2
     exit 1
@@ -76,7 +77,25 @@ if [[ "$ARCH" == "x64" && "$HOST_ARCH" == "arm64" ]]; then
 fi
 
 rm -rf "$STAGING"
-mkdir -p "$PYTHON_DIR" "$BACKEND_DIR" "$BUILD_DIR"
+mkdir -p "$PYTHON_DIR" "$BACKEND_DIR" "$BIN_DIR" "$BUILD_DIR"
+
+if [[ "$ARCH" == "arm64" ]]; then
+  RUST_TARGET="aarch64-apple-darwin"
+else
+  RUST_TARGET="x86_64-apple-darwin"
+fi
+
+echo "==> Building Rust PCM sidecar (${RUST_TARGET})"
+rustup target add "$RUST_TARGET"
+cargo build \
+  --manifest-path "$REPO_ROOT/desktop/src-tauri/Cargo.toml" \
+  --release \
+  --target "$RUST_TARGET" \
+  --bin layerlab-pcm
+cp "$REPO_ROOT/desktop/src-tauri/target/$RUST_TARGET/release/layerlab-pcm" \
+  "$BIN_DIR/layerlab-pcm"
+chmod 755 "$BIN_DIR/layerlab-pcm"
+codesign --force --sign - "$BIN_DIR/layerlab-pcm"
 
 echo "==> Bundling Python installation (${ARCH})"
 echo "==> Python: $("$PYTHON_BIN" --version)"
@@ -178,7 +197,7 @@ rm -rf "$LICENSE_BUNDLE_DIR"
   --python-root "$PYTHON_DIR" \
   --site-packages "$PYTHON_DIR/lib/python${PYTHON_VERSION}/site-packages" \
   --cargo-manifest "$REPO_ROOT/desktop/src-tauri/Cargo.toml" \
-  --target "$(if [[ "$ARCH" == "arm64" ]]; then echo aarch64-apple-darwin; else echo x86_64-apple-darwin; fi)" \
+  --target "$RUST_TARGET" \
   --output "$LICENSE_BUNDLE_DIR"
 
 echo "==> Capturing dependency inventory"

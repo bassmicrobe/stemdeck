@@ -46,6 +46,12 @@ from app.core.registry import add_proc, remove_proc
 from app.core.registry import all_jobs as registry_all
 from app.core.registry import persist as registry_persist
 from app.core.registry import remove as registry_remove
+from app.pipeline.pcm_worker import (
+    PcmResponse,
+    mark_python_pcm_fallback,
+    mark_rust_pcm,
+    run_pcm_command,
+)
 from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
@@ -369,6 +375,59 @@ def _soft_limit_block(block: np.ndarray, peak: float = STEM_POST_LIMITER_PEAK) -
     return np.clip(block * (peak / current), -peak, peak).astype(np.float32, copy=False)
 
 
+def _commit_pcm_outputs(
+    job: Job,
+    pairs: list[tuple[Path, Path]],
+    response: PcmResponse,
+) -> int | None:
+    """Validate every sidecar output before atomically replacing any stem."""
+    expected = {str(output): (source, output) for source, output in pairs}
+    results = {item.output: item for item in response.files}
+    valid = len(results) == len(response.files) == len(expected) and set(results) == set(expected)
+    if valid:
+        for output, item in results.items():
+            source, output_path = expected[output]
+            if item.path != str(source) or (item.changed and not output_path.is_file()):
+                valid = False
+                break
+    if not valid:
+        for _, output in pairs:
+            output.unlink(missing_ok=True)
+        logger.warning("Rust PCM output validation failed for job %s; using Python fallback", job.id)
+        return None
+
+    changed = 0
+    for source, output in pairs:
+        if results[str(output)].changed:
+            output.replace(source)
+            changed += 1
+        else:
+            output.unlink(missing_ok=True)
+    mark_rust_pcm(job, response.engine)
+    return changed
+
+
+def _run_rust_pcm_file_operation(
+    job: Job,
+    operation: str,
+    pairs: list[tuple[Path, Path]],
+    **settings: object,
+) -> int | None:
+    payload = {
+        "operation": operation,
+        "files": [
+            {"input": str(source), "output": str(output)} for source, output in pairs
+        ],
+        **settings,
+    }
+    response = run_pcm_command(job, payload)
+    if response is None:
+        for _, output in pairs:
+            output.unlink(missing_ok=True)
+        return None
+    return _commit_pcm_outputs(job, pairs, response)
+
+
 def stabilize_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> None:
     """Remove DC offset and prevent accidental clipping in generated stems.
 
@@ -381,6 +440,27 @@ def stabilize_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> 
     old_stage = job.stage_message
     _set(job, stage="Stabilizing stems...")
     try:
+        pairs = [
+            (path, path.with_suffix(".stable.wav"))
+            for name in stem_names
+            if (path := stems_dir / f"{name}.wav").is_file()
+        ]
+        if pairs:
+            rust_changed = _run_rust_pcm_file_operation(
+                job,
+                "stabilize",
+                pairs,
+                peak=STEM_POST_LIMITER_PEAK,
+                dc_threshold=1e-5,
+            )
+            if rust_changed is not None:
+                logger.info(
+                    "Rust PCM stabilization changed %s stem(s) for job %s",
+                    rust_changed,
+                    job.id,
+                )
+                return
+        mark_python_pcm_fallback(job)
         for name in stem_names:
             path = stems_dir / f"{name}.wav"
             if not path.is_file():
@@ -406,6 +486,18 @@ def stabilize_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> 
                     continue
                 dc = (sums / frames).astype(np.float32)
                 needs_dc = float(np.max(np.abs(dc), initial=0.0)) > 1e-5
+                if needs_dc:
+                    centered_peak = 0.0
+                    src.seek(0)
+                    while True:
+                        block = src.read(blocksize, dtype="float32", always_2d=True)
+                        if block.size == 0:
+                            break
+                        centered_peak = max(
+                            centered_peak,
+                            float(np.max(np.abs(block - dc[None, :]), initial=0.0)),
+                        )
+                    peak = centered_peak
                 gain = min(1.0, STEM_POST_LIMITER_PEAK / peak) if peak > 0 else 1.0
                 needs_gain = gain < 0.9999
                 if not needs_dc and not needs_gain:
@@ -805,13 +897,16 @@ def _read_gate_envelope(path: Path, frame_len: int) -> np.ndarray:
             block = src.read(blocksize, dtype="float32", always_2d=True)
             if block.size == 0:
                 break
-            remainder = len(block) % frame_len
-            if remainder:
-                pad = np.zeros((frame_len - remainder, block.shape[1]), dtype=np.float32)
-                block = np.vstack((block, pad))
-            frames = block.reshape(-1, frame_len, block.shape[1])
-            rms = np.sqrt(np.mean(frames * frames, axis=(1, 2), dtype=np.float64) + 1e-12)
-            envelopes.append(rms.astype(np.float32))
+            full_frame_count = len(block) // frame_len
+            if full_frame_count:
+                full = block[: full_frame_count * frame_len]
+                frames = full.reshape(-1, frame_len, block.shape[1])
+                rms = np.sqrt(np.mean(frames * frames, axis=(1, 2), dtype=np.float64) + 1e-12)
+                envelopes.append(rms.astype(np.float32))
+            remainder = block[full_frame_count * frame_len :]
+            if remainder.size:
+                tail_rms = np.sqrt(np.mean(remainder * remainder, dtype=np.float64) + 1e-12)
+                envelopes.append(np.asarray([tail_rms], dtype=np.float32))
     if not envelopes:
         return np.array([], dtype=np.float32)
     return np.concatenate(envelopes)
@@ -890,6 +985,29 @@ def gate_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bool:
     _set(job, stage="Gating near-silent stem bleed...")
     try:
         total = max(1, len(available))
+        rust_pairs = [
+            (stems_dir / f"{name}.wav", (stems_dir / f"{name}.wav").with_suffix(".gate.wav"))
+            for name in available
+        ]
+        set_stage_progress(job, "gate", 0.05, stage="Gating stems with Rust PCM...")
+        rust_changed = _run_rust_pcm_file_operation(
+            job,
+            "gate",
+            rust_pairs,
+            threshold_db=STEM_GATE_THRESHOLD_DB,
+            window_ms=STEM_GATE_WINDOW_MS,
+            hold_ms=STEM_GATE_HOLD_MS,
+            attack_ms=STEM_GATE_ATTACK_MS,
+            release_ms=STEM_GATE_RELEASE_MS,
+        )
+        if rust_changed is not None:
+            set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
+            if rust_changed:
+                job.stem_gate_threshold_db = STEM_GATE_THRESHOLD_DB
+                logger.info("Rust PCM gate applied to %s stem(s) for job %s", rust_changed, job.id)
+            return rust_changed > 0
+
+        mark_python_pcm_fallback(job)
         for idx, name in enumerate(available):
             path = stems_dir / f"{name}.wav"
             tmp = path.with_suffix(".gate.wav")
@@ -920,7 +1038,7 @@ def gate_stem_outputs(job: Job, stems_dir: Path, stem_names: list[str]) -> bool:
         logger.warning("stem gate skipped for job %s", job.id, exc_info=True)
         return False
     finally:
-        for _, tmp in tmp_pairs:
+        for tmp in stems_dir.glob("*.gate.wav"):
             tmp.unlink(missing_ok=True)
         _set(job, stage=old_stage)
 
@@ -1021,10 +1139,46 @@ def make_selected_mix(job: Job, stems_dir: Path, found: list[str]) -> Path | Non
 _PEAK_POINTS = 1500  # matches OVERVIEW_WAVE_POINTS in player.js
 
 
-def compute_stem_peaks(stems_dir: Path, stem_names: list[str]) -> None:
+def compute_stem_peaks(
+    stems_dir: Path,
+    stem_names: list[str],
+    *,
+    job: Job | None = None,
+) -> None:
     """Compute and cache [min, max] waveform peaks for each stem.
     Failure is non-fatal — missing peaks.json degrades to client-side decode."""
     peaks: dict[str, list[list[float]]] = {}
+    paths = [stems_dir / f"{name}.wav" for name in stem_names]
+    available_paths = [path for path in paths if path.is_file()]
+    if job is not None and available_paths:
+        response = run_pcm_command(
+            job,
+            {
+                "operation": "analyze",
+                "paths": [str(path) for path in available_paths],
+                "bins": _PEAK_POINTS,
+            },
+        )
+        if response is not None:
+            analyses = {item.path: item for item in response.analyses}
+            if set(analyses) == {str(path) for path in available_paths}:
+                for path in available_paths:
+                    points = analyses[str(path)].min_max_peaks
+                    if points:
+                        peaks[path.stem] = [[minimum, maximum] for minimum, maximum in points]
+            else:
+                logger.warning(
+                    "Rust PCM waveform response was incomplete for job %s; using Python fallback",
+                    job.id,
+                )
+                peaks = {}
+        if not peaks:
+            mark_python_pcm_fallback(job)
+
+    if peaks:
+        _write_peaks_json(stems_dir, peaks)
+        return
+
     for name in stem_names:
         path = stems_dir / f"{name}.wav"
         if not path.is_file():
@@ -1076,6 +1230,10 @@ def compute_stem_peaks(stems_dir: Path, stem_names: list[str]) -> None:
     if not peaks:
         return
 
+    _write_peaks_json(stems_dir, peaks)
+
+
+def _write_peaks_json(stems_dir: Path, peaks: dict[str, list[list[float]]]) -> None:
     try:
         tmp = stems_dir / "peaks.json.tmp"
         tmp.write_text(json.dumps(peaks), encoding="utf-8")

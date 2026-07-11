@@ -260,7 +260,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     set_stage_progress(job, "stabilize", 1.0, stage="Stems stabilized")
     _check_cancel(job)
     set_stage_progress(job, "presence", 0.0, stage="Measuring stem presence...")
-    job.stem_presence = compute_stem_presence(stems_dir, found)
+    job.stem_presence = compute_stem_presence(stems_dir, found, job=job)
     set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
     set_stage_progress(job, "chords", 0.0, stage="Estimating chord MIDI...")
     generate_chord_midi(job, source, job_dir, stems_dir=stems_dir)
@@ -293,7 +293,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     if mix_path is not None and mix_path.stem not in all_stem_names:
         all_stem_names.append(mix_path.stem)
     set_stage_progress(job, "peaks", 0.0, stage="Rendering waveforms...")
-    compute_stem_peaks(stems_dir, all_stem_names)
+    compute_stem_peaks(stems_dir, all_stem_names, job=job)
     set_stage_progress(job, "peaks", 1.0, stage="Waveforms ready")
 
 
@@ -335,6 +335,8 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "stem_denoise_preset": job.stem_denoise_preset,
         "demucs_device": job.demucs_device,
         "demucs_device_resolved": job.demucs_device_resolved,
+        "demucs_engine": job.demucs_engine,
+        "pcm_engine": job.pcm_engine,
         "profile_key": job.profile_key(),
         "profile_label": job.profile_label(),
         "source_url": job.source_url,

@@ -1,9 +1,10 @@
 use flate2::read::GzDecoder;
+use layerlab::pcm::AudioAnalysis;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     env, fs,
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
@@ -161,29 +162,6 @@ struct MaintenanceReport {
     downloads_bytes: u64,
     removed_paths: Vec<String>,
     warnings: Vec<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct AudioAnalysis {
-    path: String,
-    sample_rate: u32,
-    channels: u16,
-    duration_seconds: f64,
-    peak: f32,
-    rms: f32,
-    waveform_peaks: Vec<f32>,
-}
-
-#[derive(Clone, Copy)]
-struct WavFormat {
-    audio_format: u16,
-    channels: u16,
-    sample_rate: u32,
-    bits_per_sample: u16,
-    block_align: u16,
-    data_offset: u64,
-    data_size: u64,
 }
 
 fn main() {
@@ -686,6 +664,19 @@ fn start_backend(
             .env("TORCH_HOME", data_dir.join("models").join("torch"))
             .stdout(stdout)
             .stderr(stderr);
+
+        let pcm_worker_name = if cfg!(windows) {
+            "layerlab-pcm.exe"
+        } else {
+            "layerlab-pcm"
+        };
+        let pcm_worker_candidates = [
+            runtime_dir(&data_dir).join("bin").join(pcm_worker_name),
+            root.join("bin").join(pcm_worker_name),
+        ];
+        if let Some(pcm_worker) = pcm_worker_candidates.iter().find(|path| path.is_file()) {
+            cmd.env("LAYERLAB_PCM_WORKER", pcm_worker);
+        }
 
         if let Some(ffmpeg_dir) = ffmpeg_dir_if_present(&data_dir) {
             let existing = env::var_os("PATH").unwrap_or_default();
@@ -1519,187 +1510,7 @@ fn path_age(path: &Path) -> Option<Duration> {
 /// Analyzes a WAV file in Rust for quick waveform, peak, and RMS metadata.
 #[tauri::command]
 fn analyze_wav_file(path: String, bins: Option<usize>) -> Result<AudioAnalysis, String> {
-    let path_buf = PathBuf::from(&path);
-    let mut file = fs::File::open(&path_buf).map_err(|e| format!("failed to open {path}: {e}"))?;
-    let format = parse_wav_format(&mut file)?;
-    if format.sample_rate == 0 || format.channels == 0 || format.block_align == 0 {
-        return Err("invalid WAV format".to_string());
-    }
-    let frames = format.data_size / u64::from(format.block_align);
-    if frames == 0 {
-        return Ok(AudioAnalysis {
-            path,
-            sample_rate: format.sample_rate,
-            channels: format.channels,
-            duration_seconds: 0.0,
-            peak: 0.0,
-            rms: 0.0,
-            waveform_peaks: Vec::new(),
-        });
-    }
-
-    let bin_count = bins.unwrap_or(2048).clamp(1, 8192);
-    let mut waveform_peaks = vec![0.0_f32; bin_count];
-    let mut frame = vec![0_u8; usize::from(format.block_align)];
-    let bytes_per_sample = usize::from(format.bits_per_sample / 8);
-    let mut peak = 0.0_f32;
-    let mut sum_squares = 0.0_f64;
-    let mut sample_count = 0_u64;
-
-    file.seek(SeekFrom::Start(format.data_offset))
-        .map_err(|e| format!("failed to seek WAV data: {e}"))?;
-    for frame_index in 0..frames {
-        file.read_exact(&mut frame)
-            .map_err(|e| format!("failed to read WAV frame: {e}"))?;
-        let mut frame_peak = 0.0_f32;
-        for channel in 0..usize::from(format.channels) {
-            let offset = channel * bytes_per_sample;
-            let sample = decode_wav_sample(&frame[offset..offset + bytes_per_sample], format)?;
-            let amplitude = sample.abs().min(1.0);
-            frame_peak = frame_peak.max(amplitude);
-            peak = peak.max(amplitude);
-            sum_squares += f64::from(sample) * f64::from(sample);
-            sample_count += 1;
-        }
-        let bin = ((frame_index * bin_count as u64) / frames).min((bin_count - 1) as u64) as usize;
-        waveform_peaks[bin] = waveform_peaks[bin].max(frame_peak);
-    }
-
-    let rms = if sample_count == 0 {
-        0.0
-    } else {
-        (sum_squares / sample_count as f64).sqrt() as f32
-    };
-
-    Ok(AudioAnalysis {
-        path,
-        sample_rate: format.sample_rate,
-        channels: format.channels,
-        duration_seconds: frames as f64 / f64::from(format.sample_rate),
-        peak,
-        rms,
-        waveform_peaks,
-    })
-}
-
-fn parse_wav_format(file: &mut fs::File) -> Result<WavFormat, String> {
-    let mut header = [0_u8; 12];
-    file.read_exact(&mut header)
-        .map_err(|e| format!("failed to read WAV header: {e}"))?;
-    if &header[0..4] != b"RIFF" || &header[8..12] != b"WAVE" {
-        return Err("only RIFF/WAVE files are supported".to_string());
-    }
-
-    let mut format: Option<WavFormat> = None;
-    let mut data_offset = None;
-    let mut data_size = None;
-    loop {
-        let mut chunk_header = [0_u8; 8];
-        match file.read_exact(&mut chunk_header) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(format!("failed to read WAV chunk: {e}")),
-        }
-        let chunk_id = &chunk_header[0..4];
-        let chunk_size = u32::from_le_bytes([
-            chunk_header[4],
-            chunk_header[5],
-            chunk_header[6],
-            chunk_header[7],
-        ]) as u64;
-        let chunk_start = file
-            .stream_position()
-            .map_err(|e| format!("failed to read WAV position: {e}"))?;
-
-        if chunk_id == b"fmt " {
-            if chunk_size < 16 {
-                return Err("WAV fmt chunk is too small".to_string());
-            }
-            let mut fmt = vec![0_u8; chunk_size as usize];
-            file.read_exact(&mut fmt)
-                .map_err(|e| format!("failed to read WAV fmt chunk: {e}"))?;
-            let audio_format = u16::from_le_bytes([fmt[0], fmt[1]]);
-            let channels = u16::from_le_bytes([fmt[2], fmt[3]]);
-            let sample_rate = u32::from_le_bytes([fmt[4], fmt[5], fmt[6], fmt[7]]);
-            let block_align = u16::from_le_bytes([fmt[12], fmt[13]]);
-            let bits_per_sample = u16::from_le_bytes([fmt[14], fmt[15]]);
-            format = Some(WavFormat {
-                audio_format,
-                channels,
-                sample_rate,
-                bits_per_sample,
-                block_align,
-                data_offset: data_offset.unwrap_or(0),
-                data_size: data_size.unwrap_or(0),
-            });
-        } else if chunk_id == b"data" {
-            data_offset = Some(chunk_start);
-            data_size = Some(chunk_size);
-        }
-
-        let next = chunk_start + chunk_size + (chunk_size % 2);
-        file.seek(SeekFrom::Start(next))
-            .map_err(|e| format!("failed to seek WAV chunk: {e}"))?;
-        if format.is_some() && data_offset.is_some() {
-            break;
-        }
-    }
-
-    let Some(mut wav) = format else {
-        return Err("WAV fmt chunk was not found".to_string());
-    };
-    wav.data_offset = data_offset.ok_or_else(|| "WAV data chunk was not found".to_string())?;
-    wav.data_size = data_size.ok_or_else(|| "WAV data chunk was not found".to_string())?;
-    validate_wav_format(wav)?;
-    Ok(wav)
-}
-
-fn validate_wav_format(format: WavFormat) -> Result<(), String> {
-    match (format.audio_format, format.bits_per_sample) {
-        (1, 16) | (1, 24) | (1, 32) | (3, 32) => {}
-        _ => {
-            return Err(format!(
-                "unsupported WAV format {} with {} bits per sample",
-                format.audio_format, format.bits_per_sample
-            ))
-        }
-    }
-    if format.bits_per_sample & 7 != 0 {
-        return Err("unsupported non-byte-aligned WAV sample size".to_string());
-    }
-    let expected = format.channels.saturating_mul(format.bits_per_sample / 8);
-    if expected == 0 || expected != format.block_align {
-        return Err("unsupported WAV block alignment".to_string());
-    }
-    Ok(())
-}
-
-fn decode_wav_sample(bytes: &[u8], format: WavFormat) -> Result<f32, String> {
-    match (format.audio_format, format.bits_per_sample) {
-        (1, 16) => {
-            let value = i16::from_le_bytes([bytes[0], bytes[1]]);
-            Ok(value as f32 / 32768.0)
-        }
-        (1, 24) => {
-            let raw =
-                i32::from(bytes[0]) | (i32::from(bytes[1]) << 8) | (i32::from(bytes[2]) << 16);
-            let signed = if raw & 0x80_0000 != 0 {
-                raw | !0xFF_FFFF
-            } else {
-                raw
-            };
-            Ok(signed as f32 / 8_388_608.0)
-        }
-        (1, 32) => {
-            let value = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-            Ok(value as f32 / 2_147_483_648.0)
-        }
-        (3, 32) => {
-            let value = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-            Ok(value.clamp(-1.0, 1.0))
-        }
-        _ => Err("unsupported WAV sample format".to_string()),
-    }
+    layerlab::pcm::analyze_wav_file(PathBuf::from(path), bins)
 }
 
 /// Returns the persistent user data directory for LayerLab.

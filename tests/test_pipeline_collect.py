@@ -360,6 +360,78 @@ def test_gate_stem_outputs_noops_when_disabled(tmp_path, monkeypatch):
     np.testing.assert_allclose(processed, samples, atol=1e-7)
 
 
+def test_gate_stem_outputs_preserves_short_active_tail(tmp_path, monkeypatch):
+    from app.pipeline import collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "run_pcm_command", lambda *_args, **_kwargs: None)
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    path = stems_dir / "bass.wav"
+    sf.write(path, np.asarray([0.01], dtype=np.float32), 44100, subtype="FLOAT")
+
+    assert not gate_stem_outputs(
+        Job(id="abcdefabcdef", quality_preset="high"),
+        stems_dir,
+        ["bass"],
+    )
+
+    processed, _ = sf.read(path, dtype="float32")
+    assert float(processed[0]) == pytest.approx(0.01, abs=1e-6)
+
+
+def test_gate_stem_outputs_commits_valid_rust_outputs(tmp_path, monkeypatch):
+    from app.pipeline import collect as collect_mod
+    from app.pipeline.pcm_worker import PcmFileResult, PcmResponse
+
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    stem = stems_dir / "vocals.wav"
+    stem.write_bytes(b"original")
+
+    def fake_pcm(_job, payload, **_kwargs):
+        output = Path(payload["files"][0]["output"])
+        output.write_bytes(b"rust-gated")
+        return PcmResponse(
+            engine="layerlab-rust-pcm-v1",
+            files=(PcmFileResult(str(stem), str(output), True),),
+            analyses=(),
+        )
+
+    monkeypatch.setattr(collect_mod, "run_pcm_command", fake_pcm)
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
+    assert gate_stem_outputs(job, stems_dir, ["vocals"])
+    assert stem.read_bytes() == b"rust-gated"
+    assert job.stem_gate_threshold_db == -54.0
+
+
+def test_stabilize_stem_outputs_falls_back_when_rust_output_is_missing(tmp_path, monkeypatch):
+    from app.pipeline import collect as collect_mod
+    from app.pipeline.pcm_worker import PcmFileResult, PcmResponse
+
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    path = stems_dir / "bass.wav"
+    samples = np.asarray([0.6, -0.4], dtype=np.float32) + 0.2
+    sf.write(path, samples, 44100, subtype="FLOAT")
+
+    def fake_pcm(_job, payload, **_kwargs):
+        output = payload["files"][0]["output"]
+        return PcmResponse(
+            engine="layerlab-rust-pcm-v1",
+            files=(PcmFileResult(str(path), output, True),),
+            analyses=(),
+        )
+
+    monkeypatch.setattr(collect_mod, "run_pcm_command", fake_pcm)
+    job = Job(id="abcdefabcdef", quality_preset="high")
+
+    stabilize_stem_outputs(job, stems_dir, ["bass"])
+
+    data, _ = sf.read(path, dtype="float32")
+    assert abs(float(np.mean(data))) < 1e-5
+
+
 def test_bass_residual_candidate_subtracts_non_bass_stems(tmp_path, monkeypatch):
     stems_dir = tmp_path / "stems"
     stems_dir.mkdir()
@@ -575,3 +647,20 @@ def test_stabilize_stem_outputs_noops_for_standard_preset(tmp_path):
     stabilize_stem_outputs(Job(id="abcdefabcdef", quality_preset="standard"), stems_dir, ["bass"])
 
     assert path.read_bytes() == before
+
+
+def test_python_stabilize_limits_peak_after_dc_removal(tmp_path, monkeypatch):
+    from app.pipeline import collect as collect_mod
+
+    monkeypatch.setattr(collect_mod, "run_pcm_command", lambda *_args, **_kwargs: None)
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    path = stems_dir / "bass.wav"
+    samples = np.asarray([-0.6, 1.0, 1.0, 1.0], dtype=np.float32)
+    sf.write(path, samples, 4, subtype="FLOAT")
+
+    stabilize_stem_outputs(Job(id="abcdefabcdef", quality_preset="high"), stems_dir, ["bass"])
+
+    processed, _ = sf.read(path, dtype="float32")
+    assert abs(float(np.mean(processed))) < 1e-6
+    assert float(np.max(np.abs(processed))) <= 0.981

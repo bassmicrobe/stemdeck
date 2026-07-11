@@ -240,13 +240,59 @@ def _load_audio_ffmpeg(
     return y, sr
 
 
-def compute_stem_presence(stems_dir: Path, selected_stems: list[str]) -> dict[str, int]:
+def compute_stem_presence(
+    stems_dir: Path,
+    selected_stems: list[str],
+    *,
+    job: Job | None = None,
+) -> dict[str, int]:
     """Stream each stem WAV, compute full-track RMS, and normalize to 0-100."""
     import numpy as np
     import soundfile as sf
 
     result: dict[str, int] = {}
     rms_values: dict[str, float] = {}
+
+    available = [stems_dir / f"{name}.wav" for name in selected_stems]
+    available = [path for path in available if path.is_file()]
+    if job is not None and available:
+        from app.pipeline import pcm_worker
+
+        response = pcm_worker.run_pcm_command(
+            job,
+            {
+                "operation": "analyze",
+                "paths": [str(path) for path in available],
+                "bins": 1,
+            },
+        )
+        if response is not None:
+            analyses = {item.path: item for item in response.analyses}
+            if set(analyses) == {str(path) for path in available}:
+                rms_values = {
+                    path.stem: max(0.0, analyses[str(path)].rms)
+                    for path in available
+                    if analyses[str(path)].duration_seconds > 0
+                }
+            else:
+                logger.warning(
+                    "Rust PCM presence response was incomplete for job %s; using Python fallback",
+                    job.id,
+                )
+
+    if rms_values:
+        max_rms = max(rms_values.values())
+        if max_rms < 1e-9:
+            return {name: 0 for name in rms_values}
+        return {
+            name: max(0, min(100, round(rms / max_rms * 100)))
+            for name, rms in rms_values.items()
+        }
+
+    if job is not None:
+        from app.pipeline.pcm_worker import mark_python_pcm_fallback
+
+        mark_python_pcm_fallback(job)
 
     for name in selected_stems:
         wav_path = stems_dir / f"{name}.wav"

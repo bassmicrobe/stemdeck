@@ -54,6 +54,10 @@ LayerLab is free and **does not accept any money, sponsorship, or funding** - no
 
 **6-stem separation** via Demucs `htdemucs_6s`, with auto-detection of the best Torch device (CUDA on NVIDIA, MPS on Apple Silicon, CPU fallback).
 
+**Persistent Demucs workers.** The selected model stays loaded in a bounded background process and is reused by later tracks with the same model/device. MPS/CUDA stays at one worker for memory safety; CPU follows the detected pipeline concurrency. A startup/protocol failure falls back to the Demucs CLI, while an inference failure is not silently run twice.
+
+**Rust WAV/PCM post-processing.** A bundled `layerlab-pcm` sidecar performs timeline-preserving stem gating, float32 DC/peak stabilization, RMS analysis, and waveform peak generation with the Apache-2.0-licensed Hound crate. The existing Python/soundfile implementation remains an automatic fallback; phase repair, bass repair, denoise, and compressed-media conversion remain in their quality-focused Python/FFmpeg paths.
+
 **YouTube and local file import.** Paste a YouTube URL or drop an MP3, WAV, FLAC, or M4A directly onto the import bar. YouTube metadata is fetched once, overlong sources are rejected before download, and decoder-compatible inputs avoid an unnecessary intermediate WAV.
 
 **DAW-style waveform editor** with min/max sample rendering across all stems, shared normalization, zoom in/out/Fit, loop drag on the ruler, gold playhead overlay, and stem-aligned lanes.
@@ -198,7 +202,7 @@ FFmpeg/ffprobe or AI model weights are not already cached.
 
 <br>
 
-LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses the MIT-licensed **[Demucs](https://github.com/facebookresearch/demucs)** code (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra); the downloaded pretrained weights have separate personal/research-use terms described in the license section below. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. Neural beat/downbeat detection uses **[Beat This!](https://github.com/CPJKU/beat_this)** with a librosa fallback; librosa also provides key/chroma features, while **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** measures loudness (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses the MIT-licensed **[Demucs](https://github.com/facebookresearch/demucs)** code (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra) inside reusable worker processes; the downloaded pretrained weights have separate personal/research-use terms described in the license section below. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. Neural beat/downbeat detection uses **[Beat This!](https://github.com/CPJKU/beat_this)** with a librosa fallback; librosa also provides key/chroma features, while **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** measures loudness (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). Their Apache-2.0-licensed **[Hound](https://github.com/ruuda/hound)** sidecar handles WAV/PCM gating, stabilization, RMS, and peak generation without lowering float32 stems to integer PCM. The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
 *Thanks to the creators and maintainers of all the open-source libraries that make LayerLab possible.*
 
@@ -380,6 +384,10 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_DEMUCS_OVERLAP` | Standard/High `0.20`, Max/Ultra `0.25` | Demucs segment overlap. The selected value is always passed explicitly so upstream defaults cannot silently change runtime. |
 | `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
 | `STEMDECK_DEMUCS_JOBS` | auto | Demucs CPU chunk workers. Auto uses `0` for MPS/CUDA/macOS and whenever multiple CPU separations are enabled; a roomy CPU-only host limited to one separation may use `2`. |
+| `LAYERLAB_DEMUCS_PERSISTENT_WORKER` | `1` | Keep Demucs models loaded in bounded reusable worker processes. Set `0` to use the one-process-per-track CLI path. Startup/protocol failures fall back automatically. |
+| `LAYERLAB_PCM_WORKER_ENABLED` | `1` | Use the Rust WAV/PCM sidecar for gate, stabilization, RMS, and waveform peaks when available. Set `0` to force the Python/soundfile path. |
+| `LAYERLAB_PCM_WORKER` | auto-detected | Explicit path to `layerlab-pcm` or `layerlab-pcm.exe`. Desktop builds set this to the bundled sidecar. |
+| `LAYERLAB_PCM_WORKER_TIMEOUT` | `600` | Per-command Rust PCM sidecar timeout in seconds. |
 | `STEMDECK_STEM_POST_LIMITER_PEAK` | `0.98` | Peak ceiling used by stem stabilization and rendered mix limiting. |
 | `STEMDECK_MIX_LIMITER_ATTACK_MS` | `5` | Look-ahead attack used only for rendered stem mixes. |
 | `STEMDECK_MIX_LIMITER_RELEASE_MS` | `50` | Release time used only for rendered stem mixes. |

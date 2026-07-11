@@ -109,6 +109,8 @@ class Job:
     stem_denoise_preset: str = "off"
     demucs_device: str = "auto"
     demucs_device_resolved: str = ""
+    demucs_engine: str = ""
+    pcm_engine: str = ""
     mix_url: str | None = None  # populated when a strict subset was selected
     source_url: str | None = None  # original URL or "local:<filename>" for file uploads
     demucs_gain_db: float | None = None  # reversible gain applied to the Demucs working copy
@@ -251,6 +253,8 @@ class Job:
             "stem_denoise_preset": self.stem_denoise_preset,
             "demucs_device": self.demucs_device,
             "demucs_device_resolved": self.demucs_device_resolved,
+            "demucs_engine": self.demucs_engine,
+            "pcm_engine": self.pcm_engine,
             "profile_key": self.profile_key(),
             "profile_label": self.profile_label(),
             "mix_url": self.mix_url,

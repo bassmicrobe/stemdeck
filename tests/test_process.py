@@ -37,6 +37,25 @@ def test_run_tracked_process_kills_timed_out_child():
     assert get_proc(job.id) is None
 
 
+def test_run_tracked_process_sends_binary_stdin():
+    job = Job(id="abcdefabcdea")
+
+    result = run_tracked_process(
+        job,
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read()[::-1])",
+        ],
+        timeout=5,
+        input_data=b"layerlab",
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == b"balreyal"
+    assert get_proc(job.id) is None
+
+
 def test_registry_tracks_multiple_processes_per_job():
     job_id = "abcdefabcdec"
     first = object()

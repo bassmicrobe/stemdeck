@@ -25,9 +25,11 @@ from app.core.config import (
     DEMUCS_JOBS,
     DEMUCS_MODEL,
     DEMUCS_OVERLAP,
+    DEMUCS_PERSISTENT_WORKER,
     DEMUCS_PRE_GAIN_DB,
     DEMUCS_SHIFTS,
     JOBS_DIR,
+    PCM_WORKER_ENABLED,
     PIPELINE_CONCURRENCY,
     QUALITY_PRESET,
     ROOT,
@@ -42,7 +44,9 @@ from app.core.registry import all_procs
 from app.core.registry import restore as restore_registry
 from app.pipeline.beat_tracker import beat_this_available
 from app.pipeline.collect import sweep_old_jobs
+from app.pipeline.demucs_pool import demucs_worker_status, shutdown_demucs_workers
 from app.pipeline.midi_analysis import music21_available
+from app.pipeline.pcm_worker import pcm_worker_executable
 from app.pipeline.process import terminate_process
 
 # Show our INFO-level logs through uvicorn's root handler. Without this,
@@ -156,6 +160,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         for proc in all_procs():
             terminate_process(proc)
         await shutdown_pipeline_tasks()
+        shutdown_demucs_workers()
         for task in list(_background_tasks):
             task.cancel()
         if _background_tasks:
@@ -190,6 +195,8 @@ def health() -> dict[str, object]:
         "pipeline_concurrency": PIPELINE_CONCURRENCY,
         "pipeline_lock_scope": "separation-only",
         "demucs_jobs": DEMUCS_JOBS,
+        "demucs_persistent_worker_enabled": DEMUCS_PERSISTENT_WORKER,
+        "demucs_worker_pool": demucs_worker_status(),
         "demucs_shifts": DEMUCS_SHIFTS,
         "demucs_overlap": DEMUCS_OVERLAP,
         "demucs_pre_gain_db": DEMUCS_PRE_GAIN_DB,
@@ -197,6 +204,8 @@ def health() -> dict[str, object]:
         "beat_this_model_override": BEAT_THIS_MODEL or None,
         "beat_this_available": beat_this_available(),
         "music21_available": music21_available(),
+        "rust_pcm_worker_enabled": PCM_WORKER_ENABLED,
+        "rust_pcm_worker_available": pcm_worker_executable() is not None,
     }
 
 

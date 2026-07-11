@@ -78,6 +78,35 @@ def test_compute_stem_presence_uses_full_track_rms(tmp_path: Path):
     assert 34 <= presence["bass"] <= 36
 
 
+def test_compute_stem_presence_uses_rust_analysis_when_job_is_provided(tmp_path, monkeypatch):
+    from app.pipeline import pcm_worker
+    from app.pipeline.pcm_worker import PcmAnalysis, PcmResponse
+
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    vocals = stems_dir / "vocals.wav"
+    bass = stems_dir / "bass.wav"
+    vocals.write_bytes(b"wav")
+    bass.write_bytes(b"wav")
+    response = PcmResponse(
+        engine="layerlab-rust-pcm-v1",
+        files=(),
+        analyses=(
+            PcmAnalysis(str(vocals), 44100, 2, 1.0, 0.8, 0.5, (), ()),
+            PcmAnalysis(str(bass), 44100, 2, 1.0, 0.4, 0.25, (), ()),
+        ),
+    )
+    monkeypatch.setattr(pcm_worker, "run_pcm_command", lambda *_args, **_kwargs: response)
+
+    result = compute_stem_presence(
+        stems_dir,
+        ["vocals", "bass"],
+        job=Job(id="abcdefabcdef"),
+    )
+
+    assert result == {"vocals": 100, "bass": 50}
+
+
 def test_analyze_collects_beats_across_all_chunks(monkeypatch, tmp_path: Path):
     starts = []
 

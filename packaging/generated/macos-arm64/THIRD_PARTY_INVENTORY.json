@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "componentCount": 403,
+  "componentCount": 404,
   "components": [
     {
       "ecosystem": "external-download",
@@ -118,7 +118,7 @@
     {
       "ecosystem": "python",
       "name": "anyio",
-      "version": "4.14.0",
+      "version": "4.14.1",
       "license": "MIT",
       "url": "https://anyio.readthedocs.io/en/latest/",
       "delivery": "bundled",
@@ -207,7 +207,7 @@
     {
       "ecosystem": "python",
       "name": "click",
-      "version": "8.4.1",
+      "version": "8.4.2",
       "license": "BSD-3-Clause",
       "url": "https://click.palletsprojects.com/page/changes/",
       "delivery": "bundled",
@@ -2238,6 +2238,17 @@
       "licenseSections": [
         "a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae",
         "f7bdb3426d045cd50efd4953026e3eb5a83d0199f458a075602611b9344da5b9"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "hound",
+      "version": "3.5.1",
+      "license": "Apache-2.0",
+      "url": "https://github.com/ruuda/hound",
+      "delivery": "bundled",
+      "licenseSections": [
+        "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
       ]
     },
     {

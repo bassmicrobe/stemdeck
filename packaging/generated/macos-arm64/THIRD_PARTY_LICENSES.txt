@@ -333,7 +333,7 @@ SOFTWARE.
 
 ==============================================================================
 
-[7] Rust crate dispatch2 0.3.1, Rust crate layerlab 0.0.0, Rust crate objc2-app-kit 0.3.2, Rust crate objc2-core-foundation 0.3.2, Rust crate objc2-core-graphics 0.3.2, Rust crate objc2-exception-helper 0.1.1, Rust crate objc2-io-surface 0.3.2, Rust crate objc2-web-kit 0.3.2, Rust crate unic-char-property 0.9.0, Rust crate unic-char-range 0.9.0, Rust crate unic-common 0.9.0, Rust crate unic-ucd-ident 0.9.0, Rust crate unic-ucd-version 0.9.0
+[7] Rust crate dispatch2 0.3.1, Rust crate hound 3.5.1, Rust crate layerlab 0.0.0, Rust crate objc2-app-kit 0.3.2, Rust crate objc2-core-foundation 0.3.2, Rust crate objc2-core-graphics 0.3.2, Rust crate objc2-exception-helper 0.1.1, Rust crate objc2-io-surface 0.3.2, Rust crate objc2-web-kit 0.3.2, Rust crate unic-char-property 0.9.0, Rust crate unic-char-range 0.9.0, Rust crate unic-common 0.9.0, Rust crate unic-ucd-ident 0.9.0, Rust crate unic-ucd-version 0.9.0
 Source: packaging/license-texts/Apache-2.0.txt
 SHA256: 074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff
 ------------------------------------------------------------------------------
@@ -10547,8 +10547,8 @@ to indicate the copyright and license terms:
 
 ==============================================================================
 
-[133] Python package anyio 4.14.0
-Source: .build/runtime-staging-arm64/runtime/python/lib/python3.13/site-packages/anyio-4.14.0.dist-info/licenses/LICENSE
+[133] Python package anyio 4.14.1
+Source: .build/runtime-staging-arm64/runtime/python/lib/python3.13/site-packages/anyio-4.14.1.dist-info/licenses/LICENSE
 SHA256: 5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0
 ------------------------------------------------------------------------------
 The MIT License (MIT)
@@ -27582,8 +27582,8 @@ developed by Chen Jiaju, licensed under the MIT License and the Apache License 2
 
 ==============================================================================
 
-[227] Python package click 8.4.1
-Source: .build/runtime-staging-arm64/runtime/python/lib/python3.13/site-packages/click-8.4.1.dist-info/licenses/LICENSE.txt
+[227] Python package click 8.4.2
+Source: .build/runtime-staging-arm64/runtime/python/lib/python3.13/site-packages/click-8.4.2.dist-info/licenses/LICENSE.txt
 SHA256: 9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d
 ------------------------------------------------------------------------------
 Copyright 2014 Pallets

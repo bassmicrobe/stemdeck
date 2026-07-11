@@ -14,7 +14,7 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | python | annotated-doc | 0.0.4 | MIT | bundled | [source](https://github.com/fastapi/annotated-doc) |
 | python | annotated-types | 0.7.0 | MIT | bundled | [source](https://github.com/annotated-types/annotated-types) |
 | python | antlr4-python3-runtime | 4.9.3 | BSD | bundled | [source](http://www.antlr.org) |
-| python | anyio | 4.14.0 | MIT | bundled | [source](https://anyio.readthedocs.io/en/latest/) |
+| python | anyio | 4.14.1 | MIT | bundled | [source](https://anyio.readthedocs.io/en/latest/) |
 | python | audioop-lts | 0.2.2 | PSF-2.0 | bundled | [source](https://github.com/AbstractUmbra/audioop) |
 | python | audioread | 3.1.0 | MIT | bundled | [source](https://github.com/beetbox/audioread/issues) |
 | python | beat-this | 1.1.0 | MIT | bundled | [source](https://github.com/CPJKU/beat_this) |
@@ -22,7 +22,7 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | python | cffi | 2.0.0 | MIT | bundled | [source](https://cffi.readthedocs.io/) |
 | python | chardet | 7.4.3 | 0BSD | bundled | [source](https://github.com/chardet/chardet) |
 | python | charset-normalizer | 3.4.7 | MIT | bundled | [source](https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md) |
-| python | click | 8.4.1 | BSD-3-Clause | bundled | [source](https://click.palletsprojects.com/page/changes/) |
+| python | click | 8.4.2 | BSD-3-Clause | bundled | [source](https://click.palletsprojects.com/page/changes/) |
 | python | cloudpickle | 3.1.2 | BSD-3-Clause | bundled | [source](https://github.com/cloudpipe/cloudpickle) |
 | python | contourpy | 1.3.3 | See included license text | bundled | [source](https://github.com/contourpy/contourpy) |
 | python | cycler | 0.12.1 | See included license text | bundled | [source](https://matplotlib.org/cycler/) |
@@ -193,6 +193,7 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | rust | hashbrown | 0.17.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/rust-lang/hashbrown) |
 | rust | heck | 0.5.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/withoutboats/heck) |
 | rust | hex | 0.4.3 | MIT OR Apache-2.0 | bundled | [source](https://github.com/KokaKiwi/rust-hex) |
+| rust | hound | 3.5.1 | Apache-2.0 | bundled | [source](https://github.com/ruuda/hound) |
 | rust | html5ever | 0.38.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/servo/html5ever) |
 | rust | http | 1.4.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/hyperium/http) |
 | rust | http-body | 1.0.1 | MIT | bundled | [source](https://github.com/hyperium/http-body) |

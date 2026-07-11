@@ -35,7 +35,9 @@ Modification notice:
   progress/ETA surfacing, responsive neon UI refinements, desktop runtime
   setup hardening, conservative cleanup/maintenance helpers, fork-separated
   desktop storage paths, fork release update URLs, and optional release
-  signing/notarization hooks.
+  signing/notarization hooks. WAV/PCM gating, DC/peak stabilization, RMS, and
+  waveform peak generation can run in a bundled Rust sidecar, while Demucs
+  models can remain loaded in bounded persistent worker processes between jobs.
   See the Git history for the complete change record.
 
 Third-party dependencies:
@@ -63,6 +65,12 @@ Additional runtime helper:
   Used to locate an FFmpeg executable. Public desktop runtime builds remove the
   GPL-enabled executable embedded in its wheel and use the separately disclosed
   first-run FFmpeg download instead.
+
+  Hound
+  https://github.com/ruuda/hound
+  License: Apache-2.0
+  Used by the bundled Rust `layerlab-pcm` sidecar to read and write PCM16,
+  PCM24, PCM32, and float32 WAV files for post-separation processing.
 
 Music-analysis components:
   Beat This!

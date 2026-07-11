@@ -65,6 +65,7 @@ def lower_process_priority(proc: subprocess.Popen) -> None:
 def popen_background(
     cmd: list[str],
     *,
+    stdin: int | BinaryIO | None = None,
     stdout: int | BinaryIO | None = None,
     stderr: int | BinaryIO | None = None,
     text: bool = False,
@@ -72,6 +73,7 @@ def popen_background(
     env: dict[str, str] | None = None,
 ) -> subprocess.Popen:
     kwargs: dict[str, object] = {
+        "stdin": stdin,
         "stdout": stdout,
         "stderr": stderr,
         "text": text,
@@ -111,9 +113,11 @@ def run_tracked_process(
     *,
     timeout: float,
     env: dict[str, str] | None = None,
+    input_data: bytes | None = None,
 ) -> ProcessResult:
     proc = popen_background(
         cmd,
+        stdin=subprocess.PIPE if input_data is not None else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
@@ -121,7 +125,7 @@ def run_tracked_process(
     add_proc(job.id, proc)
     try:
         try:
-            stdout, stderr = proc.communicate(timeout=timeout)
+            stdout, stderr = proc.communicate(input=input_data, timeout=timeout)
         except subprocess.TimeoutExpired:
             terminate_process(proc, force=True)
             stdout, stderr = proc.communicate()

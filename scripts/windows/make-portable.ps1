@@ -26,6 +26,7 @@ $BackendDir = Join-Path $Stage "backend"
 $DesktopDir = Join-Path $Root "desktop"
 $TauriDir = Join-Path $DesktopDir "src-tauri"
 $TargetExe = Join-Path $TauriDir "target\$Configuration\layerlab.exe"
+$PcmTargetExe = Join-Path $TauriDir "target\$Configuration\layerlab-pcm.exe"
 
 function Require-Command([string]$Name) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -316,12 +317,30 @@ try {
   Pop-Location
 }
 
+$PcmCargoArgs = @(
+  "build",
+  "--manifest-path", (Join-Path $TauriDir "Cargo.toml"),
+  "--bin", "layerlab-pcm"
+)
+if ($Configuration -eq "release") {
+  $PcmCargoArgs += "--release"
+} elseif ($Configuration -ne "debug") {
+  $PcmCargoArgs += @("--profile", $Configuration)
+}
+& cargo @PcmCargoArgs
+
 if (-not (Test-Path $TargetExe)) {
   throw "Tauri executable not found at $TargetExe"
+}
+if (-not (Test-Path $PcmTargetExe)) {
+  throw "Rust PCM sidecar not found at $PcmTargetExe"
 }
 
 Copy-Item -Force $TargetExe (Join-Path $Stage "LayerLab.exe")
 Sign-FileIfConfigured (Join-Path $Stage "LayerLab.exe")
+New-Item -ItemType Directory -Force (Join-Path $Stage "bin") | Out-Null
+Copy-Item -Force $PcmTargetExe (Join-Path $Stage "bin\layerlab-pcm.exe")
+Sign-FileIfConfigured (Join-Path $Stage "bin\layerlab-pcm.exe")
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 $Hash = Get-FileHash -Algorithm SHA256 $ZipPath

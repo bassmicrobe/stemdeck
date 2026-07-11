@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.core.config import (
     DEMUCS_DEVICE,
+    DEMUCS_PERSISTENT_WORKER,
     TIMEOUT_DEMUCS_STALL,
     TIMEOUT_DEMUCS_TOTAL,
     DemucsSettings,
@@ -20,6 +21,7 @@ from app.core.config import (
 )
 from app.core.models import Job, JobCancelled
 from app.core.registry import add_proc, remove_proc
+from app.pipeline.demucs_pool import WorkerUnavailable, separate_with_worker
 from app.pipeline.process import popen_background, terminate_process
 from app.pipeline.progress import set_stage_progress
 
@@ -123,9 +125,55 @@ def build_demucs_command(
 
 def separate(job: Job, source: Path, job_dir: Path) -> Path:
     set_stage_progress(job, "separate", 0.0, status="separating", stage="Separating stems...")
-
     resolved_device = job.demucs_device_resolved or DEMUCS_DEVICE
     settings = demucs_settings_for_preset(job.quality_preset, device=resolved_device)
+
+    if DEMUCS_PERSISTENT_WORKER:
+        job.demucs_engine = "persistent-worker"
+        try:
+            output = separate_with_worker(
+                job,
+                source,
+                job_dir,
+                settings,
+                resolved_device,
+            )
+            return output
+        except WorkerUnavailable as error:
+            logger.warning(
+                "[%s] persistent Demucs worker unavailable; using CLI fallback: %s",
+                job.id,
+                error,
+            )
+            set_stage_progress(
+                job,
+                "separate",
+                0.0,
+                stage="Persistent worker unavailable; starting Demucs CLI...",
+            )
+            job.demucs_engine = "cli-fallback"
+    else:
+        job.demucs_engine = "cli"
+
+    return _separate_cli(
+        job,
+        source,
+        job_dir,
+        settings=settings,
+        resolved_device=resolved_device,
+    )
+
+
+def _separate_cli(
+    job: Job,
+    source: Path,
+    job_dir: Path,
+    *,
+    settings: DemucsSettings | None = None,
+    resolved_device: str | None = None,
+) -> Path:
+    resolved_device = resolved_device or job.demucs_device_resolved or DEMUCS_DEVICE
+    settings = settings or demucs_settings_for_preset(job.quality_preset, device=resolved_device)
     cmd = build_demucs_command(source, job_dir, settings, resolved_device)
     env = os.environ.copy()
     ffmpeg = Path(ffmpeg_executable())

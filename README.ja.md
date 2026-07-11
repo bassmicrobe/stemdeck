@@ -43,6 +43,7 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 - 複数曲キュー中も、完了済みの選択曲を前面に残して試聴やダウンロードを続けられるバックグラウンド抽出に対応。
 - 同じ曲を `Quality` / `Device` / `Clean` / 選択stem の組み合わせごとに別プロファイルとして複数回抽出できるように対応。画面表示、ダウンロードファイル名、stem ZIP内の `LAYERLAB_PROFILE.txt` で設定を確認可能。
 - クライアントマシンのCPU/GPU/メモリ状況に応じてDemucs同時実行数を自動判定。GPU分離だけを共有ロックし、別ジョブの取得・解析・後処理は並行できるよう改善。
+- Demucsをモデル/デバイス単位の常駐ワーカーにし、同じ設定の次曲ではモデルを再ロードせず再利用。MPS/CUDAは1プロセス、CPUは自動同時実行数までに制限し、異なるモデルへ切り替える時もアイドルワーカーを退避してメモリ増加を抑制。
 - ジョブごとに `Auto` / `CPU` / `Apple GPU(MPS)` / `NVIDIA CUDA` の処理デバイスを選択可能。
 - `ffprobe` がない環境でも `ffmpeg` fallback で duration を読めるよう改善。
 - ローカル開発時は `imageio-ffmpeg` をFFmpeg探索fallbackとして利用。公開デスクトップruntimeではwheel内のGPL版実行ファイルを除外。
@@ -60,7 +61,7 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 - ジョブごとに複数のffmpeg子プロセスを追跡し、並列解析中のキャンセルでも全プロセスを停止。
 - ミックス書き出しはmake-up gainなしのlook-ahead limiterでピークだけを抑制。WAVは一時ファイルでヘッダーを確定してから返し、プレイヤー上で異常に長い再生時間になる問題を防止。
 - 実 ffmpeg による WAV 合成/置き換えテストとパイプラインテストを追加。
-- Tauri/Rust 側に runtime setup、FFmpeg取得、GPU検出、backend起動、保守/掃除、軽量WAV解析を実装。
+- Tauri/Rust 側に runtime setup、FFmpeg取得、GPU検出、backend起動、保守/掃除を実装。Apache-2.0のHoundを使う`layerlab-pcm` sidecarへ、WAV/PCMの無音ゲート、DC/ピーク安定化、RMS、波形ピーク生成を移行し、利用不可時はPythonへ自動fallback。
 - macOS/Windows 配布向けに署名、Notarize、容量、ライセンス表記の確認導線を追加。
 
 ## 使い方
@@ -174,6 +175,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-install
 - 同時実行数は既定で自動判定される。MPS/CUDA ではメモリ安全性を優先して通常1本、CPUのみで十分なコアとメモリがある環境では2本まで並列実行する。必要なら `STEMDECK_PIPELINE_CONCURRENCY=1` から `4` で上書き可能。
 - 複数のローカルLayerLabバックエンドが同時に起動しても、`STEMDECK_PIPELINE_LOCK` を基準に共有スロットを使い、マシン全体で過剰なDemucs同時実行だけを防ぐ。取得・解析・後処理・完了曲の試聴はブロックしない。
 - Demucs model は初回分離時にキャッシュされる。
+- backend起動中は読み込んだDemucsモデルも常駐ワーカー内で再利用される。アプリ再起動、キャンセル、モデル切替、ワーカー異常終了後の最初の曲では再ロードが必要。
+- Rust PCM sidecarはruntimeの`bin`へ同梱される。これは後処理の速度、float32保持、I/O安定性を改善するもので、Demucs推論モデル自体の分離精度を変更するものではない。
 - セットアップ画面に runtime download サイズ、jobs/cache 使用量、data folder、ライセンス表記の案内を表示する。
 
 初回セットアップにはインターネット接続と数GB以上の空き容量が必要です。長尺音源や `High` / `Max` / `Ultra` の float32 出力では、stem WAV と一時ファイルでさらに容量を使います。
