@@ -4,13 +4,15 @@ set -euo pipefail
 ARCH="${ARCH:-arm64}"
 VERSION="${VERSION:-LOCAL_DEV_TEST}"
 VERSION="${VERSION#v}"
-RELEASE_BASE_URL="${RELEASE_BASE_URL:-https://github.com/stemdeckapp/stemdeck/releases/download/v${VERSION}}"
+RELEASE_BASE_URL="${RELEASE_BASE_URL:-https://github.com/bassmicrobe/stemdeck/releases/download/v${VERSION}}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/.build"
 STAGING="${BUILD_DIR}/runtime-staging-${ARCH}"
 RUNTIME_DIR="${STAGING}/runtime"
 PYTHON_DIR="${RUNTIME_DIR}/python"
 BACKEND_DIR="${RUNTIME_DIR}/backend"
+BIN_DIR="${RUNTIME_DIR}/bin"
+LICENSE_BUNDLE_DIR="${BUILD_DIR}/license-bundle-${ARCH}"
 
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "ERROR: make-runtime-pack.sh must run on macOS" >&2
@@ -32,7 +34,7 @@ if [[ -z "$PYTHON_BIN" ]]; then
   done
 fi
 
-for cmd in ditto shasum tar "$PYTHON_BIN"; do
+for cmd in cargo ditto rustup shasum tar "$PYTHON_BIN"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: required command not found on PATH: $cmd" >&2
     exit 1
@@ -75,7 +77,25 @@ if [[ "$ARCH" == "x64" && "$HOST_ARCH" == "arm64" ]]; then
 fi
 
 rm -rf "$STAGING"
-mkdir -p "$PYTHON_DIR" "$BACKEND_DIR" "$BUILD_DIR"
+mkdir -p "$PYTHON_DIR" "$BACKEND_DIR" "$BIN_DIR" "$BUILD_DIR"
+
+if [[ "$ARCH" == "arm64" ]]; then
+  RUST_TARGET="aarch64-apple-darwin"
+else
+  RUST_TARGET="x86_64-apple-darwin"
+fi
+
+echo "==> Building Rust PCM sidecar (${RUST_TARGET})"
+rustup target add "$RUST_TARGET"
+cargo build \
+  --manifest-path "$REPO_ROOT/desktop/src-tauri/Cargo.toml" \
+  --release \
+  --target "$RUST_TARGET" \
+  --bin layerlab-pcm
+cp "$REPO_ROOT/desktop/src-tauri/target/$RUST_TARGET/release/layerlab-pcm" \
+  "$BIN_DIR/layerlab-pcm"
+chmod 755 "$BIN_DIR/layerlab-pcm"
+codesign --force --sign - "$BIN_DIR/layerlab-pcm"
 
 echo "==> Bundling Python installation (${ARCH})"
 echo "==> Python: $("$PYTHON_BIN" --version)"
@@ -128,6 +148,12 @@ uv pip install --system --python "$PYTHON_DIR/bin/python" pip setuptools wheel
 SETUPTOOLS_SCM_PRETEND_VERSION="${VERSION#v}" \
   uv pip install --system --python "$PYTHON_DIR/bin/python" "$REPO_ROOT"
 
+# imageio-ffmpeg wheels include a GPL-enabled FFmpeg executable. Desktop setup
+# downloads FFmpeg directly from the disclosed provider, so do not silently
+# redistribute a second binary inside the Python runtime.
+find "$PYTHON_DIR/lib/python${PYTHON_VERSION}/site-packages/imageio_ffmpeg/binaries" \
+  -maxdepth 1 -type f -name 'ffmpeg-*' -delete 2>/dev/null || true
+
 echo "==> Verifying stdlib and imports"
 PYTHON_DIR="$PYTHON_DIR" PYTHONHOME="$PYTHON_DIR" "$PYTHON_DIR/bin/python" - <<'PY'
 import importlib, os, pathlib, sys
@@ -141,7 +167,7 @@ print(f"  stdlib OK at {stdlib}")
 
 packages = [
     "fastapi", "uvicorn", "yt_dlp", "demucs", "torch", "torchaudio",
-    "librosa", "pyloudnorm", "soundfile",
+    "librosa", "beat_this", "music21", "pyloudnorm", "soundfile",
 ]
 for package in packages:
     importlib.import_module(package)
@@ -153,6 +179,9 @@ cp -R "$REPO_ROOT/app" "$BACKEND_DIR/app"
 cp -R "$REPO_ROOT/static" "$BACKEND_DIR/static"
 cp "$REPO_ROOT/pyproject.toml" "$BACKEND_DIR/pyproject.toml"
 cp "$REPO_ROOT/uv.lock" "$BACKEND_DIR/uv.lock"
+cp "$REPO_ROOT/LICENSE" "$BACKEND_DIR/LICENSE"
+cp "$REPO_ROOT/NOTICE" "$BACKEND_DIR/NOTICE"
+cp "$REPO_ROOT/OSS_COMPONENTS.md" "$BACKEND_DIR/OSS_COMPONENTS.md"
 
 cat > "$BACKEND_DIR/static/version.json" <<JSON
 {
@@ -161,9 +190,34 @@ cat > "$BACKEND_DIR/static/version.json" <<JSON
 }
 JSON
 
+echo "==> Generating exact dependency license bundle"
+rm -rf "$LICENSE_BUNDLE_DIR"
+"$PYTHON_BIN" "$REPO_ROOT/scripts/generate-license-bundle.py" \
+  --repo-root "$REPO_ROOT" \
+  --python-root "$PYTHON_DIR" \
+  --site-packages "$PYTHON_DIR/lib/python${PYTHON_VERSION}/site-packages" \
+  --cargo-manifest "$REPO_ROOT/desktop/src-tauri/Cargo.toml" \
+  --target "$RUST_TARGET" \
+  --output "$LICENSE_BUNDLE_DIR"
+
 echo "==> Capturing dependency inventory"
 mkdir -p "$RUNTIME_DIR/licenses"
 uv pip list --system --python "$PYTHON_DIR/bin/python" --format=json > "$RUNTIME_DIR/licenses/pip-list.json"
+cp "$REPO_ROOT/LICENSE" "$RUNTIME_DIR/licenses/LICENSE"
+cp "$REPO_ROOT/NOTICE" "$RUNTIME_DIR/licenses/NOTICE"
+cp "$REPO_ROOT/OSS_COMPONENTS.md" "$RUNTIME_DIR/licenses/OSS_COMPONENTS.md"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_NOTICES.md" \
+  "$RUNTIME_DIR/licenses/THIRD_PARTY_NOTICES.txt"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_LICENSES.txt" \
+  "$RUNTIME_DIR/licenses/THIRD_PARTY_LICENSES.txt"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_INVENTORY.json" \
+  "$RUNTIME_DIR/licenses/THIRD_PARTY_INVENTORY.json"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_NOTICES.md" \
+  "$BACKEND_DIR/THIRD_PARTY_NOTICES.txt"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_LICENSES.txt" \
+  "$BACKEND_DIR/THIRD_PARTY_LICENSES.txt"
+cp "$LICENSE_BUNDLE_DIR/THIRD_PARTY_INVENTORY.json" \
+  "$BACKEND_DIR/THIRD_PARTY_INVENTORY.json"
 
 cat > "$RUNTIME_DIR/runtime-manifest.json" <<JSON
 {
@@ -177,12 +231,12 @@ echo "==> Stripping Python caches"
 find "$PYTHON_DIR" -type d -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
 find "$PYTHON_DIR" -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
 
-ARCHIVE_NAME="StemDeck-runtime-macOS-${ARCH}.tar.zst"
+ARCHIVE_NAME="LayerLab-runtime-macOS-${ARCH}.tar.zst"
 ARCHIVE_PATH="${BUILD_DIR}/${ARCHIVE_NAME}"
 if command -v zstd >/dev/null 2>&1; then
   tar --zstd -cf "$ARCHIVE_PATH" -C "$STAGING" runtime
 else
-  ARCHIVE_NAME="StemDeck-runtime-macOS-${ARCH}.tar.gz"
+  ARCHIVE_NAME="LayerLab-runtime-macOS-${ARCH}.tar.gz"
   ARCHIVE_PATH="${BUILD_DIR}/${ARCHIVE_NAME}"
   tar -czf "$ARCHIVE_PATH" -C "$STAGING" runtime
 fi

@@ -1,7 +1,7 @@
 import Multitrack from "/vendor/multitrack.js";
 import { fmtTime } from "./utils.js";
 import {
-  STEM_NAMES, TRACK_NAMES, STEM_COLORS, PROGRESS_COLOR,
+  STEM_NAMES, TRACK_NAMES, STEM_COLORS, STEM_DISPLAY, PROGRESS_COLOR,
   LOOP_DEFAULT_START_FRAC, LOOP_DEFAULT_END_FRAC, LANE_VOLUME_MAX,
 } from "./constants.js";
 import {
@@ -618,6 +618,12 @@ export function destroyPlayer() {
   wavesGrid.innerHTML = "";
 
   titleEl.textContent = "";
+  _currentTitle = "";
+  _currentProfileLabel = "";
+  _currentProfileSlug = "";
+  _chordMidiUrl = null;
+  _midiAnalysisUrl = null;
+  updateStemProfileBadge("");
   bpmChip.textContent = "\u2014 BPM";
   keyChip.textContent = "\u2014 \u2014";
   stemsChip.textContent = "\u2014 Stems";
@@ -670,6 +676,7 @@ export function renderEmptyShell() {
   requestAnimationFrame(() => _applyLaneHeight(1 + STEM_NAMES.length));
   applyStemSelectionFilter(new Set(STEM_NAMES));
   titleEl.textContent = "Ready to import a track";
+  updateStemProfileBadge("");
   bpmChip.textContent = "\u2014 BPM";
   keyChip.textContent = "\u2014 \u2014";
   stemsChip.textContent = "\u2014 Stems";
@@ -705,7 +712,46 @@ let _loadingShownAt = 0;
 const _LOADING_MIN_MS = 900;
 let _currentStems = [];
 let _mixUrl = null;
+let _chordMidiUrl = null;
+let _midiAnalysisUrl = null;
 let _currentTitle = "";
+let _currentProfileLabel = "";
+let _currentProfileSlug = "";
+
+function _safeFilenamePart(value, fallback = "audio") {
+  const safe = String(value || "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/_{2,}/g, "_")
+    .slice(0, 80)
+    .replace(/^_+|_+$/g, "");
+  return safe || fallback;
+}
+
+function _profileSlug(label, key) {
+  const raw = label || key || "";
+  return raw ? _safeFilenamePart(raw, "profile").slice(0, 64).replace(/^_+|_+$/g, "") : "";
+}
+
+function _exportBase() {
+  const title = _safeFilenamePart(_currentTitle, "layerlab");
+  return _currentProfileSlug ? `${title}_${_currentProfileSlug}` : title;
+}
+
+function _stemFilename(stemName, ext = "wav", region = false) {
+  const suffix = region ? "_region" : "";
+  return `${_exportBase()}_${stemName}${suffix}.${ext}`;
+}
+
+function updateStemProfileBadge(label) {
+  const badge = document.getElementById("stem-profile-badge");
+  const value = document.getElementById("stem-profile-label");
+  const text = label || "—";
+  if (value) value.textContent = text;
+  if (badge) {
+    badge.classList.toggle("is-empty", !label);
+    badge.title = label ? `Extraction profile: ${label}` : "Extraction profile";
+  }
+}
 
 export function setWaveformLoading(loading, phrase) {
   const el = document.getElementById("waveLoadingOverlay");
@@ -760,7 +806,20 @@ function _applyLaneHeight(count) {
   return laneH;
 }
 
-export function wireUpAudio(jobId, stems, duration, thumbnail, mixUrl = null, title = "", peaksPromise = null) {
+export function wireUpAudio(
+  jobId,
+  stems,
+  duration,
+  thumbnail,
+  mixUrl = null,
+  title = "",
+  peaksPromise = null,
+  profileLabel = "",
+  profileKey = "",
+  beatTimes = [],
+  chordMidiUrl = null,
+  midiAnalysisUrl = null,
+) {
   const app = document.querySelector(".app");
   app?.classList.remove("is-import");
   app?.classList.remove("no-track");
@@ -809,9 +868,18 @@ export function wireUpAudio(jobId, stems, duration, thumbnail, mixUrl = null, ti
   stems = stems.filter((s) => s.name === "original" || selectedStems.has(s.name));
   _currentStems = stems;
   _mixUrl = mixUrl || null;
+  _chordMidiUrl = chordMidiUrl || null;
+  _midiAnalysisUrl = midiAnalysisUrl || null;
   _currentTitle = title || "";
+  _currentProfileLabel = profileLabel || "";
+  _currentProfileSlug = _profileSlug(profileLabel, profileKey);
+  updateStemProfileBadge(_currentProfileLabel);
   applyStemSelectionFilter(new Set(stems.map((s) => s.name)));
-  updateFooterTrack({ thumbnail, stemCount: stems.filter((s) => s.name !== "original").length });
+  updateFooterTrack({
+    thumbnail,
+    stemCount: stems.filter((s) => s.name !== "original").length,
+    profileLabel: _currentProfileLabel,
+  });
 
   // Reset footer waveform state — will be re-populated below after peaks fetch.
   _footerWavePeaks = null;
@@ -843,7 +911,9 @@ export function wireUpAudio(jobId, stems, duration, thumbnail, mixUrl = null, ti
     const dl = row.querySelector(".lane-dl");
     if (dl) {
       dl.href = stem.url;
-      dl.download = `${stem.name}.wav`;
+      dl.download = _stemFilename(stem.name, "wav");
+      const display = STEM_DISPLAY[stem.name] || stem.name;
+      dl.title = `Download ${display} (${_currentProfileLabel || "current profile"})`;
     }
   }
 
@@ -976,7 +1046,7 @@ export function wireUpAudio(jobId, stems, duration, thumbnail, mixUrl = null, ti
     });
     if (!totalDuration) setTotalDuration(mt.getDuration() || 0);
     timeEl.textContent = `00:00 / ${fmtTime(totalDuration)}`;
-    buildRuler(totalDuration);
+    buildRuler(totalDuration, beatTimes);
     buildPresenceRuler(totalDuration);
     updateFooterTimes(0);
     updatePresencePlayhead(0);
@@ -1120,6 +1190,12 @@ export function wireUpAudio(jobId, stems, duration, thumbnail, mixUrl = null, ti
   });
 }
 
+export function updateAnalysisDownloads(jobId, chordMidiUrl = null, midiAnalysisUrl = null) {
+  if (currentJobId !== jobId) return;
+  _chordMidiUrl = chordMidiUrl || null;
+  _midiAnalysisUrl = midiAnalysisUrl || null;
+}
+
 export function drawFooterPlaceholder() {
   _drawPlaceholderWave();
   const bar = document.getElementById("footer-waveform")?.closest(".footer-wave-bar");
@@ -1229,7 +1305,7 @@ async function initFooterWaveform(stemUrl) {
   }
 }
 
-export function updateFooterTrack({ title, thumbnail, key, bpm, stemCount } = {}) {
+export function updateFooterTrack({ title, thumbnail, key, bpm, stemCount, profileLabel } = {}) {
   if (footerThumb) {
     const artEl = footerThumb.closest(".footer-art");
     if (thumbnail) {
@@ -1254,7 +1330,7 @@ export function updateFooterTrack({ title, thumbnail, key, bpm, stemCount } = {}
     if (key) parts.push(key);
     if (bpm) parts.push(`${Math.round(bpm)} BPM`);
     if (stemCount != null) parts.push(`${stemCount} Stems`);
-    if (key !== undefined || bpm !== undefined || stemCount !== undefined)
+    if (profileLabel !== undefined || key !== undefined || bpm !== undefined || stemCount !== undefined)
       footerMeta.textContent = parts.join(" • ");
   }
 }
@@ -1312,12 +1388,7 @@ function _mixdownUrl(ext, region) {
 }
 
 function _exportFilename(ext) {
-  const safe = _currentTitle
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 80)
-    .replace(/^_+|_+$/g, "");
-  return safe ? `${safe}_exported_mix.${ext}` : `exported_mix.${ext}`;
+  return `${_exportBase()}_mix.${ext}`;
 }
 
 // The download functions return true when a download was triggered and false
@@ -1334,18 +1405,12 @@ export function downloadCurrentStems(format = "wav", onProgress) {
   const stems = _currentStems.filter((s) => s.name !== "original");
   const total = stems.length;
   if (!total) { onProgress?.(0, 0); return; }
-  // Name each file "<song title>_<instrument>.<ext>" using the same title
-  // sanitization as the mix/region exports.
-  const safe = _currentTitle
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 80)
-    .replace(/^_+|_+$/g, "");
+  // Include the extraction profile so exported files remain identifiable even
+  // after multiple profiles of the same source are compared outside the app.
   stems.forEach((s, i) => {
     window.setTimeout(() => {
       const url = format === "mp3" ? s.url.replace(/\.wav(\?|$)/, ".mp3$1") : s.url;
-      const fname = safe ? `${safe}_${s.name}.${format}` : `${s.name}.${format}`;
-      _triggerDownload(url, fname);
+      _triggerDownload(url, _stemFilename(s.name, format));
       onProgress?.(i + 1, total);
     }, i * 150);
   });
@@ -1356,23 +1421,45 @@ export function downloadAllStemsZip(format = "wav") {
   // Only the active (selected) stems loaded in the DAW — not all 6.
   const names = _currentStems.filter((s) => s.name !== "original").map((s) => s.name);
   if (!names.length) return;
-  const safe = _currentTitle
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 80)
-    .replace(/^_+|_+$/g, "");
-  const name = safe ? `${safe}_stems.zip` : "stems.zip";
+  const name = `${_exportBase()}_stems.zip`;
   const q = new URLSearchParams({ format, stems: names.join(",") });
   _triggerDownload(`/api/jobs/${currentJobId}/stems/all.zip?${q}`, name);
 }
 
+function _chordExportSuffix({ style = "auto", grid = "beat", markers = false } = {}) {
+  const parts = [];
+  if (style && style !== "auto") parts.push(style);
+  if (grid && grid !== "beat") parts.push(grid);
+  if (markers) parts.push("markers");
+  return parts.length ? `_${parts.join("_")}` : "";
+}
+
+export function downloadChordMidi(options = {}) {
+  if (!currentJobId) return false;
+  const format = ["csv", "json"].includes(options.format) ? options.format : "midi";
+  if (format === "json") {
+    if (!_midiAnalysisUrl) return false;
+    _triggerDownload(_midiAnalysisUrl, `${_exportBase()}_midi-analysis.json`);
+    return true;
+  }
+  if (!_chordMidiUrl) return false;
+  const style = options.style || "auto";
+  const grid = options.grid || "beat";
+  const markers = Boolean(options.markers) && format === "midi";
+  const q = new URLSearchParams({ style, grid });
+  if (markers) q.set("markers", "true");
+  const suffix = _chordExportSuffix({ style, grid, markers });
+  if (format === "csv") {
+    _triggerDownload(`/api/jobs/${currentJobId}/chords.csv?${q}`, `${_exportBase()}_chords${suffix}.csv`);
+    return true;
+  }
+  const sep = _chordMidiUrl.includes("?") ? "&" : "?";
+  _triggerDownload(`${_chordMidiUrl}${sep}${q}`, `${_exportBase()}_chords${suffix}.mid`);
+  return true;
+}
+
 function _regionFilename(ext) {
-  const safe = _currentTitle
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/_{2,}/g, "_")
-    .slice(0, 80)
-    .replace(/^_+|_+$/g, "");
-  return `${safe || "region"}_region.${ext}`;
+  return `${_exportBase()}_region.${ext}`;
 }
 
 export function downloadRegionMix(ext = "wav") {

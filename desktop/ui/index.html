@@ -3,17 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StemDeck Launcher</title>
+    <title>LayerLab Launcher</title>
     <link rel="stylesheet" href="./setup.css" />
   </head>
   <body>
     <main class="setup-shell">
       <section class="setup-card">
         <div class="brand-row">
-          <h1>StemDeck</h1>
-          <span>ALPHA</span>
+          <h1>LayerLab</h1>
+          <span>UNOFFICIAL TEST BUILD</span>
         </div>
         <p class="subtitle">Preparing the local audio engine, first run will take a while...</p>
+
+        <div class="setup-facts" aria-label="Setup details">
+          <div>
+            <span>Runtime download</span>
+            <strong id="meta-runtime">Checking...</strong>
+          </div>
+          <div>
+            <span>Workspace</span>
+            <strong id="meta-workspace">Checking...</strong>
+          </div>
+          <div>
+            <span>Data folder</span>
+            <strong id="meta-data-dir">Resolving...</strong>
+          </div>
+        </div>
 
         <ol class="setup-steps" id="steps">
           <li data-step="runtime">Setting up local runtime</li>
@@ -33,6 +48,16 @@
         <div class="actions">
           <button id="retry" type="button" class="hidden">Retry</button>
         </div>
+
+        <p class="license-note">
+          LayerLab is an unofficial modified fork of the original
+          StemDeck project. It is distributed under the Apache License 2.0;
+          LICENSE, NOTICE, and third-party notices are included in the
+          app/package. First-run FFmpeg is a disclosed GPL build downloaded
+          directly from its provider. Demucs code is MIT, but its pretrained
+          weights are separate and upstream describes them as personal/research
+          artifacts; review the bundled notices before commercial use.
+        </p>
       </section>
     </main>
     <script type="module" src="./setup.js"></script>

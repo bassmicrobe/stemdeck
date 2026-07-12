@@ -13,8 +13,22 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from starlette.background import BackgroundTask
 
-from app.core.config import JOB_ID_RE, JOBS_DIR, STEM_NAMES, TIMEOUT_FFMPEG, ffmpeg_executable
+from app.core.config import (
+    JOB_ID_RE,
+    JOBS_DIR,
+    STEM_NAMES,
+    TIMEOUT_FFMPEG,
+    ffmpeg_executable,
+    output_limiter_filter,
+    wav_codec_for_quality_preset,
+)
 from app.core.registry import get as registry_get
+from app.pipeline.chords import (
+    chord_segments_from_metadata,
+    chord_segments_to_csv,
+    prepare_chord_midi_segments,
+    write_chord_midi,
+)
 
 logger = logging.getLogger("stemdeck.api")
 
@@ -40,8 +54,21 @@ _ENCODE_ARGS = {
     "mp3": ["-q:a", "2"],
     "flac": ["-c:a", "flac"],
 }
-MIXDOWN_CODECS = {ext: [*args, "-f", ext] for ext, args in _ENCODE_ARGS.items()}
 MIXDOWN_MEDIA_TYPES = {"wav": "audio/wav", "mp3": "audio/mpeg", "flac": "audio/flac"}
+
+
+def _audio_is_ready(job) -> bool:
+    return bool(job and (job.status == "done" or job.audio_ready))
+
+
+def _analysis_is_ready(job) -> bool:
+    return bool(job and (job.status == "done" or job.analysis_ready))
+
+
+def _mixdown_codec_args(ext: str, job_quality_preset: str | None) -> list[str]:
+    if ext == "wav":
+        return ["-c:a", wav_codec_for_quality_preset(job_quality_preset), "-f", "wav"]
+    return [*_ENCODE_ARGS[ext], "-f", ext]
 
 
 def _validate_stem_path(job_id: str, name: str):
@@ -51,7 +78,7 @@ def _validate_stem_path(job_id: str, name: str):
     if name not in _ALLOWED_NAMES:
         raise HTTPException(status_code=404, detail="unknown stem")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     path = (JOBS_DIR / job_id / "stems" / f"{name}.wav").resolve()
     if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
@@ -78,13 +105,43 @@ async def _stream_ffmpeg(cmd: list[str]):
         await proc.wait()
 
 
+async def _render_ffmpeg_temp(cmd: list[str], *, suffix: str) -> Path:
+    """Render a seekable file so WAV headers contain a real frame count."""
+    fd, tmp = tempfile.mkstemp(prefix="layerlab_export_", suffix=suffix)
+    os.close(fd)
+    tmp_path = Path(tmp)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            cmd[0],
+            "-y",
+            *cmd[1:],
+            str(tmp_path),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=TIMEOUT_FFMPEG)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise HTTPException(status_code=504, detail="audio export timed out") from None
+        if proc.returncode != 0 or tmp_path.stat().st_size <= 44:
+            detail = (stderr or b"").decode("utf-8", errors="replace").strip()
+            logger.error("ffmpeg export failed: %s", detail or f"exit {proc.returncode}")
+            raise HTTPException(status_code=500, detail="audio export failed")
+        return tmp_path
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 @router.get("/jobs/{job_id}/stems/peaks.json")
 async def get_stem_peaks(job_id: str) -> Response:
     """Return pre-computed waveform peaks for all stems."""
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
     path = (JOBS_DIR / job_id / "stems" / "peaks.json").resolve()
     if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
@@ -93,6 +150,113 @@ async def get_stem_peaks(job_id: str) -> Response:
         path,
         media_type="application/json",
         headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+def _chord_export_segments(job, style: str, grid: str):
+    segments = chord_segments_from_metadata(job.chord_progression)
+    if not segments:
+        raise HTTPException(status_code=404, detail="chord metadata not found")
+    prepared = prepare_chord_midi_segments(segments, style=style, grid=grid)
+    if not prepared:
+        raise HTTPException(status_code=404, detail="chord metadata not found")
+    return prepared
+
+
+def _chord_variant_suffix(style: str, grid: str, markers: bool = False) -> str:
+    parts = []
+    if style != "auto":
+        parts.append(style)
+    if grid != "beat":
+        parts.append(grid)
+    if markers:
+        parts.append("markers")
+    return ("_" + "_".join(parts)) if parts else ""
+
+
+@router.get("/jobs/{job_id}/chords.mid")
+async def get_chord_midi(
+    job_id: str,
+    style: str = Query(default="auto", description="auto, triads, or sevenths"),
+    grid: str = Query(default="beat", description="beat or bar"),
+    markers: bool = Query(default=False, description="Write chord labels as MIDI marker events"),
+) -> FileResponse:
+    """Download the estimated beat-grid chord progression as a Standard MIDI file."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if not _analysis_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
+    normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
+    normalized_grid = grid if grid in ("beat", "bar") else "beat"
+    path = (JOBS_DIR / job_id / "stems" / "chords.mid").resolve()
+    default_export = normalized_style == "auto" and normalized_grid == "beat" and not markers
+    if default_export and path.is_file() and path.is_relative_to(JOBS_DIR.resolve()):
+        return FileResponse(
+            path,
+            media_type="audio/midi",
+            filename=f"{_download_base(job)}_chords.mid",
+        )
+    segments = _chord_export_segments(job, normalized_style, normalized_grid)
+    fd, tmp = tempfile.mkstemp(prefix="layerlab_chords_", suffix=".mid")
+    os.close(fd)
+    tmp_path = Path(tmp)
+    write_chord_midi(
+        tmp_path,
+        segments,
+        bpm=job.bpm,
+        title=job.title,
+        markers=markers,
+        beat_times=job.beat_times,
+    )
+    suffix = _chord_variant_suffix(normalized_style, normalized_grid, markers)
+    return FileResponse(
+        tmp_path,
+        media_type="audio/midi",
+        filename=f"{_download_base(job)}_chords{suffix}.mid",
+        background=BackgroundTask(lambda: tmp_path.unlink(missing_ok=True)),
+    )
+
+
+@router.get("/jobs/{job_id}/chords.csv")
+async def get_chord_csv(
+    job_id: str,
+    style: str = Query(default="auto", description="auto, triads, or sevenths"),
+    grid: str = Query(default="beat", description="beat or bar"),
+) -> Response:
+    """Download the estimated chord progression as a DAW/spreadsheet-friendly CSV."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if not _analysis_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
+    normalized_style = style if style in ("auto", "triads", "sevenths") else "auto"
+    normalized_grid = grid if grid in ("beat", "bar") else "beat"
+    segments = _chord_export_segments(job, normalized_style, normalized_grid)
+    suffix = _chord_variant_suffix(normalized_style, normalized_grid)
+    filename = f"{_download_base(job)}_chords{suffix}.csv"
+    return Response(
+        chord_segments_to_csv(segments),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/jobs/{job_id}/midi-analysis.json")
+async def get_midi_analysis(job_id: str) -> FileResponse:
+    """Download music21 validation and harmonic analysis for the chord MIDI."""
+    if not JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=404, detail="job not found")
+    job = registry_get(job_id)
+    if not _analysis_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
+    path = (JOBS_DIR / job_id / "stems" / "midi-analysis.json").resolve()
+    if not path.is_file() or not path.is_relative_to(JOBS_DIR.resolve()):
+        raise HTTPException(status_code=404, detail="MIDI analysis not found")
+    return FileResponse(
+        path,
+        media_type="application/json; charset=utf-8",
+        filename=f"{_download_base(job)}_midi-analysis.json",
     )
 
 
@@ -105,9 +269,12 @@ async def get_stem(
 ) -> FileResponse | StreamingResponse:
     """Download a WAV stem. Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
+    job = registry_get(job_id)
+    if not _audio_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
 
     if start is None and end is None:
-        return FileResponse(path, media_type="audio/wav", filename=f"{name}.wav")
+        return FileResponse(path, media_type="audio/wav", filename=_stem_download_filename(job, name, "wav"))
 
     if start is None or end is None or start >= end:
         raise HTTPException(
@@ -127,15 +294,16 @@ async def get_stem(
         "-t",
         str(end - start),
         "-c:a",
-        "pcm_s16le",
+        wav_codec_for_quality_preset(job.quality_preset),
         "-f",
         "wav",
-        "pipe:1",
     ]
-    return StreamingResponse(
-        _stream_ffmpeg(cmd),
+    rendered = await _render_ffmpeg_temp(cmd, suffix=".wav")
+    return FileResponse(
+        rendered,
         media_type="audio/wav",
-        headers={"Content-Disposition": f'attachment; filename="{name}_region.wav"'},
+        filename=_stem_download_filename(job, name, "wav", region=True),
+        background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
     )
 
 
@@ -148,6 +316,9 @@ async def get_stem_mp3(
 ) -> StreamingResponse:
     """Stream a stem as MP3 (VBR ~190 kbps). Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
+    job = registry_get(job_id)
+    if not _audio_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
 
     if (start is None) != (end is None) or (start is not None and start >= end):
         raise HTTPException(
@@ -173,11 +344,10 @@ async def get_stem_mp3(
         "mp3",
         "pipe:1",
     ]
-    filename = f"{name}_region.mp3" if start is not None else f"{name}.mp3"
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type="audio/mpeg",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{_stem_download_filename(job, name, "mp3", region=start is not None)}"'},
     )
 
 
@@ -189,9 +359,9 @@ async def get_mixdown(
     gains: str = Query(..., description="Comma-separated linear gains, parallel to stems"),
     start: float | None = Query(default=None, ge=0, description="Trim start in seconds"),
     end: float | None = Query(default=None, gt=0, description="Trim end in seconds"),
-) -> StreamingResponse:
-    """Render a fresh mixdown of the given lanes at the given gains, streamed as
-    WAV or MP3. Mirrors the studio mixer (per-stem volume, mute, solo) so the
+) -> FileResponse | StreamingResponse:
+    """Render a fresh mixdown of the given lanes at the given gains. Mirrors
+    the studio mixer (per-stem volume, mute, solo) so the
     exported file matches what is heard. The master fader is intentionally not
     applied -- it is a monitoring level, not part of the mix. Optional ?start=&end=
     trims to a loop region."""
@@ -218,7 +388,11 @@ async def get_mixdown(
             detail="start and end are both required and start must be less than end",
         )
 
-    # Validates job_id (404), job done (404), and path traversal (404) per stem.
+    job = registry_get(job_id)
+    if not _audio_is_ready(job):
+        raise HTTPException(status_code=404, detail="job not ready")
+
+    # Validates job_id, audio readiness, and path traversal per stem.
     paths = [_validate_stem_path(job_id, name) for name in names]
 
     pre_seek = ["-ss", str(start)] if start is not None else []
@@ -227,24 +401,36 @@ async def get_mixdown(
     cmd: list[str] = [ffmpeg_executable(), "-nostdin", "-loglevel", "error"]
     for p in paths:
         cmd += [*pre_seek, "-i", str(p)]
-    # Apply each lane's gain, then sum with amix (normalize=0 keeps levels faithful,
-    # matching collect.py). A single audible lane skips amix (a 1-input amix is a no-op).
+    # Apply each lane's gain, sum without normalization, then catch only peaks
+    # above the output ceiling. level=0 prevents automatic make-up gain.
     filters = [f"[{i}:a]volume={g:.6f}[a{i}]" for i, g in enumerate(parsed_gains)]
     n = len(paths)
     if n > 1:
         labels = "".join(f"[a{i}]" for i in range(n))
-        filters.append(f"{labels}amix=inputs={n}:normalize=0[mix]")
-        out_label = "[mix]"
+        filters.append(
+            f"{labels}amix=inputs={n}:normalize=0,{output_limiter_filter()}[mix]"
+        )
     else:
-        out_label = "[a0]"
-    codec = MIXDOWN_CODECS[ext]
-    cmd += ["-filter_complex", ";".join(filters), "-map", out_label, *post_seek, *codec, "pipe:1"]
+        filters.append(f"[a0]{output_limiter_filter()}[mix]")
+    out_label = "[mix]"
+    codec = _mixdown_codec_args(ext, job.quality_preset)
+    cmd += ["-filter_complex", ";".join(filters), "-map", out_label, *post_seek, *codec]
 
     media_type = MIXDOWN_MEDIA_TYPES[ext]
+    filename = _mixdown_filename(job, ext, region=start is not None)
+    if ext == "wav":
+        rendered = await _render_ffmpeg_temp(cmd, suffix=".wav")
+        return FileResponse(
+            rendered,
+            media_type=media_type,
+            filename=filename,
+            background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
+        )
+    cmd.append("pipe:1")
     return StreamingResponse(
         _stream_ffmpeg(cmd),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="mixdown.{ext}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -255,7 +441,56 @@ def _safe_title(title: str | None) -> str:
     return safe or "stems"
 
 
-def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> None:
+def _safe_profile(job) -> str:
+    safe = re.sub(r"[^a-zA-Z0-9]+", "_", job.profile_label())
+    safe = re.sub(r"_{2,}", "_", safe).strip("_")[:64].strip("_")
+    return safe
+
+
+def _download_base(job) -> str:
+    title = _safe_title(job.title)
+    profile = _safe_profile(job)
+    return f"{title}_{profile}" if profile else title
+
+
+def _stem_download_filename(job, name: str, ext: str, region: bool = False) -> str:
+    suffix = "_region" if region else ""
+    return f"{_download_base(job)}_{name}{suffix}.{ext}"
+
+
+def _mixdown_filename(job, ext: str, region: bool = False) -> str:
+    suffix = "region" if region else "mix"
+    return f"{_download_base(job)}_{suffix}.{ext}"
+
+
+def _stems_zip_filename(job) -> str:
+    return f"{_download_base(job)}_stems.zip"
+
+
+def _profile_manifest(job, stems: list[str], fmt: str) -> str:
+    return "\n".join(
+        [
+            "LayerLab extraction profile",
+            f"Title: {job.title or 'Untitled'}",
+            f"Job ID: {job.id}",
+            f"Profile: {job.profile_label()}",
+            f"Quality: {job.quality_preset}",
+            f"Clean: {job.stem_denoise_preset}",
+            "Stem gate: "
+            + (
+                f"on ({job.stem_gate_threshold_db:g} dB)"
+                if job.stem_gate_applied and job.stem_gate_threshold_db is not None
+                else ("on" if job.stem_gate_applied else "off")
+            ),
+            f"Selected stems: {', '.join(job.profile_stems())}",
+            f"Exported stems: {', '.join(stems)}",
+            f"Format: {fmt}",
+            "",
+        ]
+    )
+
+
+def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path, manifest: str) -> None:
     """Blocking: write the stems into a ZIP. WAV files are stored as-is; MP3 and
     FLAC are transcoded per stem via ffmpeg. ZIP_STORED throughout - audio doesn't
     meaningfully compress, and STORED keeps the build fast. Runs in a thread."""
@@ -263,6 +498,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> N
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
             for name, p in sources:
                 zf.write(p, arcname=f"{name}.wav")
+            zf.writestr("LAYERLAB_PROFILE.txt", manifest)
         return
     encode = _ENCODE_ARGS[fmt]
     with tempfile.TemporaryDirectory() as td, zipfile.ZipFile(dest, "w", zipfile.ZIP_STORED) as zf:
@@ -291,6 +527,7 @@ def _build_stems_zip(sources: list[tuple[str, Path]], fmt: str, dest: Path) -> N
                 tail = proc.stderr[-2000:].decode("utf-8", "replace")
                 raise RuntimeError(f"ffmpeg failed for {name}: {tail}")
             zf.write(out, arcname=f"{name}.{fmt}")
+        zf.writestr("LAYERLAB_PROFILE.txt", manifest)
 
 
 @router.get("/jobs/{job_id}/stems/all.zip")
@@ -308,7 +545,7 @@ async def get_all_stems_zip(
     if fmt not in ("wav", "mp3", "flac"):
         raise HTTPException(status_code=422, detail="format must be 'wav', 'mp3', or 'flac'")
     job = registry_get(job_id)
-    if job is None or job.status != "done":
+    if not _audio_is_ready(job):
         raise HTTPException(status_code=404, detail="job not ready")
 
     # Resolve the requested subset (whitelisted) or fall back to all stems.
@@ -336,17 +573,17 @@ async def get_all_stems_zip(
     fd, tmp = tempfile.mkstemp(prefix="stemdeck_zip_", suffix=".zip")
     os.close(fd)
     tmp_path = Path(tmp)
+    manifest = _profile_manifest(job, [name for name, _ in sources], fmt)
     try:
-        await asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path)
+        await asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path, manifest)
     except Exception:
         tmp_path.unlink(missing_ok=True)
         logger.exception("failed to build stems zip for job %s", job_id)
         raise HTTPException(status_code=500, detail="failed to build archive") from None
 
-    filename = f"{_safe_title(job.title)}_stems.zip"
     return FileResponse(
         tmp_path,
         media_type="application/zip",
-        filename=filename,
+        filename=_stems_zip_filename(job),
         background=BackgroundTask(lambda: tmp_path.unlink(missing_ok=True)),
     )

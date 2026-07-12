@@ -1,24 +1,40 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import shutil
-import subprocess
+import tempfile
+import threading
+import time
 from pathlib import Path
 
-from app.core.config import TIMEOUT_FFMPEG
+from app.core.config import PIPELINE_CONCURRENCY, TIMEOUT_FFMPEG, ffmpeg_executable
+from app.core.files import atomic_write_text
+from app.core.joblog import add_job_log
 from app.core.models import Job, JobCancelled, _set
 from app.core.registry import persist as persist_registry
 from app.pipeline.analyze import analyze, compute_stem_presence
+from app.pipeline.chords import generate_chord_midi
 from app.pipeline.collect import (
     cleanup_source,
     collect,
     compute_stem_peaks,
+    denoise_stem_outputs,
+    gate_stem_outputs,
     make_original_track,
     make_selected_mix,
+    process_stem_outputs_with_rust,
+    repair_bass_dropouts,
+    repair_phase_coherence,
+    restore_demucs_gain,
+    stabilize_stem_outputs,
 )
 from app.pipeline.download import download
+from app.pipeline.process import run_tracked_process
+from app.pipeline.progress import set_stage_progress
 from app.pipeline.separate import separate
 
 logger = logging.getLogger("stemdeck.pipeline")
@@ -33,8 +49,101 @@ def _rmtree(path: Path) -> None:
         logger.warning("failed to remove %s", path, exc_info=True)
 
 
-# Only one heavy job runs at a time -- Demucs is GPU/CPU-hungry.
-_pipeline_lock = asyncio.Semaphore(1)
+# Limit heavy pipeline parallelism by detected local capacity inside one
+# backend process. A second file lock below also coordinates multiple local
+# LayerLab backends, for example dev server + packaged desktop app.
+_separation_lock = threading.BoundedSemaphore(PIPELINE_CONCURRENCY)
+
+
+def _pipeline_lock_files() -> tuple[Path, ...]:
+    raw = os.environ.get("STEMDECK_PIPELINE_LOCK", "").strip()
+    base = (
+        Path(raw).expanduser().resolve()
+        if raw
+        else Path(tempfile.gettempdir()) / "stemdeck-pipeline.lock"
+    )
+    if PIPELINE_CONCURRENCY <= 1:
+        return (base,)
+    return tuple(base.with_name(f"{base.name}.{slot}") for slot in range(PIPELINE_CONCURRENCY))
+
+
+@contextlib.contextmanager
+def _machine_pipeline_lock(job: Job):
+    paths = _pipeline_lock_files()
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    lock_files = [path.open("a+", encoding="utf-8") for path in paths]
+    try:
+        lock_file, slot = _wait_for_machine_lock(job, lock_files)
+        try:
+            lock_file.seek(0)
+            lock_file.truncate()
+            lock_file.write(f"{os.getpid()} {job.id} slot={slot}\n")
+            lock_file.flush()
+            add_job_log(job, f"Local processing slot {slot + 1}/{len(lock_files)} acquired")
+            yield
+        finally:
+            _release_machine_lock(lock_file)
+    finally:
+        for handle in lock_files:
+            handle.close()
+
+
+def _wait_for_machine_lock(job: Job, lock_files) -> tuple[object, int]:
+    waited = False
+    while True:
+        _check_cancel(job)
+        for slot, lock_file in enumerate(lock_files):
+            if _try_machine_lock(lock_file):
+                if waited:
+                    logger.info("job %s acquired machine pipeline lock slot %s", job.id, slot)
+                return lock_file, slot
+        waited = True
+        if job.status == "queued":
+            _set(job, status="queued", stage="Waiting for local processing slot...")
+            add_job_log(job, "Waiting for an available local processing slot", stage="queued")
+        time.sleep(1.0)
+
+
+def _try_machine_lock(lock_file) -> bool:
+    lock_file.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            if not lock_file.read(1):
+                lock_file.seek(0)
+                lock_file.write(" ")
+                lock_file.flush()
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            return False
+
+    import fcntl
+
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
+
+
+def _release_machine_lock(lock_file) -> None:
+    lock_file.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            logger.warning("failed to release machine pipeline lock", exc_info=True)
+        return
+
+    import fcntl
+
+    fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def _check_cancel(job: Job) -> None:
@@ -43,19 +152,43 @@ def _check_cancel(job: Job) -> None:
 
 
 def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
-    """Transcode any local upload to 16-bit 44.1 kHz stereo WAV before
-    handing it to Demucs. Normalises MP3 and non-standard WAV formats
-    (24-bit, 32-bit float, high sample rate, multi-channel) that Demucs
-    would otherwise process silently and output as silence.
+    """Validate an upload and let Demucs' FFmpeg reader decode it once.
 
-    Deletes the original source file after a successful transcode."""
-    from app.core.config import ffmpeg_executable
+    Demucs already resamples and converts channel layouts internally. Eagerly
+    creating another WAV doubled decode I/O and could add hundreds of MB of
+    scratch data without changing model input.
+    """
+    del job_dir
+    if not source.is_file():
+        raise RuntimeError("uploaded source file is missing")
+    set_stage_progress(job, "acquire", 1.0, status="processing", stage="Audio ready")
+    return source
 
-    dest = job_dir / "source.wav"
-    if source.resolve() == dest.resolve():
+
+def _prepare_demucs_source(job: Job, source: Path, job_dir: Path) -> Path:
+    """Create one compatibility WAV only when Demucs cannot use its FFmpeg path.
+
+    Demucs normalizes mean and standard deviation itself, so this pass never
+    applies gain or limiting. Packaged builds with both ``ffmpeg`` and
+    ``ffprobe`` decode the original container directly; imageio-only local
+    environments get a single float WAV shared by analysis and separation.
+    """
+    job.demucs_gain_db = 0.0
+    direct_audio = source.suffix.lower() in {".wav", ".wave", ".flac"}
+    direct_toolchain = bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
+    if direct_audio or direct_toolchain:
         return source
 
-    _set(job, stage="Preparing audio...")
+    dest = job_dir / "source.demucs.wav"
+    if dest.is_file() and dest.stat().st_size > 44:
+        return dest
+    set_stage_progress(
+        job,
+        "acquire",
+        0.9,
+        status="processing",
+        stage="Preparing decoder-compatible audio...",
+    )
     cmd = [
         ffmpeg_executable(),
         "-nostdin",
@@ -67,38 +200,84 @@ def _prepare_local_source(job: Job, source: Path, job_dir: Path) -> Path:
         "44100",
         "-ac",
         "2",
-        "-sample_fmt",
-        "s16",
+        "-c:a",
+        "pcm_f32le",
         "-y",
         str(dest),
     ]
-    result = subprocess.run(cmd, capture_output=True, timeout=TIMEOUT_FFMPEG)
-    if result.returncode != 0:
-        raise RuntimeError(
-            "ffmpeg transcode failed: " + result.stderr.decode("utf-8", errors="replace").strip()
-        )
-    source.unlink(missing_ok=True)
+    result = run_tracked_process(job, cmd, timeout=TIMEOUT_FFMPEG)
+    if result.returncode != 0 or not dest.is_file():
+        dest.unlink(missing_ok=True)
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"ffmpeg compatibility transcode failed: {detail}")
     return dest
+
+
+@contextlib.contextmanager
+def _separation_slot(job: Job):
+    """Serialize only Demucs while other jobs acquire/analyze/post-process."""
+    while not _separation_lock.acquire(timeout=1.0):
+        _check_cancel(job)
+        _set(job, status="processing", stage="Waiting for separation engine...")
+    try:
+        with _machine_pipeline_lock(job):
+            yield
+    finally:
+        _separation_lock.release()
 
 
 def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     """Analyze → separate → collect → mix. Shared by both YouTube and local
     upload pipelines after their respective source acquisition steps."""
     _check_cancel(job)
-    analyze(job, source)
+    demucs_source = _prepare_demucs_source(job, source, job_dir)
+    analyze(job, demucs_source)
     _check_cancel(job)
-    stems_root = separate(job, source, job_dir)
+    set_stage_progress(job, "prepare_separation", 1.0, stage="Separation input ready")
+    _check_cancel(job)
+    with _separation_slot(job):
+        stems_root = separate(job, demucs_source, job_dir)
+    set_stage_progress(job, "collect", 0.0, status="processing", stage="Collecting stems...")
     found = collect(job, stems_root, job_dir)
+    set_stage_progress(job, "collect", 1.0, stage="Stems collected")
     stems_dir = job_dir / "stems"
-    job.stem_presence = compute_stem_presence(stems_dir, found)
-    # Source (100-300 MB or the local upload) is no longer needed after
-    # collect; delete it before the ffmpeg amix steps in case scratch space
-    # is tight.
-    cleanup_source(job_dir)
+    set_stage_progress(job, "restore_gain", 0.0, stage="Restoring stem levels...")
+    restore_demucs_gain(job, stems_dir, found)
+    set_stage_progress(job, "restore_gain", 1.0, stage="Stem levels restored")
+    set_stage_progress(job, "bass_repair", 0.0, stage="Checking bass dropouts...")
+    job.bass_repair_applied = repair_bass_dropouts(job, source, stems_dir, found)
+    set_stage_progress(job, "bass_repair", 1.0, stage="Bass repair complete")
+    set_stage_progress(job, "phase_repair", 0.0, stage="Checking phase coherence...")
+    repair_phase_coherence(job, source, job_dir, stems_dir, found)
+    set_stage_progress(job, "phase_repair", 1.0, stage="Phase repair complete")
+    set_stage_progress(job, "denoise", 0.0, stage="Checking stem denoise...")
+    job.stem_denoise_applied = denoise_stem_outputs(job, stems_dir, found)
+    set_stage_progress(job, "denoise", 1.0, stage="Stem denoise complete")
+    set_stage_progress(job, "gate", 0.0, stage="Finalizing stems with Rust PCM...")
+    pcm_analyses = process_stem_outputs_with_rust(job, stems_dir, found)
+    if pcm_analyses is None:
+        job.stem_gate_applied = gate_stem_outputs(job, stems_dir, found)
+        set_stage_progress(job, "gate", 1.0, stage="Stem gate complete")
+        set_stage_progress(job, "stabilize", 0.0, stage="Stabilizing stems...")
+        stabilize_stem_outputs(job, stems_dir, found)
+    else:
+        set_stage_progress(job, "gate", 1.0, stage="Stem gate and analysis complete")
+        set_stage_progress(job, "stabilize", 0.8, stage="Stem stabilization complete")
+    set_stage_progress(job, "stabilize", 1.0, stage="Stems stabilized")
+    _check_cancel(job)
+    set_stage_progress(job, "presence", 0.0, stage="Measuring stem presence...")
+    job.stem_presence = compute_stem_presence(
+        stems_dir,
+        found,
+        job=job,
+        pcm_analyses=pcm_analyses,
+    )
+    set_stage_progress(job, "presence", 1.0, stage="Stem presence measured")
     job.stems = [{"name": name, "url": f"/api/jobs/{job.id}/stems/{name}.wav"} for name in found]
     _check_cancel(job)
-    _set(job, stage="Mixing tracks...")
+    set_stage_progress(job, "mix", 0.0, stage="Mixing tracks...")
     original_path = make_original_track(job, job_dir, stems_dir)
+    set_stage_progress(job, "mix", 0.45, stage="Mixing tracks...")
     if original_path is not None:
         job.stems.insert(
             0,
@@ -109,6 +288,7 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
         )
     _check_cancel(job)
     mix_path = make_selected_mix(job, stems_dir, found)
+    set_stage_progress(job, "mix", 1.0, stage="Mixing complete")
     if mix_path is not None:
         job.mix_url = f"/api/jobs/{job.id}/stems/{mix_path.name}"
     _check_cancel(job)
@@ -116,7 +296,45 @@ def _run_common(job: Job, source: Path, job_dir: Path) -> None:
     all_stem_names = [s["name"] for s in job.stems]
     if mix_path is not None and mix_path.stem not in all_stem_names:
         all_stem_names.append(mix_path.stem)
-    compute_stem_peaks(stems_dir, all_stem_names)
+    set_stage_progress(job, "peaks", 0.0, stage="Rendering waveforms...")
+    compute_stem_peaks(
+        stems_dir,
+        all_stem_names,
+        job=job,
+        pcm_analyses=pcm_analyses,
+    )
+    set_stage_progress(job, "peaks", 1.0, stage="Waveforms ready")
+    _set(
+        job,
+        audio_ready=True,
+        audio_ready_at=time.time(),
+        analysis_ready=False,
+        analysis_error=None,
+        stage="Audio ready; analyzing chords in background...",
+    )
+    add_job_log(job, "Stem playback and downloads are ready", stage="audio_ready")
+    _write_metadata(job, job_dir)
+    persist_registry(job_dir.parent)
+
+    set_stage_progress(job, "chords", 0.0, stage="Analyzing chords in background...")
+    try:
+        generate_chord_midi(job, source, job_dir, stems_dir=stems_dir)
+    except JobCancelled:
+        _set(job, analysis_error="Chord analysis was cancelled")
+        add_job_log(
+            job,
+            "Chord analysis cancelled; completed audio was preserved",
+            level="warning",
+            stage="chords",
+        )
+    except Exception as error:
+        logger.warning("chord analysis failed after audio became ready for job %s", job.id, exc_info=True)
+        _set(job, analysis_error="Chord analysis failed; stem audio remains available")
+        add_job_log(job, error, level="warning", stage="chords")
+    finally:
+        _set(job, analysis_ready=True)
+        set_stage_progress(job, "chords", 1.0, stage="Background analysis complete")
+        cleanup_source(job_dir)
 
 
 def _run_blocking(job: Job, url: str, job_dir: Path) -> None:
@@ -144,11 +362,44 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "peak_db": job.peak_db,
         "dynamic_range": job.dynamic_range,
         "tempo_stability": job.tempo_stability,
+        "beat_times": job.beat_times,
+        "downbeat_times": job.downbeat_times,
+        "beat_tracker": job.beat_tracker,
+        "chord_progression": job.chord_progression,
+        "chord_midi_url": job.chord_midi_url,
+        "midi_analysis": job.midi_analysis,
+        "midi_analysis_url": job.midi_analysis_url,
+        "audio_ready": job.audio_ready,
+        "audio_ready_at": job.audio_ready_at,
+        "analysis_ready": job.analysis_ready,
+        "analysis_error": job.analysis_error,
         "stem_presence": job.stem_presence,
+        "sections": job.sections,
+        "selected_stems": job.selected_stems,
+        "quality_preset": job.quality_preset,
+        "stem_denoise_preset": job.stem_denoise_preset,
+        "demucs_device": job.demucs_device,
+        "demucs_device_resolved": job.demucs_device_resolved,
+        "demucs_engine": job.demucs_engine,
+        "pcm_engine": job.pcm_engine,
+        "profile_key": job.profile_key(),
+        "profile_label": job.profile_label(),
+        "source_url": job.source_url,
+        "demucs_gain_db": job.demucs_gain_db,
+        "bass_repair_applied": job.bass_repair_applied,
+        "phase_repair_applied": job.phase_repair_applied,
+        "phase_repair_residual_ratio": job.phase_repair_residual_ratio,
+        "stem_denoise_applied": job.stem_denoise_applied,
+        "stem_gate_applied": job.stem_gate_applied,
+        "stem_gate_threshold_db": job.stem_gate_threshold_db,
+        "processing_started_at": job.processing_started_at,
+        "completed_at": job.completed_at,
+        "processing_elapsed_seconds": job.processing_elapsed_seconds,
         "tags": job.tags,
+        "logs": job.logs,
     }
     try:
-        (job_dir / "metadata.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        atomic_write_text(job_dir / "metadata.json", json.dumps(meta, indent=2) + "\n")
     except OSError:
         logger.warning("could not write metadata.json for job %s", job.id, exc_info=True)
 
@@ -164,11 +415,35 @@ async def _run_async(
     """Common async wrapper: acquires the pipeline lock, runs blocking_fn in a
     thread, then handles success / cancel / error outcomes uniformly."""
     try:
-        async with _pipeline_lock:
-            await asyncio.to_thread(blocking_fn, job, *fn_args, job_dir)
+        add_job_log(job, "Job entered the processing queue", stage="queued", progress=job.progress)
+        await asyncio.to_thread(blocking_fn, job, *fn_args, job_dir)
     except Exception as e:
+        if job.audio_ready:
+            logger.warning(
+                "non-audio analysis failed after stems became ready for job %s",
+                job.id,
+                exc_info=True,
+            )
+            analysis_error = (
+                "Background analysis was cancelled; stem audio was preserved"
+                if isinstance(e, JobCancelled) or job.cancel_requested
+                else "Background analysis failed; stem audio was preserved"
+            )
+            _set(
+                job,
+                status="done",
+                progress=1.0,
+                stage="Audio ready; background analysis incomplete",
+                analysis_ready=True,
+                analysis_error=analysis_error,
+            )
+            add_job_log(job, analysis_error, level="warning", stage="done", progress=1.0)
+            _write_metadata(job, job_dir)
+            persist_registry(jobs_dir)
+            return
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
+            add_job_log(job, e, level="error", stage="error", progress=job.progress)
             _set(job, status="error", stage="Error: Processing failed", error=error_msg)
             persist_registry(jobs_dir)
             _rmtree(job_dir)
@@ -178,11 +453,13 @@ async def _run_async(
             " (wrapped)" if not isinstance(e, JobCancelled) else "",
             job.id,
         )
+        add_job_log(job, "Job cancelled", level="warning", stage="cancelled", progress=job.progress)
         _set(job, status="cancelled", stage="Cancelled")
         persist_registry(jobs_dir)
         _rmtree(job_dir)
         return
     _set(job, status="done", progress=1.0, stage="Done")
+    add_job_log(job, "Processing completed successfully", stage="done", progress=1.0)
     _write_metadata(job, job_dir)
     persist_registry(jobs_dir)
 

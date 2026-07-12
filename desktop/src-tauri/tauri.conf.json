@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StemDeck",
+  "productName": "LayerLab",
   "version": "0.0.0",
-  "identifier": "app.stemdeck.desktop",
+  "identifier": "com.bassmicrobe.layerlab",
   "build": {
     "frontendDist": "../ui",
     "beforeDevCommand": "",
@@ -12,8 +12,8 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "StemDeck",
-        "width": 1280,
+        "title": "LayerLab",
+        "width": 1440,
         "height": 820,
         "minWidth": 1024,
         "minHeight": 720,

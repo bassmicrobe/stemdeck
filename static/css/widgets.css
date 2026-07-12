@@ -613,7 +613,7 @@
 
 /* ─── 5. Job progress: fix always-hidden CSS bug ─── */
 .job:not(.hidden) {
-  display: block !important;
+  display: flex !important;
 }
 
 /* ─── 6. Grafana-style collapsible widget ─── */

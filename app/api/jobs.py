@@ -10,32 +10,47 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from app.core.config import (
     JOB_ID_RE,
     JOBS_DIR,
     MAX_DURATION_SEC,
     MAX_PENDING_JOBS,
-    STEM_NAMES,
+    QUALITY_PRESET,
+    available_demucs_devices,
+    demucs_device_choice_available,
+    ffmpeg_executable,
     ffprobe_executable,
+    normalize_demucs_device_choice,
+    normalize_quality_preset,
+    normalize_stem_denoise_preset,
+    resolve_demucs_device_choice,
+    stem_names_for_quality_preset,
 )
-from app.core.models import Job
+from app.core.files import atomic_write_text
+from app.core.joblog import add_job_log
+from app.core.models import Job, _set
 from app.core.registry import all_jobs as registry_all_jobs
 from app.core.registry import get as registry_get
-from app.core.registry import get_proc as registry_get_proc
+from app.core.registry import get_procs as registry_get_procs
 from app.core.registry import persist as registry_persist
+from app.core.registry import refresh_queue_positions as registry_refresh_queue_positions
 from app.core.registry import register_if_capacity as registry_register_if_capacity
 from app.core.registry import remove as registry_remove
 from app.pipeline import run_local_pipeline, run_pipeline
 from app.pipeline.download import InvalidYouTubeURL, validate_youtube_url
+from app.pipeline.process import terminate_process
 
 router = APIRouter(tags=["jobs"])
 logger = logging.getLogger("stemdeck.api")
 
-_ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac"))
+ACTIVE_JOB_STATUSES = frozenset(("queued", "downloading", "analyzing", "separating", "processing"))
+_ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac", ".m4a"))
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 _WS_RE = re.compile(r"\s+")
+_FFMPEG_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)")
+_pipeline_tasks: dict[asyncio.Task, Job] = {}
 
 
 def _sanitize_title(filename: str) -> str:
@@ -44,25 +59,46 @@ def _sanitize_title(filename: str) -> str:
     return _WS_RE.sub(" ", stem).strip()[:120]
 
 
-def _probe_duration(path: Path) -> float:
-    """Run ffprobe to get file duration in seconds."""
+def _probe_duration_with_ffmpeg(path: Path) -> float:
+    """Fallback duration probe for local setups that have ffmpeg but not ffprobe."""
     result = subprocess.run(
-        [
-            ffprobe_executable(),
-            "-v",
-            "quiet",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            str(path),
-        ],
+        [ffmpeg_executable(), "-hide_banner", "-i", str(path)],
         capture_output=True,
         text=True,
         timeout=30,
     )
+    output = f"{result.stderr}\n{result.stdout}"
+    if match := _FFMPEG_DURATION_RE.search(output):
+        hours, minutes, seconds = match.groups()
+        return (int(hours) * 3600) + (int(minutes) * 60) + float(seconds)
+    raise RuntimeError("ffmpeg could not determine duration")
+
+
+def _probe_duration(path: Path) -> float:
+    """Run ffprobe to get file duration in seconds, falling back to ffmpeg."""
+    try:
+        result = subprocess.run(
+            [
+                ffprobe_executable(),
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        return _probe_duration_with_ffmpeg(path)
     if result.returncode != 0:
-        raise RuntimeError(f"ffprobe failed: {result.stderr.strip()}")
+        try:
+            return _probe_duration_with_ffmpeg(path)
+        except Exception as e:
+            raise RuntimeError(f"ffprobe failed: {result.stderr.strip()}") from e
     try:
         return float(result.stdout.strip())
     except ValueError as e:
@@ -95,11 +131,43 @@ def _rmtree_job(job_id: str) -> None:
 
 
 def _task_error_cb(task: asyncio.Task) -> None:
+    _pipeline_tasks.pop(task, None)
     if task.cancelled():
         return
     exc = task.exception()
     if exc is not None:
         logger.error("pipeline task raised unhandled exception", exc_info=exc)
+
+
+def _track_pipeline_task(task: asyncio.Task, job: Job) -> None:
+    _pipeline_tasks[task] = job
+    task.add_done_callback(_task_error_cb)
+
+
+async def shutdown_pipeline_tasks() -> None:
+    tasks = list(_pipeline_tasks.items())
+    for task, job in tasks:
+        job.cancel_requested = True
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*(task for task, _ in tasks), return_exceptions=True)
+
+
+def _selected_stems_for_quality(stems: list[str] | None, quality_preset: str) -> list[str]:
+    allowed = stem_names_for_quality_preset(quality_preset)
+    selected = [s for s in stems if s in allowed] if stems else list(allowed)
+    return selected or list(allowed)
+
+
+def _device_choice_or_422(value: str | None) -> tuple[str, str]:
+    choice = normalize_demucs_device_choice(value)
+    if not demucs_device_choice_available(choice):
+        available = ", ".join(available_demucs_devices())
+        raise HTTPException(
+            status_code=422,
+            detail=f"Selected device '{choice}' is not available on this machine. Available: {available}",
+        )
+    return choice, resolve_demucs_device_choice(choice)
 
 
 class JobRequest(BaseModel):
@@ -110,6 +178,9 @@ class JobRequest(BaseModel):
     # rejected, so a future model with extra stems doesn't break older
     # clients pinning the old set.
     stems: list[str] | None = None
+    quality_preset: str | None = None
+    stem_denoise: str | None = None
+    demucs_device: str | None = None
 
 
 @router.post("")
@@ -137,22 +208,32 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
     except InvalidYouTubeURL as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    selected = [s for s in payload.stems if s in STEM_NAMES] if payload.stems else list(STEM_NAMES)
-    if not selected:
-        selected = list(STEM_NAMES)
+    quality_preset = normalize_quality_preset(payload.quality_preset or QUALITY_PRESET)
+    stem_denoise_preset = normalize_stem_denoise_preset(payload.stem_denoise)
+    demucs_device, demucs_device_resolved = _device_choice_or_422(payload.demucs_device)
+    selected = _selected_stems_for_quality(payload.stems, quality_preset)
 
-    job = Job(id=uuid.uuid4().hex[:12], selected_stems=selected, source_url=url)
+    job = Job(
+        id=uuid.uuid4().hex[:12],
+        selected_stems=selected,
+        quality_preset=quality_preset,
+        stem_denoise_preset=stem_denoise_preset,
+        demucs_device=demucs_device,
+        demucs_device_resolved=demucs_device_resolved,
+        source_url=url,
+    )
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
+    add_job_log(job, "URL job accepted", stage="queued", progress=0.0)
     task = asyncio.create_task(run_pipeline(job, url, JOBS_DIR))
-    task.add_done_callback(_task_error_cb)
+    _track_pipeline_task(task, job)
     return {"job_id": job.id}
 
 
 async def _create_local_job(request: Request) -> dict[str, str]:
     # Fast pre-check: if already at capacity, reject before touching disk.
     # The real atomic check happens in register_if_capacity after the upload.
-    if sum(1 for j in registry_all_jobs().values() if j.status == "queued") >= MAX_PENDING_JOBS:
+    if sum(1 for j in registry_all_jobs().values() if j.status in ACTIVE_JOB_STATUSES) >= MAX_PENDING_JOBS:
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
 
     # Quick pre-check on Content-Length to fail fast for obviously oversized
@@ -168,6 +249,9 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     form = await request.form()
     upload = form.get("file")
     stems_raw = form.get("stems", "[]")
+    quality_preset = normalize_quality_preset(str(form.get("quality_preset", QUALITY_PRESET)))
+    stem_denoise_preset = normalize_stem_denoise_preset(str(form.get("stem_denoise", "off")))
+    demucs_device, demucs_device_resolved = _device_choice_or_422(str(form.get("demucs_device", "auto")))
 
     if upload is None or not hasattr(upload, "filename"):
         raise HTTPException(status_code=422, detail="No file provided")
@@ -177,7 +261,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     if ext not in _ALLOWED_EXTS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unsupported file type '{ext}': only .mp3, .wav, and .flac are accepted",
+            detail=f"Unsupported file type '{ext}': only .mp3, .wav, .flac, and .m4a are accepted",
         )
 
     # Validate stems list from form field
@@ -187,7 +271,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
             raise ValueError
     except (json.JSONDecodeError, ValueError):
         stems_list = []
-    selected = [s for s in stems_list if s in STEM_NAMES] or list(STEM_NAMES)
+    selected = _selected_stems_for_quality(stems_list, quality_preset)
 
     # Check actual file size (SpooledTemporaryFile is already buffered at this
     # point; seek/tell are fast and don't re-read the body).
@@ -223,12 +307,20 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     except HTTPException:
         shutil.rmtree(job_dir, ignore_errors=True)
         raise
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        logger.exception("failed to store uploaded audio")
+        raise HTTPException(status_code=500, detail="Could not store uploaded file") from exc
 
     title = _sanitize_title(filename)
     local_source_url = f"local:{title}"
     job = Job(
         id=job_id,
         selected_stems=selected,
+        quality_preset=quality_preset,
+        stem_denoise_preset=stem_denoise_preset,
+        demucs_device=demucs_device,
+        demucs_device_resolved=demucs_device_resolved,
         title=title,
         duration_sec=duration,
         source_url=local_source_url,
@@ -236,8 +328,9 @@ async def _create_local_job(request: Request) -> dict[str, str]:
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
+    add_job_log(job, "Local audio job accepted", stage="queued", progress=0.0)
     task = asyncio.create_task(run_local_pipeline(job, source_path, JOBS_DIR))
-    task.add_done_callback(_task_error_cb)
+    _track_pipeline_task(task, job)
     return {"job_id": job.id}
 
 
@@ -248,6 +341,17 @@ def list_jobs() -> list[dict]:
         job.to_state()
         for job in sorted(registry_all_jobs().values(), key=lambda j: j.created_at)
         if job.status == "done"
+    ]
+
+
+@router.get("/active")
+def list_active_jobs() -> list[dict]:
+    """List queued and running jobs, sorted by creation time."""
+    registry_refresh_queue_positions()
+    return [
+        job.to_state()
+        for job in sorted(registry_all_jobs().values(), key=lambda j: j.created_at)
+        if job.status in ACTIVE_JOB_STATUSES
     ]
 
 
@@ -269,14 +373,20 @@ def cancel_job(job_id: str) -> dict:
     if job.status in ("done", "error", "cancelled"):
         return job.to_state()
     job.cancel_requested = True
-    proc = registry_get_proc(job_id)
-    if proc is not None and proc.poll() is None:
-        proc.terminate()
+    add_job_log(job, "Cancellation requested", level="warning", stage=job.status)
+    procs = registry_get_procs(job_id)
+    for proc in procs:
+        if proc.poll() is None:
+            terminate_process(proc)
+    if not procs and job.status == "queued":
+        _set(job, status="cancelled", stage="Cancelled")
+        registry_refresh_queue_positions()
+        registry_persist(JOBS_DIR)
     return job.to_state()
 
 
 _SECTION_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,64}$")
-_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 
 
 class SectionItem(BaseModel):
@@ -316,19 +426,37 @@ class SectionItem(BaseModel):
 class SectionsBody(BaseModel):
     sections: list[SectionItem]
 
+    @field_validator("sections")
+    @classmethod
+    def _check_count(cls, value: list[SectionItem]) -> list[SectionItem]:
+        if len(value) > 200:
+            raise ValueError("too many sections")
+        return value
+
+    @model_validator(mode="after")
+    def _check_ranges(self):
+        ids = set()
+        for section in self.sections:
+            if section.end <= section.start:
+                raise ValueError("section end must be after start")
+            if section.id in ids:
+                raise ValueError("duplicate section id")
+            ids.add(section.id)
+        return self
+
 
 @router.patch("/{job_id}/sections")
 def update_sections(job_id: str, body: SectionsBody) -> dict:
-    """Save named timeline sections (intro, verse, chorus, etc.) for a done job."""
+    """Save named timeline sections once stem audio is available."""
     if not JOB_ID_RE.match(job_id):
         raise HTTPException(status_code=404, detail="job not found")
     job = registry_get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
+    if job.status != "done" and not job.audio_ready:
+        raise HTTPException(status_code=409, detail="job is not ready")
 
     validated = [s.model_dump() for s in body.sections]
-    job.sections = validated
-
     job_dir = (JOBS_DIR / job_id).resolve()
     if not job_dir.is_relative_to(JOBS_DIR.resolve()):
         raise HTTPException(status_code=404, detail="job not found")
@@ -342,11 +470,12 @@ def update_sections(job_id: str, body: SectionsBody) -> dict:
             pass
     meta["sections"] = validated
     try:
-        meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        atomic_write_text(meta_path, json.dumps(meta, indent=2) + "\n")
     except OSError as exc:
         logger.exception("failed to write sections for %s: %s", job_id, exc)
         raise HTTPException(status_code=500, detail="failed to save sections") from exc
 
+    job.sections = validated
     registry_persist(JOBS_DIR)
 
     return {"job_id": job_id, "sections": validated}

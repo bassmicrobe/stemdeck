@@ -1,8 +1,8 @@
-// ─── Persistent store (tauri-plugin-store via custom commands) ───
+// ─── Persistent store (Tauri atomic JSON commands) ───
 //
 // Falls back to localStorage when running outside Tauri (browser dev mode).
-// The store is backed by ~/Library/Application Support/app.stemdeck.desktop/user-data.json
-// on macOS — outside WebKit's reach, so WebView resets can never destroy user data.
+// The store is backed by ~/Documents/LayerLab/user-data.json on macOS —
+// outside WebKit's reach, so WebView resets can never destroy user data.
 
 export async function storeGet(key, fallback = null) {
   if (window.__TAURI__?.core?.invoke) {
@@ -27,6 +27,34 @@ export async function storeSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn("[store] localStorage set failed", e); }
 }
 
+export async function desktopBackendStatus() {
+  if (!window.__TAURI__?.core?.invoke) return null;
+  try {
+    return await window.__TAURI__.core.invoke("backend_status");
+  } catch (e) { console.warn("[desktop] backend_status failed", e); return null; }
+}
+
+export async function desktopMaintenanceStatus() {
+  if (!window.__TAURI__?.core?.invoke) return null;
+  try {
+    return await window.__TAURI__.core.invoke("maintenance_status");
+  } catch (e) { console.warn("[desktop] maintenance_status failed", e); return null; }
+}
+
+export async function desktopRunMaintenance() {
+  if (!window.__TAURI__?.core?.invoke) return null;
+  try {
+    return await window.__TAURI__.core.invoke("run_maintenance");
+  } catch (e) { console.warn("[desktop] run_maintenance failed", e); return null; }
+}
+
+export async function desktopAnalyzeWavFile(path, bins = 2048) {
+  if (!window.__TAURI__?.core?.invoke) return null;
+  try {
+    return await window.__TAURI__.core.invoke("analyze_wav_file", { path, bins });
+  } catch (e) { console.warn("[desktop] analyze_wav_file failed", e); return null; }
+}
+
 // Debounced variant — coalesces rapid writes (e.g. mixer slider moves) into
 // a single store write ~300ms after the last call. Each call snapshots the
 // value so no mutation races occur.
@@ -46,6 +74,9 @@ const _MIGRATE_KEYS = [
   "stemdeck.folders",
   "stemdeck.deleted_jobs",
   "stemdeck:selected-stems",
+  "stemdeck:quality-preset",
+  "stemdeck:stem-denoise",
+  "stemdeck:demucs-device",
 ];
 
 // One-time bootstrap: copy localStorage → store for existing users.
@@ -107,6 +138,17 @@ export function fmtTickLabel(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60).toString().padStart(2, "0");
   return `${m}:${sec}`;
+}
+
+export function fmtBeatGrid(beatTimes, durationSec = null) {
+  const beats = Array.isArray(beatTimes)
+    ? beatTimes.map(Number).filter((t) => Number.isFinite(t) && t >= 0)
+    : [];
+  if (!beats.length) return "—";
+  const lastBeat = beats[beats.length - 1];
+  const capped = Number.isFinite(durationSec) && durationSec > lastBeat + 5;
+  const suffix = capped ? ` · first ${fmtTime(lastBeat)}` : "";
+  return `${beats.length} beat${beats.length === 1 ? "" : "s"}${suffix}`;
 }
 
 export const $ = (id) => document.getElementById(id);

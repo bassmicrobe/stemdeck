@@ -1,17 +1,21 @@
 [package]
-name = "stemdeck"
+name = "layerlab"
 # Placeholder — stamped from the git tag at build time (Woodpecker / make-app.sh). #169
 version = "0.0.0"
-description = "StemDeck desktop launcher"
-authors = ["StemDeck contributors"]
+description = "LayerLab desktop launcher"
+authors = ["LayerLab contributors"]
 edition = "2021"
 rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/bassmicrobe/stemdeck"
+default-run = "layerlab"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 flate2 = "1"
+hound = "3.5"
 libc = "0.2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
 serde = { version = "1", features = ["derive"] }

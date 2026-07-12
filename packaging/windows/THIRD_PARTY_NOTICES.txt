@@ -1,12 +1,23 @@
 THIRD-PARTY NOTICES
 ===================
 
-StemDeck includes third-party open-source software. Each component is
+LayerLab includes third-party open-source software. Each component is
 copyrighted by its respective authors and distributed under its own license.
 
-This starter notice is not a substitute for the full license inventory that
-must be generated from the final packaged Python runtime before a public
-release.
+Project License and Upstream Attribution
+----------------------------------------
+
+LayerLab is an unofficial modified fork test build based on the original StemDeck project:
+https://github.com/stemdeckapp/stemdeck
+
+The original StemDeck project and this fork are licensed under the Apache License, Version 2.0.
+This package is not an official upstream release and is not affiliated with or endorsed by the original StemDeck project.
+See LICENSE and NOTICE in this distribution for the full license text,
+upstream attribution, and modification notice.
+
+Release packages replace this source summary with a generated inventory from
+the exact packaged Python runtime and Windows Rust dependency graph. They also
+include THIRD_PARTY_LICENSES.txt and THIRD_PARTY_INVENTORY.json.
 
 Bundled Components
 ------------------
@@ -18,6 +29,15 @@ Website: https://www.python.org/
 Tauri
 License: MIT or Apache-2.0, depending on component
 Website: https://tauri.app/
+
+Rust crates used by the Tauri shell
+License: varies by crate
+Inventory source: desktop/src-tauri/Cargo.lock
+
+Hound
+License: Apache-2.0
+Website: https://github.com/ruuda/hound
+Used by the bundled layerlab-pcm WAV/PCM post-processing sidecar.
 
 FastAPI
 License: MIT
@@ -47,6 +67,14 @@ librosa
 License: ISC
 Website: https://librosa.org/
 
+Beat This!
+License: MIT (source code and published model weights)
+Website: https://github.com/CPJKU/beat_this
+
+music21
+License: BSD-3-Clause
+Website: https://github.com/cuthbertLab/music21
+
 pyloudnorm
 License: MIT
 Website: https://github.com/csteinmetz1/pyloudnorm
@@ -55,20 +83,32 @@ soundfile
 License: BSD
 Website: https://github.com/bastibe/python-soundfile
 
+imageio-ffmpeg
+License: BSD-2-Clause
+Website: https://github.com/imageio/imageio-ffmpeg
+Note: the wheel-embedded GPL FFmpeg executable is removed from the packaged
+runtime.
+
 Downloaded During First-Run Setup
 ---------------------------------
 
-FFmpeg binaries are not bundled in the StemDeck alpha zip. They are downloaded
-during first-run setup. FFmpeg builds may be distributed under LGPL or GPL
-terms depending on how they are compiled. StemDeck should display the selected
-FFmpeg build source and license before or during download.
+FFmpeg binaries are not bundled in the LayerLab test zip. The default gyan.dev
+release essentials build is downloaded directly during first-run setup. The
+provider identifies this build line as GPL. Anyone who mirrors/rebundles the
+binary must provide the corresponding source and satisfy the exact build's
+FFmpeg/external-library obligations.
 
-Demucs model weights are not bundled in the StemDeck alpha zip. They are
-downloaded during first use. StemDeck should display the model source and
-license/usage terms before or during download.
+Demucs model weights are not bundled in the LayerLab test zip. They are
+downloaded during first use. They are not covered by the Demucs MIT code
+license; upstream maintainers describe them as personal/research-use artifacts.
+Commercial distribution/services require separate permission, replacement
+weights with suitable terms, or disabling the default weight workflow.
+
+Beat This! model weights are downloaded during first use of any analysis
+profile and are published under the MIT License by the Beat This! authors.
 
 Disclaimer
 ----------
 
-This notice file is not legal advice. Before public release, verify the exact
-licenses of every bundled package and generated binary artifact.
+This notice file is not legal advice. The generated files in the final artifact,
+not this source summary, are the authoritative package inventory.

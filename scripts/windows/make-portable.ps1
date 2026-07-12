@@ -1,7 +1,7 @@
 param(
   [string]$Configuration = "release",
   [string]$OutputRoot    = "dist",
-  [string]$PackageName   = "StemDeck-Windows-x64",
+  [string]$PackageName   = "LayerLab-Windows-x64.NVIDIA",
   [string]$PackageVersion,
   [switch]$SkipTauriBuild,
   [switch]$CpuOnly,
@@ -25,7 +25,8 @@ $PythonExe = Join-Path $PythonDir "Scripts\python.exe"
 $BackendDir = Join-Path $Stage "backend"
 $DesktopDir = Join-Path $Root "desktop"
 $TauriDir = Join-Path $DesktopDir "src-tauri"
-$TargetExe = Join-Path $TauriDir "target\$Configuration\stemdeck.exe"
+$TargetExe = Join-Path $TauriDir "target\$Configuration\layerlab.exe"
+$PcmTargetExe = Join-Path $TauriDir "target\$Configuration\layerlab-pcm.exe"
 
 function Require-Command([string]$Name) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -104,6 +105,10 @@ function Bundle-PythonRuntime([string]$VenvDir, [string]$VenvPython) {
     Copy-Tree $baseDlls (Join-Path $portableBaseHome "DLLs")
   }
   Copy-TreeContents $baseLib (Join-Path $portableBaseHome "Lib") @("site-packages")
+  $baseLicense = Join-Path $baseHome "LICENSE.txt"
+  if (Test-Path $baseLicense) {
+    Copy-Item -Force $baseLicense (Join-Path $portableBaseHome "LICENSE.txt")
+  }
 
   $cfg = Join-Path $VenvDir "pyvenv.cfg"
   Set-PyvenvValue $cfg "home" $portableBaseHome
@@ -134,7 +139,7 @@ function Assert-Fresh-TauriBuild {
   if ($newerSources.Count -gt 0) {
     $list = ($newerSources | Select-Object -First 8 | ForEach-Object { "  - $($_.FullName)" }) -join "`n"
     throw @"
--SkipTauriBuild would package a stale StemDeck.exe.
+-SkipTauriBuild would package a stale LayerLab.exe.
 
 The existing executable is older than desktop UI/Tauri source files:
 $list
@@ -142,6 +147,44 @@ $list
 Remove -SkipTauriBuild or run the NVIDIA package build first so the CPU package reuses a fresh executable.
 "@
   }
+}
+
+function Sign-FileIfConfigured([string]$Path) {
+  $certPath = $env:WINDOWS_SIGN_CERT_PATH
+  if (-not $certPath) {
+    Write-Host "Skipping Windows code signing (set WINDOWS_SIGN_CERT_PATH to sign)."
+    return
+  }
+  if (-not (Test-Path $certPath)) {
+    throw "WINDOWS_SIGN_CERT_PATH does not exist: $certPath"
+  }
+
+  $signTool = if ($env:WINDOWS_SIGNTOOL_PATH) { $env:WINDOWS_SIGNTOOL_PATH } else { "signtool.exe" }
+  $timestampUrl = if ($env:WINDOWS_TIMESTAMP_URL) {
+    $env:WINDOWS_TIMESTAMP_URL
+  } else {
+    "http://timestamp.digicert.com"
+  }
+
+  if (-not (Get-Command $signTool -ErrorAction SilentlyContinue)) {
+    throw "signtool not found. Install Windows SDK or set WINDOWS_SIGNTOOL_PATH."
+  }
+
+  $args = @(
+    "sign",
+    "/fd", "SHA256",
+    "/tr", $timestampUrl,
+    "/td", "SHA256",
+    "/f", $certPath
+  )
+  if ($env:WINDOWS_SIGN_CERT_PASSWORD) {
+    $args += @("/p", $env:WINDOWS_SIGN_CERT_PASSWORD)
+  }
+  $args += $Path
+
+  Write-Host "Signing Windows executable: $Path"
+  & $signTool @args
+  & $signTool verify /pa /v $Path
 }
 
 Require-Command "node"
@@ -181,8 +224,12 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText((Join-Path $BackendDir "static\version.json"), $VersionJson + "`n", $utf8NoBom)
 Copy-Item -Force (Join-Path $Root "pyproject.toml") (Join-Path $BackendDir "pyproject.toml")
 Copy-Item -Force (Join-Path $Root "uv.lock") (Join-Path $BackendDir "uv.lock")
+Copy-Item -Force (Join-Path $Root "LICENSE") (Join-Path $BackendDir "LICENSE")
+Copy-Item -Force (Join-Path $Root "NOTICE") (Join-Path $BackendDir "NOTICE")
 Copy-Item -Force (Join-Path $Root "packaging\windows\README-WINDOWS.txt") (Join-Path $Stage "README-WINDOWS.txt")
 Copy-Item -Force (Join-Path $Root "packaging\windows\THIRD_PARTY_NOTICES.txt") (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $Root "LICENSE") (Join-Path $Stage "LICENSE")
+Copy-Item -Force (Join-Path $Root "NOTICE") (Join-Path $Stage "NOTICE")
 
 if (Get-Command "py" -ErrorAction SilentlyContinue) {
   & py -3.12 -m venv $PythonDir
@@ -199,6 +246,14 @@ if ($PackageVersion) {
 }
 & $PythonExe -m pip install "$Root"
 
+# Do not redistribute the GPL-enabled FFmpeg executable embedded in
+# imageio-ffmpeg wheels. First-run setup downloads the disclosed build directly.
+$imageioBinaries = Join-Path $PythonDir "Lib\site-packages\imageio_ffmpeg\binaries"
+if (Test-Path $imageioBinaries) {
+  Get-ChildItem -LiteralPath $imageioBinaries -Filter "ffmpeg-*" -File -Force |
+    Remove-Item -Force
+}
+
 if ($CpuOnly) {
   # pip strips local version identifiers when resolving requirements, so it installs
   # the CUDA wheel from PyPI even when we pre-install the CPU wheel. Force-reinstall
@@ -212,6 +267,21 @@ if ($CpuOnly) {
 
 Bundle-PythonRuntime $PythonDir $PythonExe
 & $PythonExe -c "import sys, fastapi, uvicorn; print('Portable Python:', sys.executable)"
+
+$LicenseDir = Join-Path $Stage "licenses"
+& $PythonExe (Join-Path $Root "scripts\generate-license-bundle.py") `
+  --repo-root $Root `
+  --python-root (Join-Path $PythonDir "base") `
+  --site-packages (Join-Path $PythonDir "Lib\site-packages") `
+  --cargo-manifest (Join-Path $TauriDir "Cargo.toml") `
+  --target "x86_64-pc-windows-msvc" `
+  --output $LicenseDir
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_NOTICES.md") (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_LICENSES.txt") (Join-Path $Stage "THIRD_PARTY_LICENSES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_INVENTORY.json") (Join-Path $Stage "THIRD_PARTY_INVENTORY.json")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_NOTICES.md") (Join-Path $BackendDir "THIRD_PARTY_NOTICES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_LICENSES.txt") (Join-Path $BackendDir "THIRD_PARTY_LICENSES.txt")
+Copy-Item -Force (Join-Path $LicenseDir "THIRD_PARTY_INVENTORY.json") (Join-Path $BackendDir "THIRD_PARTY_INVENTORY.json")
 
 if ($StripVenv) {
   Write-Host "Stripping venv of build-time artifacts..."
@@ -247,11 +317,30 @@ try {
   Pop-Location
 }
 
+$PcmCargoArgs = @(
+  "build",
+  "--manifest-path", (Join-Path $TauriDir "Cargo.toml"),
+  "--bin", "layerlab-pcm"
+)
+if ($Configuration -eq "release") {
+  $PcmCargoArgs += "--release"
+} elseif ($Configuration -ne "debug") {
+  $PcmCargoArgs += @("--profile", $Configuration)
+}
+& cargo @PcmCargoArgs
+
 if (-not (Test-Path $TargetExe)) {
   throw "Tauri executable not found at $TargetExe"
 }
+if (-not (Test-Path $PcmTargetExe)) {
+  throw "Rust PCM sidecar not found at $PcmTargetExe"
+}
 
-Copy-Item -Force $TargetExe (Join-Path $Stage "StemDeck.exe")
+Copy-Item -Force $TargetExe (Join-Path $Stage "LayerLab.exe")
+Sign-FileIfConfigured (Join-Path $Stage "LayerLab.exe")
+New-Item -ItemType Directory -Force (Join-Path $Stage "bin") | Out-Null
+Copy-Item -Force $PcmTargetExe (Join-Path $Stage "bin\layerlab-pcm.exe")
+Sign-FileIfConfigured (Join-Path $Stage "bin\layerlab-pcm.exe")
 
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -Force
 $Hash = Get-FileHash -Algorithm SHA256 $ZipPath

@@ -1,0 +1,24 @@
+{
+  "schema": "layerlab-benchmark-manifest-v1",
+  "notes": "Keep real audio outside git. Use stable local jobs or private fixtures.",
+  "cases": [
+    {
+      "name": "loud-master",
+      "purpose": "clip-risk and stem-sum residual regression",
+      "input_format": "wav",
+      "suggested_profile": "Max / Noise off / Auto"
+    },
+    {
+      "name": "moving-bass",
+      "purpose": "bass passing note vs chord root regression",
+      "input_format": "mp3",
+      "suggested_profile": "Max / Noise off / Auto"
+    },
+    {
+      "name": "piano-chords",
+      "purpose": "Chord MIDI grid and triad/seventh export regression",
+      "input_format": "m4a",
+      "suggested_profile": "Ultra / Noise off / Auto"
+    }
+  ]
+}
