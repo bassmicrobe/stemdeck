@@ -1,44 +1,44 @@
 <div align="center">
 
-<img src="imgs/stemdeck-svg-assets/stemdeck-logo-stacked.svg" alt="StemDeck" width="515" />
+<h1>LayerLab</h1>
 
-**Free, local stem separation. No account. No upload. No subscription.**
+**Unofficial fork test build. Free, local stem separation. No account. No upload. No subscription.**
 
 <div align="center">
   <a href="https://ci.popchores.app/repos/2"><img src="https://ci.popchores.app/api/badges/2/status.svg?event=push" alt="CI"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/stargazers"><img src="https://img.shields.io/github/stars/stemdeckapp/stemdeck?style=flat-square" alt="GitHub Stars"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/releases"><img src="https://img.shields.io/github/downloads/stemdeckapp/stemdeck/total?style=flat-square&color=52c65f" alt="Total Downloads"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/releases/latest"><img src="https://img.shields.io/github/v/release/stemdeckapp/stemdeck?style=flat-square" alt="Latest Release"></a>
-  <a href="https://github.com/stemdeckapp/stemdeck/blob/main/LICENSE"><img src="https://img.shields.io/github/license/stemdeckapp/stemdeck?style=flat-square" alt="License"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/stargazers"><img src="https://img.shields.io/github/stars/bassmicrobe/stemdeck?style=flat-square" alt="Fork GitHub Stars"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/releases"><img src="https://img.shields.io/github/downloads/bassmicrobe/stemdeck/total?style=flat-square&color=52c65f" alt="Fork Downloads"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/releases/latest"><img src="https://img.shields.io/github/v/release/bassmicrobe/stemdeck?style=flat-square" alt="Latest Fork Release"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck/blob/feat/high-quality-separation/LICENSE"><img src="https://img.shields.io/github/license/bassmicrobe/stemdeck?style=flat-square" alt="License"></a>
 </div>
 
 <br>
 
-<p align="center"><sub>JOIN THE COMMUNITY</sub></p>
+<p align="center"><sub>UNOFFICIAL FORK TEST BUILD</sub></p>
 <div align="center">
-  <a href="https://github.com/stemdeckapp/stemdeck"><img src="https://img.shields.io/badge/GitHub-stemdeckapp-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://discord.gg/2MVsWqaPRe"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://www.reddit.com/r/StemDeckApp/"><img src="https://img.shields.io/badge/Reddit-r%2FStemDeckApp-FF4500?style=flat-square&logo=reddit&logoColor=white" alt="Reddit"></a>
-  <a href="https://www.instagram.com/stemdeck"><img src="https://img.shields.io/badge/Instagram-stemdeck-E4405F?style=flat-square&logo=instagram&logoColor=white" alt="Instagram"></a>
-  <a href="https://x.com/StemDeckApp"><img src="https://img.shields.io/badge/X-StemDeckApp-000000?style=flat-square&logo=x&logoColor=white" alt="X"></a>
-  <a href="https://stemdeck.app"><img src="https://img.shields.io/badge/Website-stemdeck.app-000000?style=flat-square&logo=safari&logoColor=white" alt="Website"></a>
+  <a href="https://github.com/bassmicrobe/stemdeck"><img src="https://img.shields.io/badge/Fork-bassmicrobe%2Fstemdeck-181717?style=flat-square&logo=github&logoColor=white" alt="Fork GitHub"></a>
+  <a href="https://github.com/stemdeckapp/stemdeck"><img src="https://img.shields.io/badge/Original-stemdeckapp%2Fstemdeck-6b7280?style=flat-square&logo=github&logoColor=white" alt="Original StemDeck"></a>
 </div>
 
 </div>
 
 <br>
 
-Drop in an MP3, WAV, or FLAC file, or paste a YouTube URL, and StemDeck splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
+LayerLab is an unofficial modified fork of [StemDeck](https://github.com/stemdeckapp/stemdeck). It is a test build for higher-quality local stem separation and is not an official upstream release, not affiliated with, and not endorsed by the original StemDeck project.
 
-> **What is this?** StemDeck is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, or FLAC onto the import bar and go. YouTube support is a convenience for content you have the right to process. StemDeck does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
+Drop in an MP3, WAV, FLAC, or M4A file, or paste a YouTube URL, and LayerLab splits the audio into up to six stems (vocals, drums, bass, guitar, piano, other). Play them back in a DAW-style multitrack mixer: mute, solo, balance levels, zoom the waveform, loop a region, and export individual stems or a custom mix. Everything runs locally on your own machine.
 
-> StemDeck is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, StemDeck has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
+> **What is this?** LayerLab is a stem separation tool, not a downloader. Its main job is processing audio you already own: drag an MP3, WAV, FLAC, or M4A onto the import bar and go. YouTube support is a convenience for content you have the right to process. LayerLab does not store, cache, or redistribute any downloaded content. Everything happens locally and nothing leaves your machine.
 
-![StemDeck screenshot](imgs/screenshot/stemdeck.png)
+> LayerLab is a free, open alternative to cloud stem-splitters like Moises and LALAL.AI: no account, no quota, no uploads, no subscription. If you want stems for personal study and prefer to keep things local and free, LayerLab has you covered. If you need the polish, a mobile app, or deeper musician tooling, the commercial products are a better fit.
+
+日本語での概要、配布手順、ライセンス/NOTICE、そしてこの fork で加えた変更点は [README.ja.md](README.ja.md) にまとめています。操作マニュアルは [MANUAL.ja.md](MANUAL.ja.md) を参照してください。
+
+![LayerLab screenshot](imgs/screenshot/stemdeck.png)
 
 ## We Recommend
 
-StemDeck is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
+LayerLab is free and **does not accept any money, sponsorship, or funding** - not from users, not from anyone listed below. We share these makers and artists purely for the joy of pointing you toward wonderful people doing beautiful work. Go meet them ❤️
 
 | Supporter | What they do | Link |
 |---|---|---|
@@ -54,11 +54,19 @@ StemDeck is free and **does not accept any money, sponsorship, or funding** - no
 
 **6-stem separation** via Demucs `htdemucs_6s`, with auto-detection of the best Torch device (CUDA on NVIDIA, MPS on Apple Silicon, CPU fallback).
 
-**YouTube and local file import.** Paste a YouTube URL or drop an MP3 or WAV directly onto the import bar.
+**Persistent Demucs workers.** The selected model stays loaded in a bounded background process and is reused by later tracks with the same model/device. MPS/CUDA stays at one worker for memory safety; CPU follows the detected pipeline concurrency. A startup/protocol failure falls back to the Demucs CLI, while an inference failure is not silently run twice.
+
+**Rust WAV/PCM post-processing.** A bundled `layerlab-pcm` sidecar performs timeline-preserving stem gating, float32 DC/peak stabilization, RMS analysis, and waveform peak generation with the Apache-2.0-licensed Hound crate. The existing Python/soundfile implementation remains an automatic fallback; phase repair, bass repair, denoise, and compressed-media conversion remain in their quality-focused Python/FFmpeg paths.
+
+**YouTube and local file import.** Paste a YouTube URL or drop an MP3, WAV, FLAC, or M4A directly onto the import bar. YouTube metadata is fetched once, overlong sources are rejected before download, and decoder-compatible inputs avoid an unnecessary intermediate WAV.
 
 **DAW-style waveform editor** with min/max sample rendering across all stems, shared normalization, zoom in/out/Fit, loop drag on the ruler, gold playhead overlay, and stem-aligned lanes.
 
 **Stem subset extraction.** Click stem chips to choose which stems to keep. Clicking from "all selected" snaps to "only this one"; subsequent clicks add or remove.
+
+**Multiple profiles per song.** Re-run the same source with different `Quality`, `Device`, `Clean`, or selected-stem settings and LayerLab keeps each result as a separate profile in the library. Exported filenames include the profile, and stem ZIPs include `LAYERLAB_PROFILE.txt`.
+
+**Device selection.** Choose `Auto`, `CPU`, Apple GPU (`mps`), or NVIDIA CUDA per job. Unavailable GPU options are disabled in the UI.
 
 **"Original" backing track.** When you pick a subset, a 7th lane contains the complement (full song minus selected stems), perfect for A/B reference without doubling.
 
@@ -68,9 +76,20 @@ StemDeck is free and **does not accept any money, sponsorship, or funding** - no
 
 **Live VU meters** per stem. Post-gain RMS via Web Audio analysers with peak hold and slow falloff.
 
-**Song analysis** including BPM (librosa beat tracker), key, scale, and confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and sample peak in dBFS.
+**Song analysis** including full-track BPM and beat-grid timestamps, key,
+scale, confidence (Albrecht-Shanahan profiles), integrated LUFS (BS.1770), and
+sample peak in dBFS. Every profile uses the accurate MIT-licensed Beat This!
+`final0` neural tracker for beats/downbeats and safely falls back to librosa.
 
-**Cancellable jobs.** Cancel mid-pipeline and the runner terminates the active subprocess immediately, deletes the partial job dir, and returns to ready.
+**Chord guide export.** LayerLab estimates quarter-note-grid chord labels from reliability-weighted piano/guitar chroma, a separate bass-root analysis, and per-source tuning correction. It fills isolated missed quarter notes, suppresses single-note-riff false positives and weak one-beat misreads, then exports MIDI or CSV. MIDI includes the detected audio lead-in and a per-beat tempo map so variable-tempo material stays aligned in a DAW. CQT/CENS reuse one spectrum and independent stem features run in a bounded two-worker pool without changing the resulting labels. BSD-3-Clause-licensed music21 validates each generated MIDI and writes a downloadable harmonic-analysis JSON with key, range, and Roman numerals.
+
+**Local quality benchmark.** `scripts/benchmark_audio.py` compares a source file against exported stems, reports stem-sum residual error, clipping risk, chord metadata coverage, and writes machine-readable JSON for regression tracking. Labelled reference stems add SI-SDR, SDR, crosstalk, dropout, and stereo-phase metrics so a reconstruction improvement cannot hide worse isolation. With a labelled `.lab` reference it uses the development-only MIT-licensed `mir_eval` dependency to report root, major/minor, triad, and tetrad WCSR plus segmentation metrics.
+
+**Non-blocking local queue.** Only Demucs inference occupies the shared CPU/GPU slot. Once stems, mix, and waveforms are ready, playback and downloads are enabled while chord/MIDI analysis continues in the background. Other jobs can acquire, analyze, and post-process concurrently. Every child process is tracked per job, so cancelling parallel analysis terminates all of its FFmpeg workers.
+
+**Safe mix rendering.** Mix exports use a no-make-up-gain look-ahead limiter only when peaks approach the output ceiling. WAV exports are finalized to a seekable temporary file before download, so the RIFF header contains the real frame count instead of a multi-hour placeholder duration.
+
+**Cancellable jobs.** Before audio is ready, cancellation terminates active subprocesses and removes partial output. Once stems are playable, cancelling or failing background chord analysis preserves the completed audio.
 
 **Library panel** with folder-based track organisation, drag-and-drop, search, and trash.
 
@@ -78,9 +97,9 @@ StemDeck is free and **does not accept any money, sponsorship, or funding** - no
 
 ## Honest Comparison
 
-StemDeck is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
+LayerLab is not trying to compete with commercial stem-separation products. It covers the core use case well and stops there. This table exists so you can make an informed choice rather than discover the gaps after the fact.
 
-| | StemDeck | Moises / LALAL.AI / similar |
+| | LayerLab | Moises / LALAL.AI / similar |
 |---|---|---|
 | **Price** | Free, forever | Freemium; credits or subscription required for regular use |
 | **Hosting** | Runs entirely on your machine | Cloud; audio must be uploaded to their servers |
@@ -88,32 +107,37 @@ StemDeck is not trying to compete with commercial stem-separation products. It c
 | **Internet required** | Only for YouTube download and first model fetch (~170 MB, cached after) | Always; no offline use |
 | **Privacy** | Audio never leaves your machine | Audio is uploaded and processed on third-party servers |
 | **Data retention** | You control it; delete anytime | Governed by their privacy policy and retention period |
-| **Stem model** | Demucs `htdemucs_6s` (open source, Meta AI) | Proprietary models, regularly updated, generally higher quality |
+| **Stem model** | Demucs `htdemucs_6s` / `htdemucs_ft` depending on quality preset (open source, Meta AI) | Proprietary models, regularly updated, generally higher quality |
 | **Stem count** | 6 (vocals, drums, bass, guitar, piano, other) | Up to 10 depending on service and plan |
-| **Input formats** | YouTube URL, MP3, WAV | MP3, WAV, FLAC, M4A, and more depending on service |
+| **Input formats** | YouTube URL, MP3, WAV, FLAC, M4A | MP3, WAV, FLAC, M4A, and more depending on service |
 | **Processing speed** | Depends on your hardware; fast with a GPU, slow on CPU only | Fast regardless of your hardware (runs on their servers) |
-| **Batch processing** | One job at a time | Yes, on paid plans |
+| **Batch processing** | Local queue with background processing; concurrency auto-limited by CPU/GPU memory | Yes, on paid plans |
+| **Diagnostics** | In-app per-job/session logs with stage, progress, warnings, and persisted failure details | Varies |
 | **Mobile app** | No | iOS and Android |
-| **Extra features** | No (no pitch shift, chord detection, lyrics, click track, BPM tap) | Yes, varies by product |
+| **Extra features** | BPM/beat grid, chord MIDI guide, local quality benchmark; no lyrics, pitch shift, or mobile tooling | Yes, varies by product |
 | **Polish** | Functional, hobby-grade UI | Polished, production-grade apps |
 | **Source code** | Open source, forkable, self-hostable | Closed source |
 
-If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or just want something that runs locally with no strings attached, StemDeck is enough.
+If you need speed, quality, mobile access, or the extra musician tooling, the commercial products are worth the money. If you want stems for personal study, prefer to keep audio private, or want local processing without an account or subscription, LayerLab covers that use case.
 
 ---
 
 ## Download
 
-Pre-built installers and zips are attached to each [GitHub Release](https://github.com/stemdeckapp/stemdeck/releases).
+Unofficial fork test builds are attached to [GitHub Releases](https://github.com/bassmicrobe/stemdeck/releases). For production use, prefer a Developer ID signed and notarized macOS build.
 
 **macOS**
 
 | DMG | GPU | Chip |
 |---|---|---|
-| `StemDeck-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
-| `StemDeck-macOS-x64.dmg` | CPU only | Intel |
+| `LayerLab-macOS-arm64.dmg` | Apple Silicon (MPS) | M1 and later |
+| `LayerLab-macOS-x64.dmg` | CPU only | Intel |
 
-Open the DMG, drag StemDeck to Applications, and launch it. On first launch the setup screen downloads the Python runtime (~500 MB), FFmpeg, and the Demucs model (~170 MB). Subsequent launches skip setup and start in seconds. No Python or system dependencies required.
+Open the DMG, drag LayerLab to Applications, and launch it. The macOS DMG
+contains the Python runtime, so first launch verifies and extracts it locally
+without requiring a GitHub runtime download. FFmpeg/ffprobe and AI model
+weights are fetched when needed. Subsequent launches skip setup and start in
+seconds. No Python or system dependencies are required.
 
 macOS may show a Gatekeeper prompt on first open — right-click the app and choose Open to bypass it.
 
@@ -121,10 +145,50 @@ macOS may show a Gatekeeper prompt on first open — right-click the app and cho
 
 | Zip | GPU | Approx. size |
 |---|---|---|
-| `StemDeck-Windows-x64.zip` | CPU only | ~700 MB |
-| `StemDeck-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
+| `LayerLab-Windows-x64.zip` | CPU only | ~700 MB |
+| `LayerLab-Windows-x64.NVIDIA.zip` | NVIDIA CUDA | ~1.6 GB |
 
-Extract the zip anywhere, run `StemDeck.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
+Extract the zip anywhere, run `LayerLab.exe`. On first launch the app verifies the bundled Python runtime and downloads FFmpeg and the Demucs model (~170 MB). Subsequent launches skip this and start in seconds. Everything is self-contained; no Python or system dependencies required.
+
+Windows installers are generated by wrapping the completed portable folder with Inno Setup 6:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName LayerLab-Windows-x64.NVIDIA `
+  -StripVenv
+
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/make-installer.ps1 `
+  -PackageName LayerLab-Windows-x64 `
+  -CpuOnly `
+  -StripVenv
+```
+
+The installer lands in `dist/*-Setup.exe`, installs per-user under `%LocalAppData%\Programs\LayerLab`, creates Start Menu/Desktop shortcut entries, and includes `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`, `THIRD_PARTY_LICENSES.txt`, and `THIRD_PARTY_INVENTORY.json`.
+
+### Release Signing / Notarization
+
+Local builds are unsigned unless signing credentials are provided. Release scripts support optional signing without storing secrets in the repository:
+
+- macOS app signing: set `APPLE_SIGNING_IDENTITY` before `scripts/macos/make-app.sh`.
+- macOS DMG signing: set `APPLE_SIGNING_IDENTITY` before `scripts/macos/make-dmg.sh`.
+- macOS notarization: set `APPLE_NOTARIZE=1` and either `APPLE_NOTARY_KEYCHAIN_PROFILE` or `APPLE_ID`, `APPLE_TEAM_ID`, and `APPLE_APP_SPECIFIC_PASSWORD` before `scripts/macos/make-dmg.sh`.
+- Windows executable signing: set `WINDOWS_SIGN_CERT_PATH` and optionally `WINDOWS_SIGN_CERT_PASSWORD`, `WINDOWS_SIGNTOOL_PATH`, and `WINDOWS_TIMESTAMP_URL` before `scripts/windows/make-portable.ps1`.
+- Windows installer signing: use the same variables before `scripts/windows/make-installer.ps1`; the script signs both `LayerLab.exe` and the generated installer when credentials are present.
+
+Unsigned internal builds are acceptable for local testing, but public macOS builds should be Developer ID signed and notarized. Public Windows builds should be Authenticode signed when possible.
+
+### Distribution Size and Storage
+
+The desktop shell prepares Python, FFmpeg/ffprobe, and model assets during
+first-run setup or first use. The self-contained macOS DMG bundles the Python
+runtime and extracts it locally; internet access is still required when
+FFmpeg/ffprobe or AI model weights are not already cached.
+
+- macOS first-run setup extracts the bundled runtime pack, then obtains
+  FFmpeg/ffprobe and model weights when needed.
+- Windows portable builds include a Python environment; the NVIDIA variant is larger because CUDA/PyTorch wheels are large.
+- Stem WAVs are large: a 10-minute stereo 16-bit WAV is about 101 MiB, and a 10-minute stereo float32 WAV is about 202 MiB before multiplying by the number of stems.
+- `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.txt`, `THIRD_PARTY_LICENSES.txt`, and `THIRD_PARTY_INVENTORY.json` are copied into release packages. Runtime dependency inventories are regenerated from the exact artifact.
 
 ---
 
@@ -138,9 +202,9 @@ Extract the zip anywhere, run `StemDeck.exe`. On first launch the app verifies t
 
 <br>
 
-StemDeck is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses **[Demucs](https://github.com/facebookresearch/demucs)** (`htdemucs_6s`), Meta AI's open-source 6-stem neural network. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. BPM detection and key analysis run on **[librosa](https://librosa.org)**; loudness measurement uses **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
+LayerLab is built on **[Python 3.12](https://python.org)** managed via **[uv](https://github.com/astral-sh/uv)**, with a **[FastAPI](https://fastapi.tiangolo.com)** backend serving REST and Server-Sent Events. Stem separation uses the MIT-licensed **[Demucs](https://github.com/facebookresearch/demucs)** code (`htdemucs_6s` for Standard, `htdemucs_ft` for High / Max / Ultra) inside reusable worker processes; the downloaded pretrained weights have separate personal/research-use terms described in the license section below. YouTube audio is fetched via **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**; transcoding and mixing use **[FFmpeg](https://ffmpeg.org)**. Neural beat/downbeat detection uses **[Beat This!](https://github.com/CPJKU/beat_this)** with a librosa fallback; librosa also provides key/chroma features, while **[pyloudnorm](https://github.com/csteinmetz1/pyloudnorm)** measures loudness (ITU-R BS.1770). The macOS and Windows desktop shells are **[Tauri v2](https://tauri.app)** (Rust/WKWebView on macOS, Rust/WebView2 on Windows). Their Apache-2.0-licensed **[Hound](https://github.com/ruuda/hound)** sidecar handles WAV/PCM gating, stabilization, RMS, and peak generation without lowering float32 stems to integer PCM. The frontend is vanilla JS with the Web Audio API, no framework and no build step; waveforms are rendered on `<canvas>` using min/max sample rendering.
 
-*Thanks to the creators and maintainers of all the open-source libraries that make StemDeck possible.*
+*Thanks to the creators and maintainers of all the open-source libraries that make LayerLab possible.*
 
 ---
 
@@ -148,7 +212,8 @@ StemDeck is built on **[Python 3.12](https://python.org)** managed via **[uv](ht
 
 ### macOS Native App
 
-Requires Rust, Node.js, and Python 3.12. Builds a self-contained `.app` that downloads its own runtime on first launch.
+Requires Rust, Node.js, and Python 3.10-3.13. Builds a self-contained `.app`
+with the generated runtime archive embedded for offline runtime installation.
 
 ```sh
 # First time only — add the cross-compilation targets
@@ -166,21 +231,21 @@ ARCH=x64 scripts/macos/make-app.sh
 ARCH=x64 scripts/macos/make-dmg.sh
 ```
 
-The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/StemDeck.app`. The DMG lands at `.build/macos-dist/StemDeck-macOS-<arch>.dmg`.
+The `.app` lands at `desktop/src-tauri/target/<target>/release/bundle/macos/LayerLab.app`. The DMG lands at `.build/macos-dist/LayerLab-macOS-<arch>.dmg`.
 
 To run a fresh build directly without the DMG:
 
 ```sh
-open desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/StemDeck.app
+open "desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/LayerLab.app"
 ```
 
 If macOS blocks the app with a Gatekeeper prompt, run:
 
 ```sh
-xattr -dr com.apple.quarantine desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/StemDeck.app
+xattr -dr com.apple.quarantine "desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/LayerLab.app"
 ```
 
-> **Note:** To test a clean first-launch during development, you can wipe previous app data first: `rm -rf ~/Library/Application\ Support/StemDeck`. Don't do this on a real install.
+> **Note:** To test a clean first-launch during development, you can wipe previous app data first: `rm -rf ~/Library/Application\ Support/LayerLab`. Don't do this on a real install.
 
 ---
 
@@ -193,7 +258,7 @@ Python 3.12 or newer, `ffmpeg` on your PATH, and [uv](https://github.com/astral-
 #### macOS / Linux (one-shot)
 
 ```sh
-git clone https://github.com/stemdeckapp/stemdeck stemdeck && cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck layerlab && cd layerlab
 ./run.sh setup     # installs ffmpeg + uv, runs uv sync
 ./run.sh start
 ```
@@ -209,7 +274,7 @@ Install prerequisites:
 - [ffmpeg](https://ffmpeg.org/download.html) — `winget install Gyan.FFmpeg` (or Chocolatey: `choco install ffmpeg`)
 
 ```powershell
-git clone https://github.com/stemdeckapp/stemdeck stemdeck; cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck layerlab; cd layerlab
 uv sync
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
@@ -231,7 +296,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 #### Manual (any platform)
 
 ```sh
-git clone https://github.com/stemdeckapp/stemdeck stemdeck && cd stemdeck
+git clone https://github.com/bassmicrobe/stemdeck layerlab && cd layerlab
 uv sync
 uv run uvicorn app.main:app --reload
 ```
@@ -254,19 +319,63 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 ./run.sh status     # is it running?
 ```
 
+If `ffmpeg` is not installed on your PATH, `./run.sh start` and the Python
+runtime fall back to an `imageio-ffmpeg` binary automatically.
+
 ---
 
 ## How to Use
 
 1. On the import bar, click stem chips to choose which stems to extract (defaults to all 6).
-2. Paste a YouTube URL **or** drop an MP3/WAV file, then click **Process**.
+2. Paste a YouTube URL **or** drop an MP3/WAV/FLAC/M4A file, then click **Process**.
 3. Wait through `Uploading...` / `Downloading...` → `Analyzing...` → `Separating...` → `Mixing tracks...`.
-4. When done, the studio dashboard appears. If you picked a subset, the first lane is **Original** (full song minus your selection); the rest are your isolated stems.
-5. Mix: **Play/Pause/Stop** controls the master transport. **M** mutes a stem, **S** solos it (additive; multiple solos stay audible), **Monitor** solos only that stem and clears others. The volume fader moves 1:1 with drag; double-click resets to 0 dB; `Shift+wheel` gives coarse adjustment and plain wheel gives fine. The **Reset**, **Mute**, and **Solo** toolbar buttons act on all stems at once.
-6. Drag on the ruler to define a loop region; click `Loop` to enable. Use `+` / `-` / `Fit` or `Ctrl/Cmd+wheel` to zoom.
-7. **Download Mix** in the footer gives you a WAV of your selected stems summed together.
+4. You can add multiple tracks to the queue. Once a completed track is selected, later jobs continue in the background so preview and downloads stay available.
+5. When done, the studio dashboard appears. If you picked a subset, the first lane is **Original** (full song minus your selection); the rest are your isolated stems.
+6. Mix: **Play/Pause/Stop** controls the master transport. **M** mutes a stem, **S** solos it (additive; multiple solos stay audible), **Monitor** solos only that stem and clears others. The volume fader moves 1:1 with drag; double-click resets to 0 dB; `Shift+wheel` gives coarse adjustment and plain wheel gives fine. The **Reset**, **Mute**, and **Solo** toolbar buttons act on all stems at once.
+7. Drag on the ruler to define a loop region; click `Loop` to enable. Use `+` / `-` / `Fit` or `Ctrl/Cmd+wheel` to zoom.
+8. **Download Mix** in the footer gives you a WAV of your selected stems summed together.
 
 **Keyboard shortcuts:** `Space` play/pause · `[` seek -5s · `]` seek +5s · `L` loop · `I` loop in · `O` loop out
+
+---
+
+## Quality Benchmark
+
+Use the local benchmark helper when comparing quality presets, denoise settings, or phase/bass repair changes. It decodes the source and stem WAVs through ffmpeg while preserving stereo channels, sums the stems, and reports residual error and actual per-channel clipping risk as JSON.
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --source /path/to/original.wav \
+  --stems-dir jobs/<job-id>/stems \
+  --metadata jobs/<job-id>/metadata.json \
+  --out .build/benchmarks/<job-id>.json
+```
+
+For an unswept or in-progress job that still has `source.*` in its job directory:
+
+```sh
+uv run python scripts/benchmark_audio.py --job-dir jobs/<job-id>
+```
+
+To evaluate chord recognition against a labelled `start_seconds end_seconds C:maj` reference:
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-chords /path/to/reference.lab
+```
+
+For meaningful separation scoring, provide ground-truth stem WAVs with matching names (`vocals.wav`, `bass.wav`, and so on):
+
+```sh
+uv run python scripts/benchmark_audio.py \
+  --job-dir jobs/<job-id> \
+  --reference-stems-dir /path/to/labelled-stems
+```
+
+This reports SI-SDR/SDR, strongest cross-stem leakage, short-window dropout percentage, and stereo phase-correlation error per stem. Stem-sum residual alone measures reconstruction and can incorrectly reward bleed.
+
+Completed jobs may have their source audio removed to save disk space. In that case, pass `--source` explicitly if you want stem-sum residual metrics; without a source, the report still summarizes available stems and chord metadata.
 
 ---
 
@@ -274,14 +383,40 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `STEMDECK_QUALITY_PRESET` | `standard` | Separation quality preset: `standard`, `high`, `max`, or `ultra`. `high` / `max` / `ultra` use slower Demucs settings and preserve 32-bit float WAV output. |
 | `STEMDECK_DEMUCS_DEVICE` | auto | Force Torch device: `cuda`, `mps`, or `cpu`. |
-| `STEMDECK_DEMUCS_MODEL` | `htdemucs_6s` | Demucs model name. |
+| `STEMDECK_PIPELINE_CONCURRENCY` | auto | Demucs inference jobs to run in parallel. Auto keeps CUDA/MPS at `1` for memory safety and uses `2` only on roomy CPU-only machines. Non-Demucs stages are not held by this slot. Set `1`-`4` to override. |
+| `STEMDECK_PIPELINE_LOCK` | system temp file | Base path for cross-process Demucs-slot locks. LayerLab creates one shared slot per configured concurrency level. |
+| `STEMDECK_DEMUCS_MODEL` | preset-dependent | Demucs model name. `standard` uses `htdemucs_6s`; `high` / `max` / `ultra` use `htdemucs_ft` unless overridden. |
+| `STEMDECK_DEMUCS_SHIFTS` | preset-dependent | Number of Demucs shift averages per model. `htdemucs_ft` is a four-model bag. Current defaults are High `1` (4 passes), Max `2` (8 passes), and Ultra `4` (16 passes). Set `16` explicitly only for the former 64-pass research setting. |
+| `STEMDECK_DEMUCS_FLOAT32` | preset-dependent | Write Demucs stems as 32-bit float WAVs when truthy. |
+| `STEMDECK_DEMUCS_CLIP_MODE` | preset-dependent | Demucs output clipping mode: `rescale`, `clamp`, or `none`. |
+| `STEMDECK_DEMUCS_OVERLAP` | Standard/High `0.20`, Max/Ultra `0.25` | Demucs segment overlap. The selected value is always passed explicitly so upstream defaults cannot silently change runtime. |
+| `STEMDECK_DEMUCS_SEGMENT` | `0` | Optional Demucs segment length override. `0` leaves the Demucs default untouched. |
+| `STEMDECK_DEMUCS_JOBS` | auto | Demucs CPU chunk workers. Auto uses `0` for MPS/CUDA/macOS and whenever multiple CPU separations are enabled; a roomy CPU-only host limited to one separation may use `2`. |
+| `LAYERLAB_DEMUCS_PERSISTENT_WORKER` | `1` | Keep Demucs models loaded in bounded reusable worker processes. Set `0` to use the one-process-per-track CLI path. Startup/protocol failures fall back automatically. |
+| `LAYERLAB_DEMUCS_WORKER_IDLE_TTL` | `900` | Release an unused loaded model after this many seconds. `0` disables TTL eviction. |
+| `LAYERLAB_DEMUCS_WORKER_MIN_FREE_MEMORY_GB` | `2` | Release the oldest idle model when available physical memory falls below this threshold. `0` disables pressure eviction. |
+| `LAYERLAB_DEMUCS_WORKER_HEARTBEAT_INTERVAL` | `15` | Worker heartbeat interval during long inference chunks. |
+| `LAYERLAB_PCM_WORKER_ENABLED` | `1` | Use the Rust WAV/PCM sidecar for gate, stabilization, RMS, and waveform peaks when available. Set `0` to force the Python/soundfile path. |
+| `LAYERLAB_PCM_WORKER` | auto-detected | Explicit path to `layerlab-pcm` or `layerlab-pcm.exe`. Desktop builds set this to the bundled sidecar. |
+| `LAYERLAB_PCM_WORKER_TIMEOUT` | `600` | Per-command Rust PCM sidecar timeout in seconds. |
+| `STEMDECK_STEM_POST_LIMITER_PEAK` | `0.98` | Peak ceiling used by stem stabilization and rendered mix limiting. |
+| `STEMDECK_MIX_LIMITER_ATTACK_MS` | `5` | Look-ahead attack used only for rendered stem mixes. |
+| `STEMDECK_MIX_LIMITER_RELEASE_MS` | `50` | Release time used only for rendered stem mixes. |
+| `STEMDECK_BASS_REPAIR` | `high`/`max`/`ultra`: on, `standard`: off | Repair short bass dropouts after separation by blending a low-frequency residual from the original mix. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_BASS_REPAIR_LOW_PASS_HZ` | `180` | Low-pass cutoff used for the bass residual candidate. |
+| `STEMDECK_BASS_REPAIR_TRIGGER_RATIO` | `1.9` | How much stronger the residual must be than the bass stem before repair blends in. Higher is more conservative. |
+| `STEMDECK_BASS_REPAIR_MAX_BLEND` | `0.65` | Maximum amount of residual blended into detected bass dropouts. |
+| `STEMDECK_PHASE_REPAIR` | `high`/`max`/`ultra`: on, `standard`: off | Repair stem-sum phase/residual mismatch against the original source. Set `0` to disable or `1` to force-enable. |
+| `STEMDECK_PHASE_REPAIR_MAX_BLEND` | `standard`: `0.42`, `high`: `0.65`, `max`: `0.90`, `ultra`: `0.95` | Maximum source-minus-stem-sum residual blended back into active stems. Higher reconstructs the source more strongly but can increase bleed. |
+| `STEMDECK_PHASE_REPAIR_FLOOR_DB` | `-58` | Residual floor below which phase repair stays inactive. Lower values are less conservative. |
 | `STEMDECK_JOBS_DIR` | `./jobs` | Where job directories land. |
 | `STEMDECK_DATA_DIR` | (none) | Portable mode root; sets all sub-dirs below to live inside it. |
 | `STEMDECK_CACHE_DIR` | `<data>/cache` | Torch model cache directory. |
 | `STEMDECK_DOWNLOADS_DIR` | `<data>/downloads` | yt-dlp download scratch space. |
 | `STEMDECK_MODELS_DIR` | `<data>/models` | Demucs model weights directory. |
-| `STEMDECK_LOGS_DIR` | `<data>/logs` | Log file output directory. |
+| `STEMDECK_LOGS_DIR` | `<data>/logs` | Reserved log file output directory; structured job diagnostics are also available in the in-app Logs viewer. |
 | `STEMDECK_FFMPEG_DIR` | (none) | Directory containing a bundled ffmpeg binary. |
 | `STEMDECK_FFMPEG` | `ffmpeg` | Path to the ffmpeg executable. |
 | `STEMDECK_FFPROBE` | `ffprobe` | Path to the ffprobe executable. |
@@ -291,6 +426,7 @@ Stems land in `./jobs/` on the host. Demucs weights are cached in a named volume
 | `STEMDECK_TIMEOUT_FFMPEG` | `300` | ffmpeg subprocess timeout (seconds). |
 | `STEMDECK_TIMEOUT_ANALYZE` | `120` | Audio analysis timeout (seconds). |
 | `STEMDECK_TIMEOUT_DEMUCS_STALL` | `1800` | Kill Demucs if no output for this many seconds. |
+| `STEMDECK_TIMEOUT_DEMUCS_TOTAL` | `43200` | Hard Demucs runtime limit (12 hours). Set `0` to disable. |
 
 `run.sh` also reads: `HOST` (default `127.0.0.1`), `PORT` (default `8765`), `RELOAD=1` (enable uvicorn auto-reload for development), `FOREGROUND=1` (run in foreground instead of backgrounding).
 
@@ -350,13 +486,56 @@ Job state is in-memory. Restart the server and the job list resets, but files pe
 
 ## Disclaimer
 
-StemDeck is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
+LayerLab is a local audio stem separation tool intended for personal study, research, and experimentation. It is not a downloading service. It does not store, cache, or redistribute any audio content. All processing runs on the user's own machine and no audio is transmitted anywhere.
 
 YouTube URL support is provided via [yt-dlp](https://github.com/yt-dlp/yt-dlp) as a convenience. Automated downloading may violate YouTube's Terms of Service. You, the user, are solely responsible for ensuring you have the right to process any audio you submit, complying with the terms of service of any site you download from, and respecting the copyright of the material you work with.
 
 You are also responsible for following the licenses of the underlying tools this project depends on (yt-dlp, Demucs, FFmpeg, PyTorch, and others listed in `pyproject.toml`).
 
-The author(s) of StemDeck provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
+The author(s) of LayerLab provide this software "as is", without warranty of any kind, and accept no responsibility or liability for how it is used.
+
+---
+
+## License and Attribution
+
+LayerLab is based on the original [StemDeck](https://github.com/stemdeckapp/stemdeck) project. The original StemDeck project is licensed under the [Apache License 2.0](LICENSE), and this fork retains that license and attribution.
+
+See [NOTICE](NOTICE) for the upstream attribution and modification notice, and
+[OSS_COMPONENTS.md](OSS_COMPONENTS.md) for the music-analysis OSS review and
+license decisions. The current macOS arm64 audit is generated from the actual
+runtime and target-specific Rust graph:
+
+- [component inventory](packaging/generated/macos-arm64/THIRD_PARTY_NOTICES.md)
+- [machine-readable inventory](packaging/generated/macos-arm64/THIRD_PARTY_INVENTORY.json)
+- [full license and notice texts](packaging/generated/macos-arm64/THIRD_PARTY_LICENSES.txt)
+
+Release builds regenerate these files and fail if a packaged Python/Rust
+component has no declared license or usable license text.
+
+This repository is an unofficial modified fork test build, not an official upstream release. It is not affiliated with or endorsed by the original StemDeck project. Apache-2.0 does not grant trademark rights, so public distributions should avoid implying upstream endorsement.
+
+### Commercial Use
+
+Apache License 2.0 does not prohibit commercial use, paid distribution, internal business use, or distribution of modified versions of the code it covers. That permission does not automatically cover separately licensed binaries, model weights, fonts, media, trademarks, or user-supplied audio.
+
+Do not remove `LICENSE`, `NOTICE`, or packaged third-party notices. Do not present this fork as an official StemDeck release, official commercial offering, certified build, or upstream-supported product. Trademark-like use of the StemDeck/STEMDECK name or logos is not granted by Apache-2.0 except as needed to describe the origin of the work and reproduce NOTICE content.
+
+The Demucs source code is MIT-licensed, but Demucs maintainers state that the
+published pretrained weights are not covered by that MIT license and are
+provided for personal/research usage because of training-dataset restrictions.
+LayerLab downloads those weights on first separation and does not bundle them;
+that technical separation does not grant commercial model rights. A commercial
+release or hosted service should obtain permission, use weights with suitable
+commercial terms, or disable the default pretrained-weight workflow.
+
+Packaged LayerLab runtimes remove the GPL-enabled FFmpeg executable embedded in
+the `imageio-ffmpeg` wheel. Desktop first-run setup instead downloads the
+disclosed FFmpeg build directly from its provider. The default macOS
+`8.1.1-tessus` build is GPL-3.0-or-later. Anyone who mirrors or rebundles an
+FFmpeg executable must satisfy the exact build's corresponding-source and
+notice obligations.
+
+If you sell, host, bundle, or provide services around this software, you are responsible for verifying the exact licenses and terms of the shipped/downloaded FFmpeg build, PyTorch, Demucs code and weights, yt-dlp, Python runtime, Tauri/Rust crates, fonts, assets, and any other components, and for ensuring that users have the rights to process the audio they submit. This documentation is not legal advice.
 
 ---
 
@@ -364,12 +543,8 @@ The author(s) of StemDeck provide this software "as is", without warranty of any
 
 | Platform | Link |
 |---|---|
-| GitHub | [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) |
-| Discord | [discord.gg/2MVsWqaPRe](https://discord.gg/2MVsWqaPRe) |
-| Reddit | [r/StemDeckApp](https://www.reddit.com/r/StemDeckApp/) |
-| Instagram | [@stemdeck](https://www.instagram.com/stemdeck) |
-| X | [@StemDeckApp](https://x.com/StemDeckApp) |
-| Website | [stemdeck.app](https://stemdeck.app) *(coming soon)* |
+| Fork GitHub | [bassmicrobe/stemdeck](https://github.com/bassmicrobe/stemdeck) |
+| Original project | [stemdeckapp/stemdeck](https://github.com/stemdeckapp/stemdeck) |
 
 ---
 
@@ -395,10 +570,10 @@ Issues, feature suggestions, and pull requests are welcome. See open issues for 
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=stemdeckapp%2Fstemdeck&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=stemdeckapp/stemdeck&type=date&legend=top-left" />
- </picture>
+<a href="https://www.star-history.com/?repos=bassmicrobe%2Fstemdeck&type=date&legend=top-left">
+  <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&legend=top-left" />
+   <img alt="Fork Star History Chart" src="https://api.star-history.com/chart?repos=bassmicrobe/stemdeck&type=date&legend=top-left" />
+  </picture>
 </a>

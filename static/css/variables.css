@@ -3,48 +3,53 @@
   color-scheme: dark;
 
   /* Surfaces */
-  --bg:            #0b0f12;
-  --bg-2:          #0f1418;
-  --panel:         #131a1f;
-  --panel-2:       #182026;
-  --panel-3:       #1d262d;
-  --border:        #232c34;
-  --border-strong: #2e3942;
+  --bg:            #08050f;
+  --bg-2:          rgba(15,9,27,0.9);
+  --panel:         rgba(20,13,35,0.92);
+  --panel-2:       rgba(28,18,48,0.94);
+  --panel-3:       rgba(40,25,67,0.96);
+  --border:        rgba(190,145,255,0.17);
+  --border-strong: rgba(190,145,255,0.36);
 
   /* Text */
-  --fg:      #e8ecf0;
-  --fg-2:    #c2c9d1;
-  --muted:   #8a939c;
-  --muted-2: #5d666e;
+  --fg:      #fbf7ff;
+  --fg-2:    #ddd1f2;
+  --muted:   #a294b8;
+  --muted-2: #70637f;
 
   /* Stem colours */
-  --vocals: #ef4444;
-  --drums:  #f97316;
-  --bass:   #eab308;
-  --guitar: #22c55e;
-  --piano:  #a855f7;
-  --other:  #9ca3af;
+  --vocals: #ff3d8b;
+  --drums:  #ff7a1a;
+  --bass:   #eaff32;
+  --guitar: #38ff8f;
+  --piano:  #7c8cff;
+  --other:  #42e8ff;
 
   /* Accent */
-  --accent:   #f4b740;
-  --accent-2: #d99a2b;
+  --accent:   #ad72ff;
+  --accent-2: #ff66c4;
+  --action:   #7484d8;
+  --action-2: #a47fd3;
+  --neon-pink:   #ff3d8b;
+  --neon-orange: #ff7a1a;
+  --neon-blue:   #42e8ff;
 
   /* Legacy compat aliases used by waves.css / player.js */
   --gold:        var(--accent);
-  --gold-bright: #f8c054;
-  --gold-soft:   rgba(244,183,64,0.16);
-  --gold-line:   rgba(244,183,64,0.28);
+  --gold-bright: var(--accent-2);
+  --gold-soft:   rgba(173,114,255,0.16);
+  --gold-line:   rgba(173,114,255,0.32);
   --ink:         var(--fg);
   --ink-dim:     var(--fg-2);
   --ink-faint:   var(--muted);
   --line:        var(--border);
   --line-strong: var(--border-strong);
   --glass-line:  var(--border);
-  --danger:      #d65a4a;
-  --focus-ring:  rgba(236,236,236,0.55);
+  --danger:      #ff5470;
+  --focus-ring:  rgba(173,114,255,0.62);
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-sans: 'Space Grotesk', -apple-system, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /* Layout */
@@ -58,7 +63,10 @@
   --t-fast: 80ms;
   --t-base: 120ms;
   --easing: cubic-bezier(0.2,0.8,0.2,1);
-  --shadow-panel: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-panel:
+    0 0 0 1px rgba(173,114,255,0.14),
+    0 18px 46px rgba(0,0,0,0.52),
+    0 0 34px rgba(173,114,255,0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {

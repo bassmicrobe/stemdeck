@@ -8,8 +8,9 @@ from pathlib import Path
 
 from yt_dlp import YoutubeDL
 
-from app.core.config import MAX_DURATION_SEC
+from app.core.config import BACKGROUND_CPU_THREADS, MAX_DURATION_SEC
 from app.core.models import Job, JobCancelled, _set
+from app.pipeline.progress import set_stage_progress
 
 logger = logging.getLogger("stemdeck.download")
 
@@ -73,6 +74,20 @@ _ALLOWED_EXTRACTORS = ["youtube", "soundcloud"]
 
 class InvalidYouTubeURL(ValueError):
     """Raised at the API boundary for URLs we won't hand to yt-dlp."""
+
+
+def _duration_match_filter(info: dict, *, incomplete: bool = False) -> str | None:
+    """Reject overlong media after extraction but before bytes are downloaded."""
+    if incomplete:
+        return None
+    try:
+        duration = float(info.get("duration") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if duration <= MAX_DURATION_SEC:
+        return None
+    mins = MAX_DURATION_SEC // 60
+    return f"Video is {int(duration // 60)} min -- limit is {mins} min"
 
 
 def validate_youtube_url(url: str) -> str:
@@ -151,18 +166,7 @@ def normalize_youtube_url(url: str) -> str:
 def download(job: Job, url: str, job_dir: Path) -> Path:
     url = normalize_youtube_url(url)
     logger.info("[%s] download starting: %s", job.id, url)
-    _set(job, status="downloading", progress=0.0, stage="Processing...")
-
-    # Fetch metadata first (no download) so we can reject videos that are
-    # too long before wasting bandwidth and disk.
-    with YoutubeDL(
-        {"quiet": True, "noplaylist": True, "allowed_extractors": _ALLOWED_EXTRACTORS}
-    ) as ydl:
-        meta = ydl.extract_info(url, download=False) or {}
-    duration = meta.get("duration") or 0
-    if duration > MAX_DURATION_SEC:
-        mins = MAX_DURATION_SEC // 60
-        raise RuntimeError(f"Video is {int(duration // 60)} min -- limit is {mins} min")
+    set_stage_progress(job, "acquire", 0.0, status="downloading", stage="Fetching metadata...")
 
     def hook(d: dict) -> None:
         # yt-dlp calls this on each chunk; raising here aborts the download.
@@ -173,9 +177,9 @@ def download(job: Job, url: str, job_dir: Path) -> Path:
             total = d.get("total_bytes") or d.get("total_bytes_estimate")
             if total:
                 p = float(d.get("downloaded_bytes", 0)) / float(total)
-                _set(job, progress=p, stage=f"Downloading {int(p * 100)}%")
+                set_stage_progress(job, "acquire", p, stage=f"Downloading {int(p * 100)}%")
         elif d.get("status") == "finished":
-            _set(job, progress=1.0, stage="Download complete")
+            set_stage_progress(job, "acquire", 1.0, stage="Download complete")
 
     # No postprocessors -- Demucs reads the raw audio container (webm/m4a/opus/...)
     # directly via torchaudio + ffmpeg. Skipping the WAV transcode saves the slowest
@@ -188,6 +192,12 @@ def download(job: Job, url: str, job_dir: Path) -> Path:
         "noplaylist": True,
         "allowed_extractors": _ALLOWED_EXTRACTORS,
         "progress_hooks": [hook],
+        # yt-dlp invokes this after metadata extraction and before media I/O,
+        # avoiding the former duplicate extract_info network round trip.
+        "match_filter": _duration_match_filter,
+        "concurrent_fragment_downloads": max(1, min(4, BACKGROUND_CPU_THREADS)),
+        "fragment_retries": 3,
+        "socket_timeout": 30,
     }
     info: dict = {}
     for attempt in range(_MAX_RETRIES + 1):
@@ -215,9 +225,9 @@ def download(job: Job, url: str, job_dir: Path) -> Path:
 
     _set(
         job,
-        title=info.get("title") or meta.get("title"),
-        duration_sec=info.get("duration") or duration,
-        thumbnail=info.get("thumbnail") or meta.get("thumbnail"),
+        title=info.get("title"),
+        duration_sec=info.get("duration"),
+        thumbnail=info.get("thumbnail"),
     )
 
     raw_tags = [

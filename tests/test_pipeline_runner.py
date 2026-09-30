@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,7 +9,14 @@ import pytest
 
 from app.core.models import Job, JobCancelled
 from app.core.registry import _jobs
-from app.pipeline.runner import run_local_pipeline, run_pipeline
+from app.pipeline.runner import (
+    _pipeline_lock_files,
+    _prepare_demucs_source,
+    _prepare_local_source,
+    _run_common,
+    run_local_pipeline,
+    run_pipeline,
+)
 
 
 @pytest.mark.asyncio
@@ -33,6 +42,50 @@ async def test_pipeline_marks_done_on_success(tmp_path: Path):
 
     assert job.status == "done"
     assert job.progress == 1.0
+
+
+@pytest.mark.asyncio
+async def test_pipeline_preserves_ready_audio_when_background_analysis_fails(tmp_path: Path):
+    job = Job(id="abcdefabcde1")
+
+    def fail_after_audio_ready(job_arg, *_args):
+        job_dir = tmp_path / job_arg.id
+        stems_dir = job_dir / "stems"
+        stems_dir.mkdir(parents=True, exist_ok=True)
+        (stems_dir / "vocals.wav").write_bytes(b"ready")
+        job_arg.stems = [
+            {"name": "vocals", "url": f"/api/jobs/{job_arg.id}/stems/vocals.wav"}
+        ]
+        job_arg.audio_ready = True
+        raise RuntimeError("chord model crashed")
+
+    with patch("app.pipeline.runner._run_blocking", side_effect=fail_after_audio_ready):
+        await run_pipeline(job, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path)
+
+    assert job.status == "done"
+    assert job.analysis_ready is True
+    assert "preserved" in (job.analysis_error or "")
+    assert (tmp_path / job.id / "stems" / "vocals.wav").read_bytes() == b"ready"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_acquisition_can_overlap_between_jobs(tmp_path: Path):
+    """Only Demucs is serialized; front-half work for queued songs can overlap."""
+    barrier = threading.Barrier(2, timeout=2.0)
+    first = Job(id="abcdefabcda1")
+    second = Job(id="abcdefabcda2")
+
+    def acquire_together(*args, **kwargs):
+        barrier.wait()
+
+    with patch("app.pipeline.runner._run_blocking", side_effect=acquire_together):
+        await asyncio.gather(
+            run_pipeline(first, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path),
+            run_pipeline(second, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", tmp_path),
+        )
+
+    assert first.status == "done"
+    assert second.status == "done"
 
 
 @pytest.mark.asyncio
@@ -136,3 +189,127 @@ async def test_local_pipeline_error_cleans_up_job_dir(tmp_path: Path):
 
     assert job.status == "error"
     assert not (tmp_path / job.id).exists(), "job dir should be removed on local error"
+
+
+def test_machine_lock_uses_one_file_per_concurrency_slot(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    base = tmp_path / "layerlab.lock"
+    monkeypatch.setenv("STEMDECK_PIPELINE_LOCK", str(base))
+    monkeypatch.setattr(runner, "PIPELINE_CONCURRENCY", 3)
+
+    assert _pipeline_lock_files() == (
+        tmp_path / "layerlab.lock.0",
+        tmp_path / "layerlab.lock.1",
+        tmp_path / "layerlab.lock.2",
+    )
+
+
+def test_prepare_demucs_source_skips_redundant_normalization_copy(tmp_path: Path):
+    job = Job(id="abcdefabcde6")
+    job.quality_preset = "high"
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    dest = _prepare_demucs_source(job, source, tmp_path)
+
+    assert dest == source
+    assert job.demucs_gain_db == 0.0
+
+
+def test_prepare_demucs_source_does_not_duplicate_hot_master_decode(
+    tmp_path: Path,
+):
+    job = Job(id="abcdefabcde4", quality_preset="high", lufs=-7.0, peak_db=1.2)
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    dest = _prepare_demucs_source(job, source, tmp_path)
+
+    assert dest == source
+    assert job.demucs_gain_db == 0.0
+
+
+def test_prepare_demucs_source_converts_m4a_once_without_ffprobe(tmp_path: Path, monkeypatch):
+    import app.pipeline.runner as runner
+
+    job = Job(id="abcdefabcde3", quality_preset="high")
+    source = tmp_path / "source.m4a"
+    source.write_bytes(b"m4a")
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = b""
+
+    def fake_run(job_arg, cmd, **kwargs):
+        assert job_arg is job
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"wav")
+        return Result()
+
+    monkeypatch.setattr(runner.shutil, "which", lambda name: None)
+    monkeypatch.setattr(runner, "run_tracked_process", fake_run)
+
+    prepared = _prepare_demucs_source(job, source, tmp_path)
+
+    assert prepared == tmp_path / "source.demucs.wav"
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("-c:a") : calls[0].index("-c:a") + 2] == [
+        "-c:a",
+        "pcm_f32le",
+    ]
+
+
+def test_prepare_local_source_defers_decode_to_demucs_ffmpeg(tmp_path: Path):
+    job = Job(id="abcdefabcde5", quality_preset="high")
+    source = tmp_path / "upload.mp3"
+    source.write_bytes(b"ID3")
+    dest = _prepare_local_source(job, source, tmp_path)
+
+    assert dest == source
+    assert source.read_bytes() == b"ID3"
+
+
+def test_run_common_exposes_audio_before_chord_analysis(tmp_path: Path):
+    job = Job(id="abcdefabcde2", selected_stems=["vocals"])
+    source = tmp_path / "source.wav"
+    source.write_bytes(b"wav")
+    stems_dir = tmp_path / "stems"
+    stems_dir.mkdir()
+    vocals = stems_dir / "vocals.wav"
+    vocals.write_bytes(b"stem")
+    observed = {}
+
+    def fake_chords(job_arg, *_args, **_kwargs):
+        observed["audio_ready"] = job_arg.audio_ready
+        observed["analysis_ready"] = job_arg.analysis_ready
+        observed["stems"] = list(job_arg.stems)
+        observed["mix_url"] = job_arg.mix_url
+
+    with (
+        patch("app.pipeline.runner.analyze"),
+        patch("app.pipeline.runner.separate", return_value=tmp_path / "demucs"),
+        patch("app.pipeline.runner.collect", return_value=["vocals"]),
+        patch("app.pipeline.runner.restore_demucs_gain"),
+        patch("app.pipeline.runner.repair_bass_dropouts", return_value=False),
+        patch("app.pipeline.runner.repair_phase_coherence"),
+        patch("app.pipeline.runner.denoise_stem_outputs", return_value=False),
+        patch("app.pipeline.runner.process_stem_outputs_with_rust", return_value=None),
+        patch("app.pipeline.runner.gate_stem_outputs", return_value=False),
+        patch("app.pipeline.runner.stabilize_stem_outputs"),
+        patch("app.pipeline.runner.compute_stem_presence", return_value={"vocals": 100}),
+        patch("app.pipeline.runner.make_original_track", return_value=None),
+        patch("app.pipeline.runner.make_selected_mix", return_value=vocals),
+        patch("app.pipeline.runner.compute_stem_peaks"),
+        patch("app.pipeline.runner.generate_chord_midi", side_effect=fake_chords),
+        patch("app.pipeline.runner.cleanup_source"),
+    ):
+        _run_common(job, source, tmp_path)
+
+    assert observed == {
+        "audio_ready": True,
+        "analysis_ready": False,
+        "stems": [{"name": "vocals", "url": f"/api/jobs/{job.id}/stems/vocals.wav"}],
+        "mix_url": f"/api/jobs/{job.id}/stems/vocals.wav",
+    }
+    assert job.analysis_ready is True
+    assert job.audio_ready_at is not None

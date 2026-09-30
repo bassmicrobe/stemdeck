@@ -6,6 +6,9 @@ const statusEl = document.getElementById("status");
 const detailsEl = document.getElementById("details");
 const retryBtn = document.getElementById("retry");
 const steps = [...document.querySelectorAll("[data-step]")];
+const metaRuntimeEl = document.getElementById("meta-runtime");
+const metaWorkspaceEl = document.getElementById("meta-workspace");
+const metaDataDirEl = document.getElementById("meta-data-dir");
 
 function setStep(name, state) {
   const el = steps.find((item) => item.dataset.step === name);
@@ -44,10 +47,10 @@ async function runStep(name, fn) {
 }
 
 function minDelay(ms) {
-  return Promise.all([
-    new Promise((r) => setTimeout(r, ms)),
-    new Promise((r) => requestAnimationFrame(r)),
-  ]);
+  // WKWebView may suspend animation frames while the launcher is not the
+  // foreground window. Setup must continue even when the app starts behind
+  // another window, so never make progress depend on requestAnimationFrame.
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function formatElapsed(startedAt) {
@@ -55,6 +58,44 @@ function formatElapsed(startedAt) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n <= 0) return "0 MB";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = n;
+  let idx = 0;
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024;
+    idx += 1;
+  }
+  return `${value >= 10 || idx < 2 ? value.toFixed(0) : value.toFixed(1)} ${units[idx]}`;
+}
+
+async function refreshSetupFacts(runtime, runtimeStatus) {
+  const status = runtimeStatus ?? await invoke("runtime_pack_status").catch(() => null);
+  const maintenance = await invoke("maintenance_status").catch(() => null);
+
+  if (metaRuntimeEl) {
+    const size = status?.manifest?.runtimeSize;
+    metaRuntimeEl.textContent = size
+      ? `${formatBytes(size)} runtime + model on first use`
+      : "Runtime manifest bundled";
+  }
+  if (metaWorkspaceEl) {
+    if (maintenance) {
+      const cacheBytes = Number(maintenance.cacheBytes || 0) + Number(maintenance.downloadsBytes || 0);
+      metaWorkspaceEl.textContent =
+        `${formatBytes(maintenance.jobsBytes)} jobs, ${formatBytes(cacheBytes)} cache`;
+    } else {
+      metaWorkspaceEl.textContent = "Created on first launch";
+    }
+  }
+  if (metaDataDirEl) {
+    metaDataDirEl.textContent = runtime?.dataDir || maintenance?.dataDir || "App data folder";
+    metaDataDirEl.title = metaDataDirEl.textContent;
+  }
 }
 
 function startProgressStatus(messages) {
@@ -87,7 +128,7 @@ async function installRuntimePack(appRoot) {
   if (!status.manifestReady) {
     throw Object.assign(
       new Error(`Python runtime not found under ${appRoot}.`),
-      { hint: "Try reinstalling StemDeck. If the problem persists, check that your disk has at least 2 GB free." }
+      { hint: "Try reinstalling LayerLab. If the problem persists, check that your disk has at least 2 GB free." }
     );
   }
 
@@ -117,10 +158,10 @@ async function installRuntimePack(appRoot) {
         const pct = Math.min(100, Math.round((received / total) * 100));
         progressFill.style.width = `${pct}%`;
         progressFill.classList.remove("indeterminate");
-        setStatus(`Downloading StemDeck runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
+        setStatus(`Downloading LayerLab runtime... ${mb} / ${(total / 1e6).toFixed(0)} MB`);
       } else {
         progressFill.classList.add("indeterminate");
-        setStatus(`Downloading StemDeck runtime... ${mb} MB received`);
+        setStatus(`Downloading LayerLab runtime... ${mb} MB received`);
       }
     }
   );
@@ -144,7 +185,7 @@ async function installRuntimePack(appRoot) {
     }
     if (!verified) {
       progressWrap.classList.remove("hidden");
-      setStatus("Downloading StemDeck runtime...");
+      setStatus("Preparing LayerLab runtime...");
 
       // Reset stall baseline when network download is actually about to start (#150).
       lastProgressAt = Date.now();
@@ -169,9 +210,9 @@ async function installRuntimePack(appRoot) {
       // startProgressStatus is assigned after stallTimer creation; the closure
       // above captures stopSlowMsg by reference, so it sees the updated value.
       stopSlowMsg = startProgressStatus([
-        { afterSeconds: 0,  text: "Downloading StemDeck runtime..." },
-        { afterSeconds: 30, text: "Still downloading runtime... slow connection detected." },
-        { afterSeconds: 90, text: "Still downloading... large file on a slow connection can take a few minutes." },
+        { afterSeconds: 0,  text: "Preparing LayerLab runtime..." },
+        { afterSeconds: 30, text: "Still preparing runtime... this can take a few minutes." },
+        { afterSeconds: 90, text: "Still preparing runtime... check disk space or network access." },
       ]);
 
       try {
@@ -179,17 +220,17 @@ async function installRuntimePack(appRoot) {
       } catch (err) {
         throw Object.assign(
           new Error(String(err)),
-          { hint: "Check your internet connection and click Retry. If the problem persists, try a different network." }
+          { hint: "Check available disk space, then click Retry. Online-only builds also require internet access." }
         );
       } finally {
         window.clearInterval(stallTimer);
         if (stopSlowMsg) { stopSlowMsg(); }
       }
       progressWrap.classList.add("hidden");
-      setStatus("Verifying StemDeck runtime...");
+      setStatus("Verifying LayerLab runtime...");
       await invoke("verify_runtime_pack");
     }
-    setStatus("Installing StemDeck runtime...");
+    setStatus("Installing LayerLab runtime...");
     const installed = await invoke("extract_runtime_pack");
     if (!installed.runtimeReady) {
       throw Object.assign(
@@ -223,6 +264,7 @@ async function runSetup() {
     // backend + frontend and the new release (e.g. new features, version) never
     // takes effect until the runtime is manually cleared.
     const runtimeStatus = await invoke("runtime_pack_status");
+    await refreshSetupFacts(runtime, runtimeStatus);
     const expectedVersion = runtimeStatus.manifest?.version;
     const installedVersion = runtimeStatus.installedVersion;
     // Mismatch when this build expects a version the installed runtime isn't.
@@ -241,9 +283,9 @@ async function runSetup() {
         }
       }
       await runStep("backend", async () => {
-        setStatus("Runtime is ready. Starting StemDeck backend...");
+        setStatus("Runtime is ready. Starting LayerLab backend...");
         const backend = await invoke("start_backend");
-        setStatus("Opening StemDeck...");
+        setStatus("Opening LayerLab...");
         window.location.replace(backend.url);
       });
       return;
@@ -260,7 +302,7 @@ async function runSetup() {
         setStep("runtime", "error");
         throw Object.assign(
           new Error(`Python runtime setup failed under: ${runtime.dataDir}`),
-          { hint: "Check that your disk has at least 2 GB free and click Retry. If it keeps failing, try reinstalling StemDeck." }
+          { hint: "Check that your disk has at least 2 GB free and click Retry. If it keeps failing, try reinstalling LayerLab." }
         );
       }
     }
@@ -271,6 +313,7 @@ async function runSetup() {
     let gpuSummary = "";
 
     await runStep("workspace", () => invoke("ensure_workspace"));
+    await refreshSetupFacts(runtime);
 
     if (runtime.ffmpegReady) {
       setStep("ffmpeg", "done");
@@ -355,12 +398,14 @@ async function runSetup() {
     });
 
     setStep("model", "done");
-    setStatus("AI separation model will download on first use (~340 MB).");
+    setStatus(
+      "Demucs weights download on first use (~340 MB). Upstream describes the weights as personal/research-use artifacts; see the bundled third-party notices."
+    );
 
     await runStep("backend", async () => {
-      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting StemDeck backend...");
+      setStatus(gpuSummary ? `${gpuSummary} - starting backend...` : "Starting LayerLab backend...");
       const backend = await invoke("start_backend");
-      setStatus("Opening StemDeck...");
+      setStatus("Opening LayerLab...");
       window.location.replace(backend.url);
     });
   } catch (error) {

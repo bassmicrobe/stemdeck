@@ -1,0 +1,93 @@
+LayerLab
+
+LayerLab is an unofficial modified fork test build based on the
+original StemDeck project.
+
+Original project:
+  StemDeck
+  https://github.com/stemdeckapp/stemdeck
+
+Original license:
+  Apache License, Version 2.0
+  See LICENSE in this distribution, or:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Attribution:
+  Portions of this software are based on StemDeck by the StemDeck contributors.
+  LayerLab retains the upstream Apache-2.0 license text and
+  attribution. This distribution is a modified fork and is not an official upstream release.
+  It is not affiliated with or endorsed by the original StemDeck project.
+
+Commercial use:
+  Apache License 2.0 permits commercial use and redistribution when its
+  conditions are satisfied. This notice does not grant trademark rights or
+  permission to present this fork as an official StemDeck release, official
+  commercial offering, certified build, or upstream-supported product.
+  Distributors remain responsible for retaining LICENSE/NOTICE files and for
+  verifying the licenses of all third-party components included in their
+  specific artifacts.
+
+Modification notice:
+  This fork uses the visible product branding LayerLab and includes
+  local changes for higher-quality stem separation, FFmpeg handling, UI
+  styling, asynchronous queue handling, bass dropout repair, and
+  phase-coherence repair. Additional changes include optional per-stem denoise,
+  progress/ETA surfacing, responsive neon UI refinements, desktop runtime
+  setup hardening, conservative cleanup/maintenance helpers, fork-separated
+  desktop storage paths, fork release update URLs, and optional release
+  signing/notarization hooks. WAV/PCM gating, DC/peak stabilization, RMS, and
+  waveform peak generation can run in a bundled Rust sidecar, while Demucs
+  models can remain loaded in bounded persistent worker processes between jobs.
+  See the Git history for the complete change record.
+
+Third-party dependencies:
+  Runtime dependencies remain licensed by their respective authors. Packaged
+  builds include THIRD_PARTY_NOTICES.txt, THIRD_PARTY_LICENSES.txt, and
+  THIRD_PARTY_INVENTORY.json generated from the exact packaged Python runtime
+  and target-specific Rust dependency graph.
+
+Model-weight distinction:
+  Demucs source code is MIT-licensed. Demucs maintainers state that the
+  published pretrained weights are not covered by that MIT license and are
+  provided for personal/research usage. LayerLab does not bundle those weights;
+  downloading them on first use does not grant additional rights.
+
+FFmpeg distribution:
+  Packaged LayerLab runtimes remove the GPL-enabled FFmpeg executable embedded
+  in imageio-ffmpeg wheels. Desktop setup downloads the disclosed build
+  directly from its provider. Mirroring or rebundling that executable requires
+  compliance with the exact build's GPL/LGPL and corresponding-source terms.
+
+Additional runtime helper:
+  imageio-ffmpeg
+  https://github.com/imageio/imageio-ffmpeg
+  License: BSD-2-Clause
+  Used to locate an FFmpeg executable. Public desktop runtime builds remove the
+  GPL-enabled executable embedded in its wheel and use the separately disclosed
+  first-run FFmpeg download instead.
+
+  Hound
+  https://github.com/ruuda/hound
+  License: Apache-2.0
+  Used by the bundled Rust `layerlab-pcm` sidecar to read and write PCM16,
+  PCM24, PCM32, and float32 WAV files for post-separation processing.
+
+Music-analysis components:
+  Beat This!
+  https://github.com/CPJKU/beat_this
+  License: MIT (source code and published model weights)
+  Used for neural beat and downbeat detection in all analysis profiles, with
+  a librosa fallback when the model is unavailable.
+
+  music21
+  https://github.com/cuthbertLab/music21
+  License: BSD-3-Clause
+  Used to validate generated Standard MIDI files and produce key, pitch-range,
+  and Roman-numeral harmonic summaries.
+
+Development-only evaluation component:
+  mir_eval
+  https://github.com/mir-evaluation/mir_eval
+  License: MIT
+  Used by the optional labelled-chord benchmark to calculate WCSR and
+  segmentation metrics. It is not bundled in public desktop runtimes.

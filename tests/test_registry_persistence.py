@@ -42,13 +42,101 @@ def test_persist_and_restore_terminal_job(tmp_path: Path):
     assert restored.cancel_requested is False
 
 
+def test_persist_excludes_transient_queue_fields(tmp_path: Path):
+    job = Job(
+        id="abcdefabcdea",
+        status="done",
+        title="Saved song",
+        queue_position=1,
+        queue_size=2,
+    )
+    _jobs[job.id] = job
+
+    persist_registry(tmp_path)
+
+    data = json.loads((tmp_path / "registry.json").read_text(encoding="utf-8"))
+    assert "queue_position" not in data["jobs"][0]
+    assert "queue_size" not in data["jobs"][0]
+
+
+def test_persist_and_restore_failed_job_logs(tmp_path: Path):
+    job = Job(
+        id="abcdefabcde1",
+        status="error",
+        title="Failed song",
+        error="Processing failed",
+        logs=[
+            {
+                "id": 1,
+                "timestamp": 1_700_000_000.0,
+                "job_id": "abcdefabcde1",
+                "level": "error",
+                "message": "demucs failed",
+                "stage": "error",
+                "progress_percent": 82,
+            }
+        ],
+    )
+    _jobs[job.id] = job
+
+    persist_registry(tmp_path)
+    _jobs.clear()
+    restore_registry(tmp_path)
+
+    restored = _jobs[job.id]
+    assert restored.status == "error"
+    assert restored.logs[0]["message"] == "demucs failed"
+
+
+def test_persist_failure_is_non_fatal(tmp_path: Path, monkeypatch):
+    import app.core.registry as registry
+
+    job = Job(id="abcdefabcde2", status="done", title="Saved song")
+    _jobs[job.id] = job
+    monkeypatch.setattr(
+        registry,
+        "atomic_write_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    persist_registry(tmp_path)
+
+
 def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     job_dir = tmp_path / "abcdefabcdee"
     stems_dir = job_dir / "stems"
     stems_dir.mkdir(parents=True)
     (stems_dir / "vocals.wav").write_bytes(b"RIFF")
     (stems_dir / "drums.wav").write_bytes(b"RIFF")
-    (job_dir / "metadata.json").write_text(json.dumps({"title": "Test Song"}), encoding="utf-8")
+    (stems_dir / "chords.mid").write_bytes(b"MThd")
+    (job_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "title": "Test Song",
+                "bass_repair_applied": True,
+                "phase_repair_applied": True,
+                "phase_repair_residual_ratio": 0.37,
+                "stem_denoise_preset": "light",
+                "stem_denoise_applied": True,
+                "stem_gate_applied": True,
+                "stem_gate_threshold_db": -54.0,
+                "beat_times": [0.5, 1.0, 1.5],
+                "downbeat_times": [0.5],
+                "beat_tracker": "beat_this:small0",
+                "chord_progression": [
+                    {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
+                ],
+                "midi_analysis": {"engine": "music21", "detected_midi_key": "C major"},
+                "midi_analysis_url": "/api/jobs/abcdefabcdee/midi-analysis.json",
+                "selected_stems": ["vocals"],
+                "source_url": "local:Test Song.wav",
+                "processing_started_at": 1_699_999_876.6,
+                "completed_at": 1_700_000_000.0,
+                "processing_elapsed_seconds": 123.4,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     restore_registry(tmp_path)
 
@@ -57,6 +145,27 @@ def test_restore_recovers_orphan_done_job_from_stems(tmp_path: Path):
     assert restored.progress == 1.0
     assert restored.title == "Test Song"
     assert {stem["name"] for stem in restored.stems} == {"vocals", "drums"}
+    assert restored.bass_repair_applied is True
+    assert restored.phase_repair_applied is True
+    assert restored.phase_repair_residual_ratio == 0.37
+    assert restored.stem_denoise_preset == "light"
+    assert restored.stem_denoise_applied is True
+    assert restored.stem_gate_applied is True
+    assert restored.stem_gate_threshold_db == -54.0
+    assert restored.beat_times == [0.5, 1.0, 1.5]
+    assert restored.downbeat_times == [0.5]
+    assert restored.beat_tracker == "beat_this:small0"
+    assert restored.chord_progression == [
+        {"label": "C", "start": 0.5, "end": 1.5, "confidence": 0.9}
+    ]
+    assert restored.chord_midi_url == "/api/jobs/abcdefabcdee/chords.mid"
+    assert restored.midi_analysis == {"engine": "music21", "detected_midi_key": "C major"}
+    assert restored.midi_analysis_url == "/api/jobs/abcdefabcdee/midi-analysis.json"
+    assert restored.selected_stems == ["vocals"]
+    assert restored.source_url == "local:Test Song.wav"
+    assert restored.processing_started_at == 1_699_999_876.6
+    assert restored.completed_at == 1_700_000_000.0
+    assert restored.processing_elapsed_seconds == 123.4
 
 
 def test_restore_skips_orphan_without_metadata(tmp_path: Path):

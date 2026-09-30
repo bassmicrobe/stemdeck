@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core.config import JOB_ID_RE
 from app.core.registry import get as registry_get
+from app.core.registry import refresh_queue_positions as registry_refresh_queue_positions
 
 router = APIRouter(tags=["events"])
 
@@ -45,6 +46,7 @@ async def job_events(job_id: str) -> StreamingResponse:
             loop = asyncio.get_running_loop()
             deadline = loop.time() + _MAX_SSE_SECONDS
             while loop.time() < deadline:
+                registry_refresh_queue_positions()
                 snapshot = job.to_state()
                 serialized = json.dumps(snapshot)
                 if serialized != last:

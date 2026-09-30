@@ -9,29 +9,62 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
+from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.jobs import shutdown_pipeline_tasks
 from app.api.router import router
 from app.core.config import (
+    BEAT_THIS_MODEL,
+    BEAT_TRACKER,
     DEMUCS_DEVICE,
+    DEMUCS_FLOAT32,
+    DEMUCS_JOBS,
     DEMUCS_MODEL,
-    FFMPEG_BIN,
+    DEMUCS_OVERLAP,
+    DEMUCS_PERSISTENT_WORKER,
+    DEMUCS_PRE_GAIN_DB,
+    DEMUCS_SHIFTS,
+    DEMUCS_WORKER_IDLE_TTL,
+    DEMUCS_WORKER_MIN_FREE_MEMORY_GB,
     JOBS_DIR,
+    PCM_WORKER_ENABLED,
+    PIPELINE_CONCURRENCY,
+    QUALITY_PRESET,
+    ROOT,
     STATIC_DIR,
+    available_demucs_devices,
     configure_portable_environment,
     ensure_runtime_dirs,
+    ffmpeg_available,
 )
+from app.core.joblog import add_system_log
+from app.core.registry import all_procs
 from app.core.registry import restore as restore_registry
+from app.pipeline.beat_tracker import beat_this_available
 from app.pipeline.collect import sweep_old_jobs
+from app.pipeline.demucs_pool import demucs_worker_status, shutdown_demucs_workers
+from app.pipeline.midi_analysis import music21_available
+from app.pipeline.pcm_worker import pcm_worker_executable
+from app.pipeline.process import terminate_process
 
 # Show our INFO-level logs through uvicorn's root handler. Without this,
 # Python's default root level (WARNING) silently drops every
 # logger.info(...) call across the app, including the analyze
 # diagnostics ("chroma:", "key candidates:").
 logging.getLogger("stemdeck").setLevel(logging.INFO)
-logging.getLogger("stemdeck").info("demucs config: model=%s device=%s", DEMUCS_MODEL, DEMUCS_DEVICE)
+logging.getLogger("stemdeck").info(
+    "demucs config: preset=%s model=%s device=%s shifts=%s pre_gain_db=%s float32=%s",
+    QUALITY_PRESET,
+    DEMUCS_MODEL,
+    DEMUCS_DEVICE,
+    DEMUCS_SHIFTS,
+    DEMUCS_PRE_GAIN_DB,
+    DEMUCS_FLOAT32,
+)
 
 configure_portable_environment()
 
@@ -72,7 +105,7 @@ def app_version() -> str:
     # metadata (set at install/build from the tag); fall back to the generated
     # app/_version.py for non-installed runs, then a dev placeholder.
     try:
-        return package_version("stemdeck")
+        return package_version("layerlab")
     except PackageNotFoundError:
         pass
     try:
@@ -121,11 +154,23 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                     wt = asyncio.create_task(_desktop_parent_watchdog(parent_pid_int))
                     _background_tasks.add(wt)
                     wt.add_done_callback(_background_tasks.discard)
-    yield
+    add_system_log("LayerLab backend started")
+    try:
+        yield
+    finally:
+        add_system_log("LayerLab backend stopping", level="warning")
+        for proc in all_procs():
+            terminate_process(proc)
+        await shutdown_pipeline_tasks()
+        shutdown_demucs_workers()
+        for task in list(_background_tasks):
+            task.cancel()
+        if _background_tasks:
+            await asyncio.gather(*_background_tasks, return_exceptions=True)
 
 
 app = FastAPI(
-    title="StemDeck",
+    title="LayerLab",
     description="Paste a YouTube URL or upload an audio file, get audio stems split into a DAW-style player.",
     version=app_version(),
     lifespan=lifespan,
@@ -140,13 +185,76 @@ def health_root() -> dict[str, object]:
 @app.get("/api/health", tags=["health"])
 def health() -> dict[str, object]:
     return {
-        "name": "StemDeck",
+        "name": "LayerLab",
         "status": "ok",
         "version": app_version(),
-        "ffmpeg_configured": FFMPEG_BIN.is_file(),
+        "ffmpeg_configured": ffmpeg_available(),
+        "quality_preset": QUALITY_PRESET,
         "demucs_model": DEMUCS_MODEL,
         "demucs_device": DEMUCS_DEVICE,
+        "demucs_device_choices": ["auto", "cpu", "mps", "cuda"],
+        "demucs_available_devices": list(available_demucs_devices()),
+        "pipeline_concurrency": PIPELINE_CONCURRENCY,
+        "pipeline_lock_scope": "separation-only",
+        "demucs_jobs": DEMUCS_JOBS,
+        "demucs_persistent_worker_enabled": DEMUCS_PERSISTENT_WORKER,
+        "demucs_worker_pool": demucs_worker_status(),
+        "demucs_worker_idle_ttl_seconds": DEMUCS_WORKER_IDLE_TTL,
+        "demucs_worker_min_free_memory_gb": DEMUCS_WORKER_MIN_FREE_MEMORY_GB,
+        "demucs_shifts": DEMUCS_SHIFTS,
+        "demucs_overlap": DEMUCS_OVERLAP,
+        "demucs_pre_gain_db": DEMUCS_PRE_GAIN_DB,
+        "beat_tracker": BEAT_TRACKER,
+        "beat_this_model_override": BEAT_THIS_MODEL or None,
+        "beat_this_available": beat_this_available(),
+        "music21_available": music21_available(),
+        "rust_pcm_worker_enabled": PCM_WORKER_ENABLED,
+        "rust_pcm_worker_available": pcm_worker_executable() is not None,
     }
+
+
+@app.get("/LICENSE", include_in_schema=False)
+def license_file() -> FileResponse:
+    return FileResponse(ROOT / "LICENSE", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/NOTICE", include_in_schema=False)
+def notice_file() -> FileResponse:
+    return FileResponse(ROOT / "NOTICE", media_type="text/plain; charset=utf-8")
+
+
+def _distribution_file(name: str, generated_name: str | None = None) -> Path:
+    candidates = [ROOT / name]
+    if generated_name:
+        candidates.append(ROOT / "packaging" / "generated" / "macos-arm64" / generated_name)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+@app.get("/THIRD_PARTY_NOTICES.txt", include_in_schema=False)
+def third_party_notices_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_NOTICES.txt", "THIRD_PARTY_NOTICES.md"),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/THIRD_PARTY_LICENSES.txt", include_in_schema=False)
+def third_party_licenses_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_LICENSES.txt", "THIRD_PARTY_LICENSES.txt"),
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/THIRD_PARTY_INVENTORY.json", include_in_schema=False)
+def third_party_inventory_file() -> FileResponse:
+    return FileResponse(
+        _distribution_file("THIRD_PARTY_INVENTORY.json", "THIRD_PARTY_INVENTORY.json"),
+        media_type="application/json",
+    )
 
 
 # Content-Security-Policy. Defense-in-depth so an injected string in the webview

@@ -1,4 +1,5 @@
 use flate2::read::GzDecoder;
+use layerlab::pcm::AudioAnalysis;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -13,7 +14,6 @@ use std::{
 };
 use tar::Archive;
 use tauri::{Emitter, Manager};
-use tauri_plugin_store::StoreExt;
 #[cfg(windows)]
 use zip::ZipArchive;
 
@@ -43,22 +43,13 @@ struct BackendHandles {
     url: String,
 }
 
+#[derive(Default)]
 struct BackendStateInner {
     handles: Option<BackendHandles>,
     /// True while start_backend is executing; prevents concurrent starts (#145).
     starting: bool,
     /// PID of an in-progress pip subprocess; killed by stop_backend on window close (#140).
     pip_pid: Option<u32>,
-}
-
-impl Default for BackendStateInner {
-    fn default() -> Self {
-        BackendStateInner {
-            handles: None,
-            starting: false,
-            pip_pid: None,
-        }
-    }
 }
 
 struct BackendState {
@@ -134,6 +125,16 @@ struct BackendStarted {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct BackendRuntimeStatus {
+    running: bool,
+    starting: bool,
+    pid: Option<u32>,
+    url: Option<String>,
+    pip_pid: Option<u32>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AssetStatus {
     ffmpeg_ready: bool,
     ffmpeg_path: Option<String>,
@@ -150,6 +151,19 @@ struct GpuSetup {
     cuda_verified: bool,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MaintenanceReport {
+    data_dir: String,
+    jobs_dir: String,
+    jobs_bytes: u64,
+    job_dirs: u64,
+    cache_bytes: u64,
+    downloads_bytes: u64,
+    removed_paths: Vec<String>,
+    warnings: Vec<String>,
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -158,7 +172,7 @@ fn main() {
             let data_dir = match local_data_dir() {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!("[stemdeck] could not resolve data_dir, skipping version check: {e}");
+                    eprintln!("[layerlab] could not resolve data_dir, skipping version check: {e}");
                     return Ok(());
                 }
             };
@@ -178,7 +192,7 @@ fn main() {
                 // cleanup — a missing version file would otherwise cause every launch
                 // to wipe WebKit data.
                 if let Err(e) = fs::write(&version_file, current) {
-                    eprintln!("[stemdeck] failed to write version file, skipping cleanup: {e}");
+                    eprintln!("[layerlab] failed to write version file, skipping cleanup: {e}");
                 }
             }
             let _ = app; // suppress unused warning
@@ -195,43 +209,48 @@ fn main() {
             ensure_external_assets,
             ensure_torch_device,
             start_backend,
+            backend_status,
+            stop_backend_command,
             open_url,
             save_audio_file,
             store_get,
             store_set,
+            maintenance_status,
+            run_maintenance,
+            analyze_wav_file,
             mark_store_migration_done,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build StemDeck desktop app")
-        .run(|app_handle, event| match event {
-            tauri::RunEvent::WindowEvent {
+        .expect("failed to build LayerLab desktop app")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { .. },
                 ..
-            } => {
+            } = event
+            {
                 let state = app_handle.state::<BackendState>();
                 stop_backend(&state);
                 app_handle.exit(0);
             }
-            _ => {}
         });
 }
 
-/// Returns ~/Documents/StemDeck/, creating it if needed.
+/// Returns ~/Documents/LayerLab/, creating it if needed.
 /// All user-facing content (library metadata + stem audio) lives here so it is
 /// visible in Finder, eligible for iCloud backup, and survives app reinstalls.
 fn documents_stemdeck_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let documents = app.path().document_dir().map_err(|e| e.to_string())?;
-    let dir = documents.join("StemDeck");
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create ~/Documents/StemDeck: {e}"))?;
+    let dir = documents.join("LayerLab");
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create ~/Documents/LayerLab: {e}"))?;
     Ok(dir)
 }
 
-/// Returns ~/Documents/StemDeck/user-data.json (library metadata store).
+/// Returns ~/Documents/LayerLab/user-data.json (library metadata store).
 fn documents_store_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(documents_stemdeck_dir(app)?.join("user-data.json"))
 }
 
-/// Returns ~/Documents/StemDeck/jobs/ (stem audio files).
+/// Returns ~/Documents/LayerLab/jobs/ (stem audio files).
 /// Falls back to data_dir/jobs if document_dir is unavailable.
 fn documents_dir_for_jobs(app: &tauri::AppHandle) -> PathBuf {
     match documents_stemdeck_dir(app) {
@@ -250,17 +269,65 @@ fn documents_dir_for_jobs(app: &tauri::AppHandle) -> PathBuf {
 #[tauri::command]
 fn store_get(app: tauri::AppHandle, key: String) -> Result<Option<serde_json::Value>, String> {
     let path = documents_store_path(&app)?;
-    let store = app.store(path).map_err(|e| e.to_string())?;
-    Ok(store.get(&key))
+    let store = read_store_map(&path)?;
+    Ok(store.get(&key).cloned())
 }
 
 /// Set a value in the persistent user-data store and immediately flush to disk.
 #[tauri::command]
 fn store_set(app: tauri::AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
     let path = documents_store_path(&app)?;
-    let store = app.store(path).map_err(|e| e.to_string())?;
-    store.set(key, value);
-    store.save().map_err(|e| e.to_string())
+    let mut store = read_store_map(&path)?;
+    store.insert(key, value);
+    atomic_write_json(&path, &serde_json::Value::Object(store))
+}
+
+fn read_store_map(path: &Path) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    if !path.is_file() {
+        return Ok(serde_json::Map::new());
+    }
+    let text = fs::read_to_string(path)
+        .map_err(|e| format!("failed to read store {}: {e}", path.display()))?;
+    if text.trim().is_empty() {
+        return Ok(serde_json::Map::new());
+    }
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(serde_json::Value::Object(map)) => Ok(map),
+        Ok(_) => Err(format!("store {} is not a JSON object", path.display())),
+        Err(e) => Err(format!("failed to parse store {}: {e}", path.display())),
+    }
+}
+
+fn atomic_write_json(path: &Path, value: &serde_json::Value) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+    }
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("invalid store path {}", path.display()))?;
+    let tmp = path.with_file_name(format!("{filename}.tmp"));
+    let mut file = fs::File::create(&tmp)
+        .map_err(|e| format!("failed to create temp store {}: {e}", tmp.display()))?;
+    file.write_all(
+        serde_json::to_string_pretty(value)
+            .map_err(|e| format!("failed to serialize store: {e}"))?
+            .as_bytes(),
+    )
+    .map_err(|e| format!("failed to write temp store {}: {e}", tmp.display()))?;
+    file.write_all(b"\n")
+        .map_err(|e| format!("failed to finish temp store {}: {e}", tmp.display()))?;
+    file.sync_all()
+        .map_err(|e| format!("failed to flush temp store {}: {e}", tmp.display()))?;
+    drop(file);
+    fs::rename(&tmp, path).map_err(|e| {
+        format!(
+            "failed to replace store {} with {}: {e}",
+            path.display(),
+            tmp.display()
+        )
+    })
 }
 
 /// Called by JS after the one-time localStorage → store migration completes.
@@ -271,10 +338,10 @@ fn mark_store_migration_done() {
     match local_data_dir() {
         Ok(d) => {
             if let Err(e) = fs::write(d.join("store_migration_done"), "") {
-                eprintln!("[stemdeck] failed to write migration flag: {e}");
+                eprintln!("[layerlab] failed to write migration flag: {e}");
             }
         }
-        Err(e) => eprintln!("[stemdeck] could not write migration flag: {e}"),
+        Err(e) => eprintln!("[layerlab] could not write migration flag: {e}"),
     }
 }
 
@@ -288,13 +355,16 @@ fn clear_webkit_data() {
         Err(_) => return,
     };
     let targets = [
+        format!("{home}/Library/WebKit/com.bassmicrobe.layerlab"),
+        // Legacy StemDeck fork identifiers are cleanup-only migration targets.
+        format!("{home}/Library/WebKit/com.bassmicrobe.stemdeck.enhanced"),
         format!("{home}/Library/WebKit/app.stemdeck.desktop"),
         format!("{home}/Library/WebKit/stemdeck"),
     ];
     for path in &targets {
         if let Err(e) = fs::remove_dir_all(path) {
             if e.kind() != std::io::ErrorKind::NotFound {
-                eprintln!("[stemdeck] WebKit cleanup failed for {path}: {e}");
+                eprintln!("[layerlab] WebKit cleanup failed for {path}: {e}");
             }
         }
     }
@@ -374,7 +444,11 @@ async fn download_runtime_pack(app_handle: tauri::AppHandle) -> Result<RuntimeAr
         fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
     }
-    download_file_with_progress(&manifest.runtime_url, &archive, &app_handle).await?;
+    if let Some(bundled) = bundled_runtime_archive_path(&root, &manifest) {
+        copy_runtime_archive_with_progress(&bundled, &archive, &app_handle)?;
+    } else {
+        download_file_with_progress(&manifest.runtime_url, &archive, &app_handle).await?;
+    }
     verify_runtime_archive(&manifest, &archive)
 }
 
@@ -539,7 +613,8 @@ fn start_backend(
         let backend_dir = backend_dir(&root)?;
         let data_dir = local_data_dir()?;
         let python = python_path(&root).filter(|p| p.is_file()).ok_or_else(|| {
-            "Python runtime not found. Expected python/ or .venv/ under StemDeck.".to_string()
+            "Python runtime not found. Expected python/ or .venv/ under the LayerLab app root."
+                .to_string()
         })?;
         patch_pyvenv_cfg(&python);
         let (port, port_guard) = free_port()?;
@@ -575,7 +650,7 @@ fn start_backend(
             cmd.env("PYTHONHOME", pythonhome);
         }
 
-        // Jobs (stem audio files) live in ~/Documents/StemDeck/jobs/ so the user's
+        // Jobs (stem audio files) live in ~/Documents/LayerLab/jobs/ so the user's
         // library is visible in Finder, backed up by iCloud, and survives app reinstalls.
         let jobs_dir = documents_dir_for_jobs(&app_handle);
 
@@ -589,6 +664,19 @@ fn start_backend(
             .env("TORCH_HOME", data_dir.join("models").join("torch"))
             .stdout(stdout)
             .stderr(stderr);
+
+        let pcm_worker_name = if cfg!(windows) {
+            "layerlab-pcm.exe"
+        } else {
+            "layerlab-pcm"
+        };
+        let pcm_worker_candidates = [
+            runtime_dir(&data_dir).join("bin").join(pcm_worker_name),
+            root.join("bin").join(pcm_worker_name),
+        ];
+        if let Some(pcm_worker) = pcm_worker_candidates.iter().find(|path| path.is_file()) {
+            cmd.env("LAYERLAB_PCM_WORKER", pcm_worker);
+        }
 
         if let Some(ffmpeg_dir) = ffmpeg_dir_if_present(&data_dir) {
             let existing = env::var_os("PATH").unwrap_or_default();
@@ -635,9 +723,53 @@ fn start_backend(
     }
 }
 
+/// Returns the backend process status tracked by the desktop shell.
+#[tauri::command]
+fn backend_status(state: tauri::State<BackendState>) -> Result<BackendRuntimeStatus, String> {
+    let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    let mut running = false;
+    let mut pid = None;
+    let mut url = None;
+    let mut clear_handles = false;
+
+    if let Some(handles) = inner.handles.as_mut() {
+        match handles.child.try_wait() {
+            Ok(Some(_)) => {
+                clear_handles = true;
+            }
+            Ok(None) => {
+                running = true;
+                pid = Some(handles.child.id());
+                url = Some(handles.url.clone());
+            }
+            Err(_) => {
+                clear_handles = true;
+            }
+        }
+    }
+    if clear_handles {
+        inner.handles = None;
+    }
+
+    Ok(BackendRuntimeStatus {
+        running,
+        starting: inner.starting,
+        pid,
+        url,
+        pip_pid: inner.pip_pid,
+    })
+}
+
+/// Stops the managed backend process and any tracked setup subprocess.
+#[tauri::command]
+fn stop_backend_command(state: tauri::State<BackendState>) -> Result<(), String> {
+    stop_backend(&state);
+    Ok(())
+}
+
 /// Detects GPU hardware, installs CUDA torch if needed, and persists the chosen device.
 #[tauri::command]
-fn ensure_torch_device(state: tauri::State<BackendState>) -> Result<GpuSetup, String> {
+fn ensure_torch_device(_state: tauri::State<BackendState>) -> Result<GpuSetup, String> {
     let root = app_root()?;
     let data_dir = local_data_dir()?;
 
@@ -681,7 +813,7 @@ fn ensure_torch_device(state: tauri::State<BackendState>) -> Result<GpuSetup, St
         let setup = match detect_nvidia_gpu() {
             Some((gpu_name, cuda_version)) => {
                 let index_url = cuda_index_url(&cuda_version);
-                install_cuda_torch(&python, &index_url, &state)?;
+                install_cuda_torch(&python, &index_url, &_state)?;
                 let cuda_verified = verify_cuda_torch(&python);
                 GpuSetup {
                     gpu_detected: true,
@@ -966,6 +1098,7 @@ fn python_stdlib_present(venv_root: &Path) -> bool {
 
 /// Maps known pip/OS failure patterns to actionable user messages.
 /// Pure function — caller is responsible for logging the raw stderr before calling.
+#[cfg(not(target_os = "macos"))]
 fn classify_cuda_install_error(stderr: &str) -> String {
     let lower = stderr.to_ascii_lowercase();
 
@@ -983,7 +1116,7 @@ fn classify_cuda_install_error(stderr: &str) -> String {
     }
     if lower.contains("access is denied") || lower.contains("permissionerror") {
         return "CUDA install failed: permission denied — antivirus software may be blocking \
-                the install. Try adding StemDeck to your AV exclusions and click Retry."
+                the install. Try adding LayerLab to your AV exclusions and click Retry."
             .to_string();
     }
     if lower.contains("could not connect") || lower.contains("connection timed out") {
@@ -1069,7 +1202,7 @@ fn install_cuda_torch(python: &Path, index_url: &str, state: &BackendState) -> R
             {
                 let _ = writeln!(
                     f,
-                    "[stemdeck] CUDA torch install failed. stderr:\n{}",
+                    "[layerlab] CUDA torch install failed. stderr:\n{}",
                     stderr.trim()
                 );
             }
@@ -1221,9 +1354,168 @@ fn stop_backend(state: &BackendState) {
     });
 }
 
-/// Returns the persistent user data directory for StemDeck.
-/// On Windows: %LocalAppData%\StemDeck
-/// On macOS: ~/Library/Application Support/StemDeck
+/// Reports desktop-owned data directories and safe cleanup candidates.
+#[tauri::command]
+fn maintenance_status(app: tauri::AppHandle) -> Result<MaintenanceReport, String> {
+    build_maintenance_report(&app, false)
+}
+
+/// Runs conservative desktop-side cleanup for interrupted installs/downloads.
+#[tauri::command]
+fn run_maintenance(app: tauri::AppHandle) -> Result<MaintenanceReport, String> {
+    build_maintenance_report(&app, true)
+}
+
+fn build_maintenance_report(
+    app: &tauri::AppHandle,
+    clean: bool,
+) -> Result<MaintenanceReport, String> {
+    let data_dir = local_data_dir()?;
+    let jobs_dir = documents_dir_for_jobs(app);
+    let mut removed_paths = Vec::new();
+    let mut warnings = Vec::new();
+
+    if clean {
+        for path in [data_dir.join("runtime.tmp"), data_dir.join("runtime.old")] {
+            if path.exists() {
+                remove_path_best_effort(&path, &mut removed_paths, &mut warnings);
+            }
+        }
+        cleanup_download_temps(
+            &data_dir.join("downloads"),
+            &mut removed_paths,
+            &mut warnings,
+        );
+        cleanup_empty_job_dirs(&jobs_dir, &mut removed_paths, &mut warnings);
+    }
+
+    Ok(MaintenanceReport {
+        data_dir: data_dir.display().to_string(),
+        jobs_dir: jobs_dir.display().to_string(),
+        jobs_bytes: dir_size(&jobs_dir),
+        job_dirs: count_direct_child_dirs(&jobs_dir),
+        cache_bytes: dir_size(&data_dir.join("cache")),
+        downloads_bytes: dir_size(&data_dir.join("downloads")),
+        removed_paths,
+        warnings,
+    })
+}
+
+fn cleanup_download_temps(
+    downloads_dir: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let Ok(entries) = fs::read_dir(downloads_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".download") || name.ends_with(".tmp") {
+            remove_path_best_effort(&path, removed_paths, warnings);
+        }
+    }
+}
+
+fn cleanup_empty_job_dirs(
+    jobs_dir: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let Ok(entries) = fs::read_dir(jobs_dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_dir() || !looks_like_job_dir(&path) || !dir_is_empty(&path) {
+            continue;
+        }
+        if path_age(&path).is_some_and(|age| age >= Duration::from_secs(24 * 60 * 60)) {
+            remove_path_best_effort(&path, removed_paths, warnings);
+        }
+    }
+}
+
+fn remove_path_best_effort(
+    path: &Path,
+    removed_paths: &mut Vec<String>,
+    warnings: &mut Vec<String>,
+) {
+    let result = if path.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+    match result {
+        Ok(_) => removed_paths.push(path.display().to_string()),
+        Err(e) => warnings.push(format!("failed to remove {}: {e}", path.display())),
+    }
+}
+
+fn dir_size(path: &Path) -> u64 {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if metadata.is_file() {
+        return metadata.len();
+    }
+    if !metadata.is_dir() {
+        return 0;
+    }
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| dir_size(&entry.path()))
+        .sum()
+}
+
+fn count_direct_child_dirs(path: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .count() as u64
+}
+
+fn dir_is_empty(path: &Path) -> bool {
+    fs::read_dir(path)
+        .map(|mut entries| entries.next().is_none())
+        .unwrap_or(false)
+}
+
+fn looks_like_job_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            name.len() >= 8
+                && name.len() <= 64
+                && name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        })
+}
+
+fn path_age(path: &Path) -> Option<Duration> {
+    let modified = fs::metadata(path).ok()?.modified().ok()?;
+    SystemTime::now().duration_since(modified).ok()
+}
+
+/// Analyzes a WAV file in Rust for quick waveform, peak, and RMS metadata.
+#[tauri::command]
+fn analyze_wav_file(path: String, bins: Option<usize>) -> Result<AudioAnalysis, String> {
+    layerlab::pcm::analyze_wav_file(PathBuf::from(path), bins)
+}
+
+/// Returns the persistent user data directory for LayerLab.
+/// On Windows: %LocalAppData%\LayerLab
+/// On macOS: ~/Library/Application Support/LayerLab
 /// On Linux: $XDG_DATA_HOME/stemdeck  or  ~/.local/share/stemdeck
 /// Can be overridden by STEMDECK_DATA_DIR for development.
 fn local_data_dir() -> Result<PathBuf, String> {
@@ -1234,7 +1526,7 @@ fn local_data_dir() -> Result<PathBuf, String> {
     {
         let base = env::var("LOCALAPPDATA")
             .map_err(|_| "LOCALAPPDATA environment variable not set".to_string())?;
-        Ok(PathBuf::from(base).join("StemDeck"))
+        Ok(PathBuf::from(base).join("LayerLab"))
     }
     #[cfg(target_os = "macos")]
     {
@@ -1242,18 +1534,18 @@ fn local_data_dir() -> Result<PathBuf, String> {
         Ok(PathBuf::from(home)
             .join("Library")
             .join("Application Support")
-            .join("StemDeck"))
+            .join("LayerLab"))
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         if let Ok(xdg) = env::var("XDG_DATA_HOME") {
-            return Ok(PathBuf::from(xdg).join("stemdeck"));
+            return Ok(PathBuf::from(xdg).join("layerlab"));
         }
         let home = env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
         Ok(PathBuf::from(home)
             .join(".local")
             .join("share")
-            .join("stemdeck"))
+            .join("layerlab"))
     }
 }
 
@@ -1264,7 +1556,7 @@ fn append_to_setup_log(data_dir: &Path, msg: &str) {
         let _ = fs::create_dir_all(p);
     }
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&log) {
-        let _ = writeln!(f, "[stemdeck] {msg}");
+        let _ = writeln!(f, "[layerlab] {msg}");
     }
 }
 
@@ -1343,14 +1635,78 @@ fn validate_runtime_manifest(manifest: &RuntimeManifest) -> Result<(), String> {
     Ok(())
 }
 
-fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf {
-    let name = manifest
+fn runtime_archive_name(manifest: &RuntimeManifest) -> String {
+    manifest
         .archive_name
-        .clone()
-        .or_else(|| manifest.runtime_url.rsplit('/').next().map(str::to_string))
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| format!("StemDeck-runtime-macOS-{}.tar.zst", manifest.arch));
-    data_dir.join("downloads").join(name)
+        .as_deref()
+        .and_then(|value| Path::new(value).file_name())
+        .and_then(|value| value.to_str())
+        .or_else(|| {
+            manifest
+                .runtime_url
+                .rsplit('/')
+                .next()
+                .filter(|value| !value.trim().is_empty())
+        })
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("LayerLab-runtime-macOS-{}.tar.zst", manifest.arch))
+}
+
+fn runtime_archive_path(data_dir: &Path, manifest: &RuntimeManifest) -> PathBuf {
+    data_dir
+        .join("downloads")
+        .join(runtime_archive_name(manifest))
+}
+
+fn bundled_runtime_archive_path(root: &Path, manifest: &RuntimeManifest) -> Option<PathBuf> {
+    let path = root.join(runtime_archive_name(manifest));
+    path.is_file().then_some(path)
+}
+
+fn copy_runtime_archive_with_progress(
+    source: &Path,
+    target: &Path,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    let total = source
+        .metadata()
+        .map_err(|e| format!("failed to stat bundled runtime {}: {e}", source.display()))?
+        .len();
+    let tmp = target.with_extension("download");
+    if tmp.exists() {
+        fs::remove_file(&tmp).map_err(|e| format!("failed to remove {}: {e}", tmp.display()))?;
+    }
+
+    let mut input = fs::File::open(source)
+        .map_err(|e| format!("failed to open bundled runtime {}: {e}", source.display()))?;
+    let mut output =
+        fs::File::create(&tmp).map_err(|e| format!("failed to create {}: {e}", tmp.display()))?;
+    let mut buffer = [0_u8; 1024 * 1024];
+    let mut received = 0_u64;
+    loop {
+        let read = input
+            .read(&mut buffer)
+            .map_err(|e| format!("failed to read bundled runtime {}: {e}", source.display()))?;
+        if read == 0 {
+            break;
+        }
+        output
+            .write_all(&buffer[..read])
+            .map_err(|e| format!("failed to write bundled runtime to {}: {e}", tmp.display()))?;
+        received += read as u64;
+        let _ = app_handle.emit(
+            "runtime-download-progress",
+            DownloadProgress {
+                received,
+                total: Some(total),
+            },
+        );
+    }
+    output
+        .sync_all()
+        .map_err(|e| format!("failed to sync bundled runtime {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, target)
+        .map_err(|e| format!("failed to move runtime pack to {}: {e}", target.display()))
 }
 
 async fn download_file_with_progress(
@@ -2196,6 +2552,7 @@ fn update_setup_config<const N: usize>(
 /// Polls an already-spawned child until it exits or the timeout elapses.
 /// Mirrors command_output_with_timeout but accepts a pre-spawned Child so the
 /// caller can record the PID before waiting (e.g. to kill on window close).
+#[cfg(not(target_os = "macos"))]
 fn child_output_with_timeout(
     mut child: Child,
     timeout: Duration,
@@ -2297,6 +2654,38 @@ mod tests {
         tempfile::tempdir().expect("failed to create temp dir")
     }
 
+    fn runtime_manifest(archive_name: Option<&str>) -> super::RuntimeManifest {
+        super::RuntimeManifest {
+            version: "0.7.0-alpha.17".to_string(),
+            arch: "arm64".to_string(),
+            runtime_url: "https://example.com/LayerLab-runtime-macOS-arm64.tar.zst".to_string(),
+            runtime_sha256: "0".repeat(64),
+            runtime_size: Some(123),
+            archive_name: archive_name.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn runtime_archive_name_strips_path_components() {
+        let manifest = runtime_manifest(Some("../../LayerLab-runtime-macOS-arm64.tar.zst"));
+        assert_eq!(
+            super::runtime_archive_name(&manifest),
+            "LayerLab-runtime-macOS-arm64.tar.zst"
+        );
+    }
+
+    #[test]
+    fn bundled_runtime_archive_is_discovered_under_app_root() {
+        let dir = make_tmp();
+        let manifest = runtime_manifest(Some("LayerLab-runtime-macOS-arm64.tar.zst"));
+        let archive = dir.path().join("LayerLab-runtime-macOS-arm64.tar.zst");
+        fs::write(&archive, b"runtime").unwrap();
+        assert_eq!(
+            super::bundled_runtime_archive_path(dir.path(), &manifest),
+            Some(archive)
+        );
+    }
+
     #[test]
     fn version_mismatch_detected() {
         let dir = make_tmp();
@@ -2351,7 +2740,7 @@ mod tests {
         // We can't safely delete real WebKit dirs in a test, but we can verify
         // the function handles NotFound gracefully by checking the logic:
         let tmp = make_tmp();
-        let fake_webkit = tmp.path().join("WebKit").join("app.stemdeck.desktop");
+        let fake_webkit = tmp.path().join("WebKit").join("com.bassmicrobe.layerlab");
         // Never created → remove_dir_all should return NotFound, which we ignore.
         let result = fs::remove_dir_all(&fake_webkit);
         assert!(result.is_err());

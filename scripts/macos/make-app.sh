@@ -48,12 +48,12 @@ else
   TARGET_DIR="$REPO_ROOT/desktop/src-tauri/target/x86_64-apple-darwin/release"
 fi
 
-APP_DIR="${TARGET_DIR}/bundle/macos/StemDeck.app"
+APP_DIR="${TARGET_DIR}/bundle/macos/LayerLab.app"
 if [[ ! -d "$APP_DIR" ]]; then
-  APP_DIR="$(find "$REPO_ROOT/desktop/src-tauri/target" -path '*/bundle/macos/StemDeck.app' -type d | head -1)"
+  APP_DIR="$(find "$REPO_ROOT/desktop/src-tauri/target" -path '*/bundle/macos/LayerLab.app' -type d | head -1)"
 fi
 if [[ -z "$APP_DIR" || ! -d "$APP_DIR" ]]; then
-  echo "ERROR: could not find built StemDeck.app" >&2
+  echo "ERROR: could not find built LayerLab.app" >&2
   exit 1
 fi
 
@@ -66,8 +66,60 @@ else
   cp "$REPO_ROOT/desktop/ui/runtime-manifest.json" "$RESOURCES/runtime-manifest.json"
 fi
 
-if [[ -f "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" ]]; then
-  cp "$REPO_ROOT/packaging/macos/THIRD_PARTY_NOTICES.txt" "$RESOURCES/THIRD_PARTY_NOTICES.txt"
+RUNTIME_ARCHIVE="$BUILD_DIR/LayerLab-runtime-macOS-${ARCH}.tar.zst"
+if [[ -f "$RUNTIME_ARCHIVE" ]]; then
+  echo "==> Bundling local runtime archive for offline first launch"
+  cp "$RUNTIME_ARCHIVE" "$RESOURCES/$(basename "$RUNTIME_ARCHIVE")"
+else
+  echo "==> Runtime archive not bundled; first launch will use runtimeUrl"
+fi
+
+LICENSE_BUNDLE_DIR="$BUILD_DIR/license-bundle-${ARCH}"
+for license_file in THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.txt THIRD_PARTY_INVENTORY.json; do
+  if [[ ! -f "$LICENSE_BUNDLE_DIR/$license_file" ]]; then
+    echo "ERROR: generated license artifact not found: $LICENSE_BUNDLE_DIR/$license_file" >&2
+    echo "Run scripts/macos/make-runtime-pack.sh before building the app." >&2
+    exit 1
+  fi
+  destination="$license_file"
+  [[ "$license_file" == "THIRD_PARTY_NOTICES.md" ]] && destination="THIRD_PARTY_NOTICES.txt"
+  cp "$LICENSE_BUNDLE_DIR/$license_file" "$RESOURCES/$destination"
+done
+
+if [[ -f "$REPO_ROOT/LICENSE" ]]; then
+  cp "$REPO_ROOT/LICENSE" "$RESOURCES/LICENSE"
+fi
+
+if [[ -f "$REPO_ROOT/NOTICE" ]]; then
+  cp "$REPO_ROOT/NOTICE" "$RESOURCES/NOTICE"
+fi
+
+if [[ -f "$REPO_ROOT/OSS_COMPONENTS.md" ]]; then
+  cp "$REPO_ROOT/OSS_COMPONENTS.md" "$RESOURCES/OSS_COMPONENTS.md"
+fi
+
+xattr -cr "$APP_DIR" >/dev/null 2>&1 || true
+
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+  echo "==> Signing app with identity: ${APPLE_SIGNING_IDENTITY}"
+  codesign_args=(--force --deep --options runtime)
+  if [[ -n "${APPLE_ENTITLEMENTS:-}" ]]; then
+    if [[ ! -f "$APPLE_ENTITLEMENTS" ]]; then
+      echo "ERROR: APPLE_ENTITLEMENTS does not exist: $APPLE_ENTITLEMENTS" >&2
+      exit 1
+    fi
+    codesign_args+=(--entitlements "$APPLE_ENTITLEMENTS")
+  fi
+  if [[ "${APPLE_CODESIGN_TIMESTAMP:-1}" == "1" ]]; then
+    codesign_args+=(--timestamp)
+  fi
+  codesign_args+=(--sign "$APPLE_SIGNING_IDENTITY" "$APP_DIR")
+  codesign "${codesign_args[@]}"
+  codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+else
+  echo "==> Applying local ad-hoc signature (set APPLE_SIGNING_IDENTITY for distribution)"
+  codesign --force --deep --sign - "$APP_DIR"
+  codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 fi
 
 echo "$APP_DIR" > "$BUILD_DIR/app-path-${ARCH}.txt"

@@ -1,0 +1,104 @@
+{
+  "components": [
+    {
+      "pythonPackage": "antlr4-python3-runtime",
+      "name": "ANTLR4 Python 3 runtime",
+      "licenseFiles": [
+        "packaging/manual-licenses/antlr4-python3-runtime-4.9.3.txt"
+      ]
+    },
+    {
+      "ecosystem": "javascript",
+      "name": "wavesurfer-multitrack",
+      "version": "0.4.12",
+      "license": "BSD-3-Clause",
+      "delivery": "bundled",
+      "url": "https://www.npmjs.com/package/wavesurfer-multitrack/v/0.4.12",
+      "licenseFiles": [
+        "static/vendor/multitrack.LICENSE.txt"
+      ]
+    },
+    {
+      "ecosystem": "font",
+      "name": "JetBrains Mono",
+      "license": "OFL-1.1",
+      "delivery": "downloaded at runtime from Google Fonts; not bundled",
+      "url": "https://github.com/JetBrains/JetBrainsMono",
+      "licenseFiles": [
+        "packaging/license-texts/OFL-1.1.txt"
+      ]
+    },
+    {
+      "ecosystem": "font",
+      "name": "Space Grotesk",
+      "license": "OFL-1.1",
+      "delivery": "downloaded at runtime from Google Fonts; not bundled",
+      "url": "https://github.com/floriankarsten/space-grotesk",
+      "licenseFiles": [
+        "packaging/license-texts/OFL-1.1.txt"
+      ]
+    },
+    {
+      "ecosystem": "external-download",
+      "name": "FFmpeg / ffprobe macOS builds by evermeet.cx",
+      "version": "8.1.1-tessus",
+      "license": "GPL-3.0-or-later build; includes separately licensed external libraries",
+      "delivery": "downloaded directly from evermeet.cx during first-run; not bundled",
+      "url": "https://evermeet.cx/ffmpeg/info/ffmpeg/8.1.1",
+      "licenseFiles": [
+        "packaging/license-texts/GPL-3.0-or-later.txt",
+        "packaging/manual-licenses/FFMPEG_RUNTIME_NOTICE.md"
+      ]
+    },
+    {
+      "ecosystem": "external-download",
+      "name": "FFmpeg Windows build by gyan.dev",
+      "license": "GPL build; exact version is recorded at installation time",
+      "delivery": "downloaded directly from gyan.dev during first-run; not bundled",
+      "url": "https://www.gyan.dev/ffmpeg/builds/",
+      "licenseFiles": [
+        "packaging/license-texts/GPL-3.0-or-later.txt",
+        "packaging/manual-licenses/FFMPEG_RUNTIME_NOTICE.md"
+      ]
+    },
+    {
+      "ecosystem": "model",
+      "name": "Demucs pretrained model weights",
+      "version": "htdemucs_6s / htdemucs_ft",
+      "license": "Not covered by the Demucs MIT code license; upstream states personal/research usage",
+      "delivery": "downloaded on first separation; not bundled",
+      "url": "https://github.com/facebookresearch/demucs/issues/384#issuecomment-1262197483",
+      "licenseFiles": [
+        "packaging/manual-licenses/DEMUCS_MODEL_TERMS.md"
+      ]
+    },
+    {
+      "ecosystem": "model",
+      "name": "Beat This! published model weights",
+      "version": "small0 / final0",
+      "license": "MIT; upstream warns that training-data rights may affect some use cases",
+      "delivery": "downloaded on first high-quality analysis; not bundled",
+      "url": "https://github.com/CPJKU/beat_this#license",
+      "licenseFiles": [
+        "packaging/manual-licenses/BEAT_THIS_MODEL_NOTICE.md",
+        "packaging/license-texts/MIT.txt"
+      ]
+    },
+    {
+      "ecosystem": "system",
+      "name": "WebKit / WKWebView",
+      "license": "Operating-system component; not redistributed by LayerLab",
+      "delivery": "provided by macOS",
+      "url": "https://webkit.org/licensing-webkit/",
+      "licenseFiles": []
+    },
+    {
+      "ecosystem": "system",
+      "name": "Microsoft Edge WebView2",
+      "license": "Operating-system/runtime component; not redistributed by LayerLab portable package",
+      "delivery": "provided or installed separately on Windows",
+      "url": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "licenseFiles": []
+    }
+  ]
+}

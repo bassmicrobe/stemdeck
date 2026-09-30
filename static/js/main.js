@@ -1,15 +1,27 @@
 import {
   playBtn, loopBtn, multitrack, totalDuration, loopEnabled, loopStart, loopEnd,
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
+  qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
+  stemDenoisePreset, stemDenoiseReady, denoiseSelect, setStemDenoisePreset,
+  demucsDevicePreset, demucsDeviceReady, demucsDeviceSelect, setDemucsDevicePreset,
 } from "./state.js";
-import { STEM_NAMES, syncStemNamesFromAPI } from "./constants.js";
-import { renderEmptyShell, buildStripStems, downloadCurrentMix, downloadAllStemsZip, downloadRegionMix, drawFooterPlaceholder } from "./player.js";
+import { supportedStemNamesForQuality, syncStemNamesFromAPI } from "./constants.js";
+import {
+  renderEmptyShell,
+  buildStripStems,
+  downloadChordMidi,
+  downloadCurrentMix,
+  downloadAllStemsZip,
+  downloadRegionMix,
+  drawFooterPlaceholder,
+} from "./player.js";
 import { wireJobForm, showError } from "./job.js";
 import { wireTransportButtons } from "./transport.js";
 import { togglePlayPause, updateLoopRegionVisual } from "./transport.js";
 import { wireStemListControls, wireMixerToolbar } from "./mixer.js";
 import { initCatalog } from "./catalog.js";
 import { runStoreMigrationIfNeeded } from "./utils.js";
+import { initLogViewer } from "./logs.js";
 
 // ─── Stem choice toggles on the import page ───
 //
@@ -31,25 +43,39 @@ import { runStoreMigrationIfNeeded } from "./utils.js";
 // Persisted across reloads so the next song honors the user's last
 // chosen subset, but a 0-selection state is normalized to all 6.
 function refreshStemChoiceVisuals() {
+  const allowed = supportedStemNamesForQuality(qualityPreset);
+  const selectedAllowed = [...selectedStems].filter((name) => allowed.includes(name));
+  const fallbackToAll = selectedAllowed.length === 0;
   for (const btn of document.querySelectorAll(".stem-choice[data-stem]")) {
+    const enabled = allowed.includes(btn.dataset.stem);
+    btn.disabled = !enabled;
+    btn.setAttribute("aria-disabled", String(!enabled));
     btn.setAttribute(
       "aria-pressed",
-      String(selectedStems.has(btn.dataset.stem)),
+      String(enabled && (fallbackToAll || selectedStems.has(btn.dataset.stem))),
     );
+    if (!enabled) {
+      btn.title = `${btn.textContent.trim()} is only available in Standard 6-stem mode`;
+    } else {
+      btn.removeAttribute("title");
+    }
   }
 }
 
 function handleStemChoiceClick(stem) {
-  const allSelected = selectedStems.size === STEM_NAMES.length;
+  const allowed = supportedStemNamesForQuality(qualityPreset);
+  if (!allowed.includes(stem)) return;
+  const selectedAllowed = [...selectedStems].filter((name) => allowed.includes(name));
+  const allSelected = selectedAllowed.length === allowed.length;
   if (allSelected) {
     // Default state -> switch to "only this stem".
-    selectedStems.clear();
+    for (const name of allowed) selectedStems.delete(name);
     selectedStems.add(stem);
   } else if (selectedStems.has(stem)) {
     selectedStems.delete(stem);
-    if (selectedStems.size === 0) {
+    if (!allowed.some((name) => selectedStems.has(name))) {
       // Empty out wraps back to "all" so the user is never stuck.
-      for (const n of STEM_NAMES) selectedStems.add(n);
+      for (const n of allowed) selectedStems.add(n);
     }
   } else {
     selectedStems.add(stem);
@@ -71,15 +97,19 @@ function wireAllButton() {
   if (!allBtn) return;
 
   function syncAllBtn() {
-    allBtn.setAttribute("aria-pressed", String(selectedStems.size === STEM_NAMES.length));
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const selectedAllowed = allowed.filter((name) => selectedStems.has(name));
+    const allSelected = selectedAllowed.length === 0 || selectedAllowed.length === allowed.length;
+    allBtn.setAttribute("aria-pressed", String(allSelected));
   }
 
   allBtn.addEventListener("click", () => {
-    const allSelected = selectedStems.size === STEM_NAMES.length;
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const allSelected = allowed.every((name) => selectedStems.has(name));
     if (allSelected) {
-      selectedStems.clear();
+      for (const name of allowed) selectedStems.delete(name);
     } else {
-      for (const n of STEM_NAMES) selectedStems.add(n);
+      for (const n of allowed) selectedStems.add(n);
     }
     saveSelectedStems();
     refreshStemChoiceVisuals();
@@ -95,6 +125,62 @@ function wireAllButton() {
   syncAllBtn();
 }
 
+function wireQualitySelect() {
+  if (!qualitySelect) return;
+  qualitySelect.addEventListener("change", () => {
+    setQualityPreset(qualitySelect.value);
+    refreshStemChoiceVisuals();
+    buildStripStems();
+    const allowed = supportedStemNamesForQuality(qualityPreset);
+    const selectedAllowed = allowed.filter((name) => selectedStems.has(name));
+    document
+      .getElementById("stemAllBtn")
+      ?.setAttribute(
+        "aria-pressed",
+        String(selectedAllowed.length === 0 || selectedAllowed.length === allowed.length),
+      );
+  });
+}
+
+function wireDenoiseSelect() {
+  if (!denoiseSelect) return;
+  denoiseSelect.addEventListener("change", () => {
+    setStemDenoisePreset(denoiseSelect.value);
+  });
+}
+
+async function refreshDeviceSelectAvailability() {
+  if (!demucsDeviceSelect) return;
+  try {
+    const res = await fetch("/api/health");
+    if (!res.ok) return;
+    const health = await res.json();
+    const available = new Set(health.demucs_available_devices || ["cpu"]);
+    const detected = health.demucs_device || "cpu";
+    for (const option of demucsDeviceSelect.options) {
+      if (option.value === "auto") {
+        option.textContent = `Auto (${detected.toUpperCase()})`;
+        option.disabled = false;
+      } else {
+        option.disabled = !available.has(option.value);
+      }
+    }
+    if (demucsDeviceSelect.value !== "auto" && !available.has(demucsDeviceSelect.value)) {
+      setDemucsDevicePreset("auto");
+      demucsDeviceSelect.value = "auto";
+    }
+  } catch (e) {
+    console.warn("[main] failed to refresh demucs device availability:", e);
+  }
+}
+
+function wireDeviceSelect() {
+  if (!demucsDeviceSelect) return;
+  demucsDeviceSelect.addEventListener("change", () => {
+    setDemucsDevicePreset(demucsDeviceSelect.value);
+  });
+}
+
 // ─── Wire everything up ───
 
 syncStemNamesFromAPI().then(() => buildStripStems());
@@ -106,12 +192,22 @@ wireStemListControls();
 wireMixerToolbar();
 wireStemChoiceButtons();
 wireAllButton();
+wireQualitySelect();
+wireDenoiseSelect();
+wireDeviceSelect();
 wireFileDrop();
 wireAppShellControls();
 
 (async () => {
   await runStoreMigrationIfNeeded();
   await stemSelectionReady;
+  await qualityPresetReady;
+  await stemDenoiseReady;
+  await demucsDeviceReady;
+  if (qualitySelect) qualitySelect.value = qualityPreset;
+  if (denoiseSelect) denoiseSelect.value = stemDenoisePreset;
+  if (demucsDeviceSelect) demucsDeviceSelect.value = demucsDevicePreset;
+  await refreshDeviceSelectAvailability();
   refreshStemChoiceVisuals();
   await initCatalog();
 })().catch(console.error);
@@ -132,8 +228,13 @@ function wireFooterControls() {
   const fmtFlac  = document.getElementById("t-fmt-flac");
   const itemMix    = document.getElementById("t-export-mix");
   const itemStems  = document.getElementById("t-export-stems");
+  const itemChords = document.getElementById("t-export-chords");
   const itemRegion = document.getElementById("t-export-region");
-  const actionItems = () => [itemMix, itemStems, itemRegion];
+  const chordFormat = document.getElementById("t-chord-format");
+  const chordStyle = document.getElementById("t-chord-style");
+  const chordGrid = document.getElementById("t-chord-grid");
+  const chordMarkers = document.getElementById("t-chord-markers");
+  const actionItems = () => [itemMix, itemStems, itemChords, itemRegion];
 
   let format = "wav";
   let busy = false;
@@ -159,6 +260,17 @@ function wireFooterControls() {
   fmtWav?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("wav"); });
   fmtMp3?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("mp3"); });
   fmtFlac?.addEventListener("click", (e) => { e.stopPropagation(); setFormat("flac"); });
+  function updateChordOptionState() {
+    const selected = chordFormat?.value || "midi";
+    if (chordMarkers) chordMarkers.disabled = selected !== "midi";
+    if (chordStyle) chordStyle.disabled = selected === "json";
+    if (chordGrid) chordGrid.disabled = selected === "json";
+  }
+  for (const el of [chordFormat, chordStyle, chordGrid, chordMarkers]) {
+    el?.addEventListener("click", (e) => e.stopPropagation());
+    el?.addEventListener("change", updateChordOptionState);
+  }
+  updateChordOptionState();
 
   function resetBusy() {
     busy = false;
@@ -166,6 +278,7 @@ function wireFooterControls() {
     if (exportLabel) exportLabel.textContent = "Export Mix";
     itemMix?.removeAttribute("aria-disabled");
     itemStems?.removeAttribute("aria-disabled");
+    itemChords?.removeAttribute("aria-disabled");
     updateLoopRegionVisual(); // restores the region item's disabled state
   }
 
@@ -207,6 +320,19 @@ function wireFooterControls() {
     e.stopPropagation();
     if (busy) return;
     downloadAllStemsZip(format);
+    flashBusy();
+  });
+
+  itemChords?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (busy) return;
+    const options = {
+      format: chordFormat?.value || "midi",
+      style: chordStyle?.value || "auto",
+      grid: chordGrid?.value || "beat",
+      markers: chordMarkers?.checked ?? true,
+    };
+    if (!downloadChordMidi(options)) { showError("Chord guide is not available for this track yet."); return; }
     flashBusy();
   });
 
@@ -276,8 +402,8 @@ function wireFileDrop() {
   function applyFile(file) {
     if (!file) return;
     const lower = file.name.toLowerCase();
-    if (!lower.endsWith(".mp3") && !lower.endsWith(".wav") && !lower.endsWith(".flac")) {
-      showError("Only MP3, WAV, and FLAC files are supported.");
+    if (!lower.endsWith(".mp3") && !lower.endsWith(".wav") && !lower.endsWith(".flac") && !lower.endsWith(".m4a")) {
+      showError("Only MP3, WAV, FLAC, and M4A files are supported.");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -413,3 +539,4 @@ window.addEventListener("unhandledrejection", (e) => {
 
 buildStripStems();
 renderEmptyShell();
+initLogViewer();
