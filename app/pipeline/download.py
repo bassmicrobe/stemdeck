@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 import urllib.parse
@@ -50,6 +51,19 @@ def _is_retriable(exc: Exception) -> bool:
     return any(s in msg for s in _RETRIABLE)
 
 
+def _progress_duration(payload: dict) -> float | None:
+    info = payload.get("info_dict")
+    if not isinstance(info, dict):
+        return None
+    try:
+        duration = float(info.get("duration"))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(duration) or not 0.0 < duration <= MAX_DURATION_SEC:
+        return None
+    return duration
+
+
 _VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 _YOUTUBE_HOSTS = frozenset(
     (
@@ -80,10 +94,16 @@ def _duration_match_filter(info: dict, *, incomplete: bool = False) -> str | Non
     """Reject overlong media after extraction but before bytes are downloaded."""
     if incomplete:
         return None
-    try:
-        duration = float(info.get("duration") or 0.0)
-    except (TypeError, ValueError):
+    if info.get("is_live") or info.get("live_status") in ("is_live", "is_upcoming"):
+        return "Live or upcoming streams are not supported; use a completed recording"
+    if info.get("duration") is None:
         return None
+    try:
+        duration = float(info["duration"])
+    except (TypeError, ValueError):
+        return "Invalid media duration"
+    if not math.isfinite(duration) or duration <= 0:
+        return "Invalid media duration"
     if duration <= MAX_DURATION_SEC:
         return None
     mins = MAX_DURATION_SEC // 60
@@ -104,6 +124,15 @@ def validate_youtube_url(url: str) -> str:
         raise InvalidYouTubeURL(f"could not parse URL: {e}") from e
     if parsed.scheme not in ("http", "https"):
         raise InvalidYouTubeURL("URL must use http or https")
+    if parsed.username is not None or parsed.password is not None:
+        raise InvalidYouTubeURL("URL must not contain credentials")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise InvalidYouTubeURL("Invalid URL port") from exc
+    expected_port = 443 if parsed.scheme == "https" else 80
+    if port is not None and port != expected_port:
+        raise InvalidYouTubeURL("Only standard HTTP/HTTPS ports are supported")
     host = (parsed.hostname or "").lower()
     if host not in _ALLOWED_HOSTS:
         raise InvalidYouTubeURL(f"unsupported host: {host or '(empty)'}")
@@ -173,6 +202,8 @@ def download(job: Job, url: str, job_dir: Path) -> Path:
         # The runner unwraps yt-dlp's DownloadError and routes to JobCancelled.
         if job.cancel_requested:
             raise JobCancelled()
+        if job.duration_sec is None and (duration := _progress_duration(d)) is not None:
+            _set(job, duration_sec=duration)
         if d.get("status") == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate")
             if total:

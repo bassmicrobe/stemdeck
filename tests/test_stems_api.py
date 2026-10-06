@@ -25,7 +25,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(stems_mod, "JOBS_DIR", tmp_path)
     from app.main import app
 
-    return TestClient(app)
+    return TestClient(app, base_url="http://127.0.0.1")
 
 
 def _make_stem_file(tmp_path, job_id: str, name: str, contents: bytes = b"RIFF"):
@@ -161,9 +161,30 @@ def test_chord_midi_returns_file_for_done_job(client, tmp_path):
 def test_chord_midi_variant_renders_from_metadata(client, tmp_path):
     job = Job(id="abcdefabcda3", status="done", title="Chord Song", bpm=120)
     job.chord_progression = [
-        {"label": "Bm7", "start": 0.0, "end": 1.0, "start_beat": 0, "end_beat": 1, "confidence": 0.9},
-        {"label": "Dmaj7", "start": 1.0, "end": 3.0, "start_beat": 1, "end_beat": 3, "confidence": 0.8},
-        {"label": "Gmaj7", "start": 3.0, "end": 4.0, "start_beat": 3, "end_beat": 4, "confidence": 0.7},
+        {
+            "label": "Bm7",
+            "start": 0.0,
+            "end": 1.0,
+            "start_beat": 0,
+            "end_beat": 1,
+            "confidence": 0.9,
+        },
+        {
+            "label": "Dmaj7",
+            "start": 1.0,
+            "end": 3.0,
+            "start_beat": 1,
+            "end_beat": 3,
+            "confidence": 0.8,
+        },
+        {
+            "label": "Gmaj7",
+            "start": 3.0,
+            "end": 4.0,
+            "start_beat": 3,
+            "end_beat": 4,
+            "confidence": 0.7,
+        },
     ]
     _jobs[job.id] = job
     (tmp_path / job.id / "stems").mkdir(parents=True, exist_ok=True)
@@ -179,7 +200,14 @@ def test_chord_midi_variant_renders_from_metadata(client, tmp_path):
 def test_chord_csv_variant_renders_from_metadata(client, tmp_path):
     job = Job(id="abcdefabcda4", status="done", title="Chord CSV")
     job.chord_progression = [
-        {"label": "Cmaj7", "start": 0.0, "end": 2.0, "start_beat": 0, "end_beat": 4, "confidence": 0.8},
+        {
+            "label": "Cmaj7",
+            "start": 0.0,
+            "end": 2.0,
+            "start_beat": 0,
+            "end_beat": 4,
+            "confidence": 0.8,
+        },
     ]
     _jobs[job.id] = job
     (tmp_path / job.id / "stems").mkdir(parents=True, exist_ok=True)
@@ -235,7 +263,10 @@ def test_all_stems_zip_all_when_no_subset(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/stems/all.zip")
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/zip"
-    assert "My_Song_Live_Standard_Noise_off_Auto_All_6_stem_stems.zip" in r.headers["content-disposition"]
+    assert (
+        "My_Song_Live_Standard_Noise_off_Auto_All_6_stem_stems.zip"
+        in r.headers["content-disposition"]
+    )
 
     zf = zipfile.ZipFile(io.BytesIO(r.content))
     assert sorted(zf.namelist()) == ["LAYERLAB_PROFILE.txt", "bass.wav", "drums.wav", "vocals.wav"]
@@ -375,9 +406,80 @@ def test_mixdown_rejects_empty(client):
 
 
 def test_mixdown_rejects_bad_gain(client):
-    for gains in ("abc", "-1", "99"):
+    for gains in ("abc", "-1", "99", "nan", "inf", "-inf"):
         r = client.get(f"/api/jobs/abcdef000001/mixdown.wav?stems=vocals&gains={gains}")
         assert r.status_code == 422, f"gains={gains!r} should 422"
+
+
+def test_mixdown_rejects_duplicate_lanes_before_starting_export(client):
+    response = client.get("/api/jobs/abcdef000001/mixdown.wav?stems=vocals,vocals&gains=1,1")
+    assert response.status_code == 422
+
+
+def test_busy_exports_do_not_spawn_extra_encoder(client, tmp_path, monkeypatch):
+    import threading
+
+    import app.core.limits as limits
+
+    monkeypatch.setattr(limits, "_export_slots", threading.BoundedSemaphore(1))
+    job = _done_job_with_stems(tmp_path, "abcdef000099", ["vocals"])
+    with limits.export_slot():
+        response = client.get(f"/api/jobs/{job.id}/mixdown.wav?stems=vocals&gains=1")
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "3"
+
+
+@pytest.mark.parametrize("region", ["start=nan&end=1", "start=0&end=inf"])
+def test_mixdown_rejects_nonfinite_region(client, region):
+    response = client.get(f"/api/jobs/abcdef000001/mixdown.wav?stems=vocals&gains=1&{region}")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_cancelled_render_kills_process_and_removes_output(tmp_path, monkeypatch):
+    import asyncio
+    import os
+
+    import app.api.stems as stems_api
+
+    output = tmp_path / "cancelled.wav"
+    started = asyncio.Event()
+
+    class Process:
+        returncode = None
+        killed = False
+        waited = False
+
+        async def communicate(self):
+            started.set()
+            await asyncio.Future()
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        async def wait(self):
+            self.waited = True
+            return self.returncode
+
+    process = Process()
+
+    async def start(*args, **kwargs):
+        return process
+
+    monkeypatch.setattr(
+        stems_api.tempfile,
+        "mkstemp",
+        lambda **kw: (os.open(output, os.O_CREAT | os.O_RDWR), str(output)),
+    )
+    monkeypatch.setattr(stems_api.asyncio, "create_subprocess_exec", start)
+    task = asyncio.create_task(stems_api._render_ffmpeg_temp(["ffmpeg"], suffix=".wav"))
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert process.killed and process.waited
+    assert not output.exists()
 
 
 def test_mixdown_rejects_unknown_stem(client):
@@ -425,9 +527,7 @@ def test_mixdown_wav_happy(client, tmp_path):
     r = client.get(f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,0.500")
     assert r.status_code == 200
     assert r.headers["content-type"] == "audio/wav"
-    assert "Track_Standard_Noise_off_Auto_All_6_stem_mix.wav" in r.headers[
-        "content-disposition"
-    ]
+    assert "Track_Standard_Noise_off_Auto_All_6_stem_mix.wav" in r.headers["content-disposition"]
     assert r.content[:4] == b"RIFF"
 
 
@@ -437,15 +537,15 @@ def test_mixdown_graph_limits_without_auto_makeup_gain(client, tmp_path, monkeyp
     job = _done_job_with_stems(tmp_path, "abcdef000016", ["vocals", "drums"])
     commands = []
 
-    def fake_stream(cmd):
+    async def fake_render(cmd, *, suffix):
         commands.append(cmd)
-        yield _tiny_wav()
+        output = tmp_path / f"export{suffix}"
+        output.write_bytes(_tiny_wav())
+        return output
 
-    monkeypatch.setattr(stems_api, "_stream_ffmpeg", fake_stream)
+    monkeypatch.setattr(stems_api, "_render_ffmpeg_temp", fake_render)
 
-    response = client.get(
-        f"/api/jobs/{job.id}/mixdown.mp3?stems=vocals,drums&gains=1.000,1.000"
-    )
+    response = client.get(f"/api/jobs/{job.id}/mixdown.mp3?stems=vocals,drums&gains=1.000,1.000")
 
     assert response.status_code == 200
     graph = commands[0][commands[0].index("-filter_complex") + 1]
@@ -486,9 +586,7 @@ def test_mixdown_limiter_prevents_clipping_without_changing_duration(client, tmp
     for name in ("vocals", "drums"):
         _make_stem_file(tmp_path, job.id, name, _tiny_wav(amplitude=0.8))
 
-    response = client.get(
-        f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,1.000"
-    )
+    response = client.get(f"/api/jobs/{job.id}/mixdown.wav?stems=vocals,drums&gains=1.000,1.000")
 
     assert response.status_code == 200
     with wave.open(io.BytesIO(response.content), "rb") as wav:

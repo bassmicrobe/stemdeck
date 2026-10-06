@@ -114,13 +114,15 @@ export function refreshMixerVisuals() {
     // Mixer-column lane header
     const row = mixerEl.querySelector(`.lane-header[data-stem="${name}"]`);
     if (row) {
-      const muteBtn = row.querySelector(".mute");
       const soloBtn = row.querySelector(".solo");
-      if (soloBtn) soloBtn.classList.toggle("active", state.soloed);
+      if (soloBtn) {
+        soloBtn.classList.toggle("active", state.soloed);
+        soloBtn.setAttribute("aria-pressed", String(state.soloed));
+      }
       const iconToggle = row.querySelector(".lane-icon-toggle");
       if (iconToggle) {
         iconToggle.classList.toggle("active", !state.muted);
-        iconToggle.setAttribute("aria-pressed", String(!state.muted));
+        iconToggle.setAttribute("aria-pressed", String(state.muted));
       }
       row.classList.toggle("muted", state.muted);
       const knob = row.querySelector(".lane-knob");

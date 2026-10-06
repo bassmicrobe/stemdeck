@@ -421,14 +421,22 @@ Completed jobs may have their source audio removed to save disk space. In that c
 | `STEMDECK_FFMPEG` | `ffmpeg` | Path to the ffmpeg executable. |
 | `STEMDECK_FFPROBE` | `ffprobe` | Path to the ffprobe executable. |
 | `STEMDECK_MAX_DURATION_SEC` | `1200` | Reject audio longer than this (seconds). |
-| `STEMDECK_JOB_TTL_SECONDS` | `86400` | How long to keep job dirs on disk. |
+| `STEMDECK_JOB_TTL_SECONDS` | `86400` | Retention after completion (seconds); legacy records without completion time use creation time. |
 | `STEMDECK_MAX_PENDING_JOBS` | `3` | Max queued jobs before returning 503. |
+| `STEMDECK_MAX_EXPORTS` | `2` | Max simultaneous dynamic exports (1-4). Excess requests return 503 with Retry-After. |
+| `STEMDECK_ALLOWED_HOSTS` | loopback only | Additional exact hostnames/IPs, comma-separated, without scheme or port. This does not add authentication. |
 | `STEMDECK_TIMEOUT_FFMPEG` | `300` | ffmpeg subprocess timeout (seconds). |
 | `STEMDECK_TIMEOUT_ANALYZE` | `120` | Audio analysis timeout (seconds). |
 | `STEMDECK_TIMEOUT_DEMUCS_STALL` | `1800` | Kill Demucs if no output for this many seconds. |
 | `STEMDECK_TIMEOUT_DEMUCS_TOTAL` | `43200` | Hard Demucs runtime limit (12 hours). Set `0` to disable. |
 
 `run.sh` also reads: `HOST` (default `127.0.0.1`), `PORT` (default `8765`), `RELOAD=1` (enable uvicorn auto-reload for development), `FOREGROUND=1` (run in foreground instead of backgrounding).
+
+Keep the unauthenticated backend on loopback. Host/Origin validation and body limits
+are enabled, but public hosting still requires an authenticated gateway and
+appropriate rate/storage limits. See [SECURITY.md](SECURITY.md) and the
+[Japanese audit report](AUDIT.ja.md) for known limitations, including unpatched
+PyTorch advisories in the compatibility-pinned runtime.
 
 ---
 
@@ -480,7 +488,10 @@ jobs/<job_id>/
     └── mix.wav         # ffmpeg amix of selected stems (subset only)
 ```
 
-Job state is in-memory. Restart the server and the job list resets, but files persist on disk. Old dirs are swept automatically (TTL 24 h, configurable).
+Terminal job state is persisted in `jobs/registry.json` and restored on startup.
+Audio files are swept after the configurable retention period (default 24 h
+from completion). Export files you need to keep permanently. Legacy entries
+without a completion timestamp use creation time; orphan folders use mtime.
 
 ---
 

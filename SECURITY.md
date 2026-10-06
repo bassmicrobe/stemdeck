@@ -39,6 +39,31 @@ machine, has no authentication, and is same-origin only. Reports that it "has
 no login" or "no per-user access control" describe intended behavior, not
 vulnerabilities.
 
+The default backend must remain bound to loopback. API requests reject untrusted
+Host headers (DNS rebinding), mismatched Origin headers, and cross-site Fetch
+Metadata. Requests without Origin are allowed for native local clients; these
+checks are not authentication. Additional hosts may be explicitly configured
+with `STEMDECK_ALLOWED_HOSTS` (no wildcards). A reverse proxy must preserve the
+correct Host/scheme and enforce authentication, rate limits and storage quotas
+before any public or shared-network deployment. This backend does not provide
+tenant isolation and must not be used as a shared multi-user service as-is.
+
+JSON bodies are limited to 1 MiB. Audio uploads permit 100 MiB plus bounded
+multipart overhead; both declared and streamed sizes are checked. Multipart
+files are closed on success and failure. Dynamic exports have a shared capacity
+limit (`STEMDECK_MAX_EXPORTS`, default 2); requests over capacity return 503.
+
+### Known dependency limitations
+
+The current Torch/Torchaudio compatibility pins (2.6.x, or 2.2.x on Intel macOS)
+leave known PyTorch security advisories unresolved. Do not load untrusted model
+checkpoints or replace the model cache with files from an unverified source.
+Demucs currently downloads official models with hash checking, but that does
+not fix the vulnerable deserializer or make arbitrary local checkpoints safe.
+A complete remediation requires a Torch upgrade, audio-writer migration and
+real-model compatibility testing on each supported platform. See
+[AUDIT.ja.md](AUDIT.ja.md) for the current audit scope and remaining gaps.
+
 We are most interested in reports about:
 
 - Malicious media files or URLs (SSRF, command or argument injection)

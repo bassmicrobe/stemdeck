@@ -69,6 +69,26 @@ def test_keeps_recent_terminal_job(tmp_path: Path):
     assert job.id in _jobs
 
 
+@pytest.mark.parametrize("has_directory", [True, False])
+def test_retention_starts_at_completion_after_a_long_job(tmp_path, has_directory):
+    now = time.time()
+    job = Job(
+        id="abcdefabcde2",
+        status="done" if has_directory else "error",
+        created_at=now - 3600,
+        completed_at=now - 15,
+    )
+    _jobs[job.id] = job
+    directory = _mkdir(tmp_path, job.id) if has_directory else None
+
+    with patch("app.pipeline.collect.JOB_TTL_SECONDS", 60):
+        sweep_old_jobs(tmp_path)
+
+    assert job.id in _jobs
+    if directory is not None:
+        assert (directory / "marker").read_bytes() == b"x"
+
+
 def test_sweeps_old_failed_job_without_directory(tmp_path: Path):
     job = Job(id="abcdefabcde1", status="error", title="Failed song")
     job.created_at = time.time() - 999_999

@@ -10,7 +10,14 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastapi>=0.115,!=0.136.3",
     "uvicorn[standard]>=0.30",
-    "yt-dlp>=2024.12.0",
+    "yt-dlp>=2026.7.4",
+    # Security floors for the HTTP/multipart and transitive media libraries.
+    "starlette>=1.7.0",
+    "anyio>=4.14.2",
+    "idna>=3.15",
+    "msgpack>=1.2.1",
+    "pillow>=12.3.0",
+    "setuptools>=83.0.0",
     # The persistent worker integrates with Demucs' apply/save internals. Keep
     # this exact until a newer release passes the protocol compatibility suite.
     "demucs==4.0.1",
@@ -48,14 +55,12 @@ dependencies = [
     "pyloudnorm>=0.1.1",
     # FastAPI multipart/form-data (file uploads) unconditionally require
     # python-multipart — it is not an optional extra.
-    "python-multipart>=0.0.9",
+    "python-multipart>=0.0.31",
     # Provides a portable ffmpeg binary fallback for local runs where ffmpeg is
     # not installed on PATH. Desktop builds still prefer their bundled binary.
     "imageio-ffmpeg>=0.5",
-    # CVE-2026-44431 / CVE-2026-44432: sensitive header forwarding and
-    # decompression-bomb bypass fixed in 2.7.0. urllib3 is a transitive
-    # dep via requests; pin floor to pull in the fix.
-    "urllib3>=2.7.0",
+    # Includes fixes for streaming decompression and HTTPS proxy handling.
+    "urllib3>=2.8.0",
 ]
 
 [project.optional-dependencies]

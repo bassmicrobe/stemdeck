@@ -44,6 +44,7 @@ from app.core.config import (
 from app.core.joblog import add_system_log
 from app.core.registry import all_procs
 from app.core.registry import restore as restore_registry
+from app.core.security import RequestGuard
 from app.pipeline.beat_tracker import beat_this_available
 from app.pipeline.collect import sweep_old_jobs
 from app.pipeline.demucs_pool import demucs_worker_status, shutdown_demucs_workers
@@ -175,6 +176,7 @@ app = FastAPI(
     version=app_version(),
     lifespan=lifespan,
 )
+app.add_middleware(RequestGuard)
 
 
 @app.get("/health", include_in_schema=False)
@@ -290,7 +292,12 @@ _CSP = (
 async def security_and_cache_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["Content-Security-Policy"] = _CSP
-    if not request.url.path.startswith("/api"):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path == "/api" or request.url.path.startswith("/api/"):
+        if "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+    else:
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 

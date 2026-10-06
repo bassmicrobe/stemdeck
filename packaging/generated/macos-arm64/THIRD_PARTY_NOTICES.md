@@ -14,37 +14,37 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | python | annotated-doc | 0.0.4 | MIT | bundled | [source](https://github.com/fastapi/annotated-doc) |
 | python | annotated-types | 0.7.0 | MIT | bundled | [source](https://github.com/annotated-types/annotated-types) |
 | python | antlr4-python3-runtime | 4.9.3 | BSD | bundled | [source](http://www.antlr.org) |
-| python | anyio | 4.14.1 | MIT | bundled | [source](https://anyio.readthedocs.io/en/latest/) |
+| python | anyio | 4.15.1 | MIT | bundled | [source](https://anyio.readthedocs.io/en/latest/) |
 | python | audioop-lts | 0.2.2 | PSF-2.0 | bundled | [source](https://github.com/AbstractUmbra/audioop) |
 | python | audioread | 3.1.0 | MIT | bundled | [source](https://github.com/beetbox/audioread/issues) |
 | python | beat-this | 1.1.0 | MIT | bundled | [source](https://github.com/CPJKU/beat_this) |
-| python | certifi | 2026.6.17 | MPL-2.0 | bundled | [source](https://github.com/certifi/python-certifi) |
+| python | certifi | 2026.4.22 | MPL-2.0 | bundled | [source](https://github.com/certifi/python-certifi) |
 | python | cffi | 2.0.0 | MIT | bundled | [source](https://cffi.readthedocs.io/) |
 | python | chardet | 7.4.3 | 0BSD | bundled | [source](https://github.com/chardet/chardet) |
 | python | charset-normalizer | 3.4.7 | MIT | bundled | [source](https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md) |
-| python | click | 8.4.2 | BSD-3-Clause | bundled | [source](https://click.palletsprojects.com/page/changes/) |
+| python | click | 8.3.3 | BSD-3-Clause | bundled | [source](https://click.palletsprojects.com/page/changes/) |
 | python | cloudpickle | 3.1.2 | BSD-3-Clause | bundled | [source](https://github.com/cloudpipe/cloudpickle) |
 | python | contourpy | 1.3.3 | See included license text | bundled | [source](https://github.com/contourpy/contourpy) |
 | python | cycler | 0.12.1 | See included license text | bundled | [source](https://matplotlib.org/cycler/) |
-| python | decorator | 5.3.1 | BSD-2-Clause | bundled |  |
+| python | decorator | 5.2.1 | BSD-2-Clause | bundled |  |
 | python | demucs | 4.0.1 | MIT | bundled | [source](https://github.com/facebookresearch/demucs) |
 | python | dora_search | 0.1.12 | MIT | bundled | [source](https://github.com/facebookresearch/dora) |
 | python | einops | 0.8.2 | MIT | bundled | [source](https://github.com/arogozhnikov/einops) |
-| python | fastapi | 0.138.0 | MIT | bundled | [source](https://github.com/fastapi/fastapi) |
-| python | filelock | 3.29.4 | MIT | bundled | [source](https://py-filelock.readthedocs.io) |
+| python | fastapi | 0.136.1 | MIT | bundled | [source](https://github.com/fastapi/fastapi) |
+| python | filelock | 3.29.0 | MIT | bundled | [source](https://py-filelock.readthedocs.io) |
 | python | fonttools | 4.63.0 | MIT | bundled | [source](http://github.com/fonttools/fonttools) |
-| python | fsspec | 2026.6.0 | BSD-3-Clause | bundled | [source](https://filesystem-spec.readthedocs.io/en/latest/changelog.html) |
+| python | fsspec | 2026.3.0 | BSD-3-Clause | bundled | [source](https://filesystem-spec.readthedocs.io/en/latest/changelog.html) |
 | python | h11 | 0.16.0 | MIT | bundled | [source](https://github.com/python-hyper/h11) |
-| python | httptools | 0.8.0 | MIT | bundled | [source](https://github.com/MagicStack/httptools) |
-| python | idna | 3.18 | BSD-3-Clause | bundled | [source](https://github.com/kjd/idna/blob/master/HISTORY.md) |
+| python | httptools | 0.7.1 | MIT | bundled | [source](https://github.com/MagicStack/httptools) |
+| python | idna | 3.20 | BSD-3-Clause | bundled | [source](https://github.com/kjd/idna/blob/master/HISTORY.md) |
 | python | imageio-ffmpeg | 0.6.0 | BSD-2-Clause | bundled | [source](https://github.com/imageio/imageio-ffmpeg) |
 | python | Jinja2 | 3.1.6 | BSD | bundled | [source](https://jinja.palletsprojects.com/changes/) |
 | python | joblib | 1.5.3 | BSD-3-Clause | bundled | [source](https://joblib.readthedocs.io) |
 | python | jsonpickle | 4.1.2 | BSD-3-Clause | bundled | [source](https://jsonpickle.readthedocs.io/) |
-| python | julius | 0.2.8 | MIT | bundled | [source](https://github.com/adefossez/julius) |
+| python | julius | 0.2.7 | MIT | bundled | [source](https://github.com/adefossez/julius) |
 | python | kiwisolver | 1.5.0 | See included license text | bundled | [source](https://github.com/nucleic/kiwi) |
 | python | lameenc | 1.8.2 | See included license text | bundled | [source](https://github.com/chrisstaite/lameenc) |
-| python | layerlab | 0.7.0a17 | Apache-2.0 | bundled |  |
+| python | layerlab | 0.7.0-alpha.17 | Apache-2.0 | bundled |  |
 | python | lazy-loader | 0.5 | BSD-3-Clause | bundled | [source](https://scientific-python.org/specs/spec-0001/) |
 | python | librosa | 0.11.0 | ISC | bundled | [source](https://librosa.org/doc) |
 | python | llvmlite | 0.47.0 | BSD-2-Clause AND Apache-2.0 WITH LLVM-exception | bundled | [source](https://github.com/numba/llvmlite) |
@@ -52,58 +52,57 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | python | matplotlib | 3.11.0 | See included license text | bundled | [source](https://matplotlib.org) |
 | python | more-itertools | 11.1.0 | MIT | bundled | [source](https://more-itertools.readthedocs.io/en/stable/) |
 | python | mpmath | 1.3.0 | BSD | bundled | [source](https://github.com/fredrik-johansson/mpmath) |
-| python | msgpack | 1.2.1 | Apache-2.0 | bundled | [source](https://msgpack.org/) |
+| python | msgpack | 1.2.3 | Apache-2.0 | bundled | [source](https://msgpack.org/) |
 | python | music21 | 10.5.0 | BSD-3-Clause | bundled | [source](https://github.com/cuthbertLab/music21/releases/) |
-| python | narwhals | 2.22.1 | MIT | bundled | [source](https://github.com/narwhals-dev/narwhals) |
 | python | networkx | 3.6.1 | BSD-3-Clause | bundled | [source](https://networkx.org/) |
 | python | numba | 0.65.1 | BSD | bundled | [source](https://numba.pydata.org) |
-| python | numpy | 2.4.6 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | bundled | [source](https://numpy.org) |
-| python | omegaconf | 2.3.1 | BSD | bundled | [source](https://github.com/omry/omegaconf) |
+| python | numpy | 2.4.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | bundled | [source](https://numpy.org) |
+| python | omegaconf | 2.3.0 | BSD | bundled | [source](https://github.com/omry/omegaconf) |
 | python | openunmix | 1.3.0 | MIT | bundled | [source](https://github.com/sigsep/open-unmix-pytorch) |
 | python | packaging | 26.2 | Apache-2.0 OR BSD-2-Clause | bundled | [source](https://packaging.pypa.io/) |
-| python | pillow | 12.2.0 | MIT-CMU | bundled | [source](https://pillow.readthedocs.io/en/stable/releasenotes/index.html) |
+| python | pillow | 12.3.0 | MIT-CMU | bundled | [source](https://pillow.readthedocs.io/en/stable/releasenotes/index.html) |
 | python | pip | 26.1.1 | MIT | bundled | [source](https://pip.pypa.io/en/stable/news/) |
-| python | platformdirs | 4.10.0 | MIT | bundled | [source](https://platformdirs.readthedocs.io/en/latest/changelog.html) |
+| python | platformdirs | 4.9.6 | MIT | bundled | [source](https://platformdirs.readthedocs.io/en/latest/changelog.html) |
 | python | pooch | 1.9.0 | BSD-3-Clause | bundled | [source](https://www.fatiando.org/pooch) |
 | python | pycparser | 3.0 | BSD-3-Clause | bundled | [source](https://github.com/eliben/pycparser) |
-| python | pydantic | 2.13.4 | MIT | bundled | [source](https://github.com/pydantic/pydantic) |
-| python | pydantic_core | 2.46.4 | MIT | bundled | [source](https://github.com/sponsors/samuelcolvin) |
+| python | pydantic | 2.13.3 | MIT | bundled | [source](https://github.com/pydantic/pydantic) |
+| python | pydantic_core | 2.46.3 | MIT | bundled | [source](https://github.com/sponsors/samuelcolvin) |
 | python | pyloudnorm | 0.2.0 | MIT | bundled | [source](https://github.com/csteinmetz1/pyloudnorm) |
 | python | pyparsing | 3.3.2 | MIT | bundled | [source](https://pyparsing-docs.readthedocs.io/en/latest/) |
 | python | python-dateutil | 2.9.0.post0 | Dual License | bundled | [source](https://dateutil.readthedocs.io/en/stable/) |
 | python | python-dotenv | 1.2.2 | BSD-3-Clause | bundled | [source](https://github.com/theskumar/python-dotenv) |
 | python | python-multipart | 0.0.32 | Apache-2.0 | bundled | [source](https://github.com/Kludex/python-multipart) |
 | python | PyYAML | 6.0.3 | MIT | bundled | [source](https://github.com/yaml/pyyaml/issues) |
-| python | requests | 2.34.2 | Apache-2.0 | bundled | [source](https://requests.readthedocs.io) |
+| python | requests | 2.33.1 | Apache-2.0 | bundled | [source](https://requests.readthedocs.io) |
 | python | retrying | 1.4.2 | Apache-2.0 | bundled | [source](https://github.com/groodt/retrying) |
-| python | rotary-embedding-torch | 0.9.1 | MIT | bundled | [source](https://codeberg.og/lucidrains/rotary-embedding-torch) |
-| python | scikit-learn | 1.9.0 | BSD-3-Clause | bundled | [source](https://scikit-learn.org) |
-| python | scipy | 1.18.0 | See included license text | bundled | [source](https://scipy.org/) |
-| python | setuptools | 82.0.1 | MIT | bundled | [source](https://github.com/pypa/setuptools) |
+| python | rotary-embedding-torch | 0.8.9 | MIT | bundled | [source](https://github.com/lucidrains/rotary-embedding-torch) |
+| python | scikit-learn | 1.8.0 | BSD-3-Clause | bundled | [source](https://scikit-learn.org) |
+| python | scipy | 1.17.1 | See included license text | bundled | [source](https://scipy.org/) |
+| python | setuptools | 84.0.0 | MIT | bundled | [source](https://github.com/pypa/setuptools) |
 | python | six | 1.17.0 | MIT | bundled | [source](https://github.com/benjaminp/six) |
-| python | soundfile | 0.14.0 | BSD-3-Clause | bundled | [source](https://github.com/bastibe/python-soundfile) |
-| python | soxr | 1.1.0 | LGPL-2.1-or-later | bundled | [source](https://github.com/dofuuz/python-soxr) |
+| python | soundfile | 0.13.1 | BSD-3-Clause | bundled | [source](https://github.com/bastibe/python-soundfile) |
+| python | soxr | 1.0.0 | LGPL-2.1-or-later | bundled | [source](https://github.com/dofuuz/python-soxr) |
 | python | standard-aifc | 3.13.0 | PSF-2.0 | bundled | [source](https://github.com/youknowone/python-deadlib) |
 | python | standard-chunk | 3.13.0 | PSF-2.0 | bundled | [source](https://github.com/youknowone/python-deadlib) |
 | python | standard-sunau | 3.13.0 | PSF-2.0 | bundled | [source](https://github.com/youknowone/python-deadlib) |
-| python | starlette | 1.3.1 | BSD-3-Clause | bundled | [source](https://github.com/Kludex/starlette) |
+| python | starlette | 1.7.0 | BSD-3-Clause | bundled | [source](https://github.com/Kludex/starlette) |
 | python | submitit | 1.5.4 | MIT | bundled | [source](https://github.com/facebookincubator/submitit) |
 | python | sympy | 1.13.1 | BSD | bundled | [source](https://github.com/sympy/sympy) |
 | python | threadpoolctl | 3.6.0 | BSD-3-Clause | bundled | [source](https://github.com/joblib/threadpoolctl) |
 | python | torch | 2.6.0 | BSD-3-Clause | bundled | [source](https://pytorch.org/) |
 | python | torchaudio | 2.6.0 | BSD | bundled | [source](https://github.com/pytorch/audio) |
-| python | tqdm | 4.68.3 | MPL-2.0 AND MIT | bundled | [source](https://tqdm.github.io) |
+| python | tqdm | 4.67.3 | MPL-2.0 AND MIT | bundled | [source](https://tqdm.github.io) |
 | python | treetable | 0.2.6 | Unlicense | bundled | [source](https://github.com/adefossez/treetable) |
 | python | typing-inspection | 0.4.2 | MIT | bundled | [source](https://github.com/pydantic/typing-inspection) |
-| python | typing_extensions | 4.15.0 | PSF-2.0 | bundled | [source](https://github.com/python/typing_extensions/issues) |
-| python | urllib3 | 2.7.0 | MIT | bundled | [source](https://github.com/urllib3/urllib3/blob/main/CHANGES.rst) |
-| python | uvicorn | 0.49.0 | BSD-3-Clause | bundled | [source](https://uvicorn.dev/release-notes) |
+| python | typing_extensions | 4.16.0 | PSF-2.0 | bundled | [source](https://github.com/python/typing_extensions/issues) |
+| python | urllib3 | 2.8.0 | MIT | bundled | [source](https://github.com/urllib3/urllib3/blob/main/CHANGES.rst) |
+| python | uvicorn | 0.46.0 | BSD-3-Clause | bundled | [source](https://uvicorn.dev/release-notes) |
 | python | uvloop | 0.22.1 | MIT | bundled | [source](https://github.com/MagicStack/uvloop) |
-| python | watchfiles | 1.2.0 | MIT | bundled | [source](https://github.com/samuelcolvin/watchfiles/releases) |
+| python | watchfiles | 1.1.1 | MIT | bundled | [source](https://github.com/samuelcolvin/watchfiles) |
 | python | webcolors | 25.10.0 | BSD-3-Clause | bundled | [source](https://webcolors.readthedocs.io) |
 | python | websockets | 16.0 | BSD-3-Clause | bundled | [source](https://github.com/python-websockets/websockets) |
-| python | wheel | 0.47.0 | MIT | bundled | [source](https://wheel.readthedocs.io/en/stable/news.html) |
-| python | yt-dlp | 2026.6.9 | Unlicense | bundled | [source](https://github.com/yt-dlp/yt-dlp#readme) |
+| python | wheel | 0.48.0 | MIT | bundled | [source](https://wheel.readthedocs.io/en/stable/news.html) |
+| python | yt-dlp | 2026.8.19 | Unlicense | bundled | [source](https://github.com/yt-dlp/yt-dlp#readme) |
 | runtime | Python | 3.13 | PSF-2.0 and bundled third-party notices | bundled | [source](https://www.python.org/) |
 | rust | adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | bundled | [source](https://github.com/oyvindln/adler2) |
 | rust | aho-corasick | 1.1.4 | Unlicense OR MIT | bundled | [source](https://github.com/BurntSushi/aho-corasick) |
@@ -222,7 +221,7 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | rust | json-patch | 3.0.1 | MIT/Apache-2.0 | bundled | [source](https://github.com/idubrov/json-patch) |
 | rust | jsonptr | 0.6.3 | MIT OR Apache-2.0 | bundled | [source](https://github.com/chanced/jsonptr) |
 | rust | keyboard-types | 0.7.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/pyfisch/keyboard-types) |
-| rust | layerlab | 0.0.0 | Apache-2.0 | bundled | [source](https://github.com/bassmicrobe/stemdeck) |
+| rust | layerlab | 0.7.0-alpha.17 | Apache-2.0 | bundled | [source](https://github.com/bassmicrobe/stemdeck) |
 | rust | libc | 0.2.186 | MIT OR Apache-2.0 | bundled | [source](https://github.com/rust-lang/libc) |
 | rust | litemap | 0.8.2 | Unicode-3.0 | bundled | [source](https://github.com/unicode-org/icu4x) |
 | rust | lock_api | 0.4.14 | MIT OR Apache-2.0 | bundled | [source](https://github.com/Amanieu/parking_lot) |
@@ -340,6 +339,7 @@ This file is generated from the exact packaged dependency metadata. Each compone
 | rust | tauri-runtime | 2.11.0 | Apache-2.0 OR MIT | bundled | [source](https://github.com/tauri-apps/tauri) |
 | rust | tauri-runtime-wry | 2.11.0 | Apache-2.0 OR MIT | bundled | [source](https://github.com/tauri-apps/tauri) |
 | rust | tauri-utils | 2.9.0 | Apache-2.0 OR MIT | bundled | [source](https://github.com/tauri-apps/tauri) |
+| rust | tempfile | 3.27.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/Stebalien/tempfile) |
 | rust | tendril | 0.5.0 | MIT OR Apache-2.0 | bundled | [source](https://github.com/servo/html5ever) |
 | rust | thiserror | 1.0.69 | MIT OR Apache-2.0 | bundled | [source](https://github.com/dtolnay/thiserror) |
 | rust | thiserror | 2.0.18 | MIT OR Apache-2.0 | bundled | [source](https://github.com/dtolnay/thiserror) |

@@ -118,7 +118,7 @@
     {
       "ecosystem": "python",
       "name": "anyio",
-      "version": "4.14.1",
+      "version": "4.15.1",
       "license": "MIT",
       "url": "https://anyio.readthedocs.io/en/latest/",
       "delivery": "bundled",
@@ -162,7 +162,7 @@
     {
       "ecosystem": "python",
       "name": "certifi",
-      "version": "2026.6.17",
+      "version": "2026.4.22",
       "license": "MPL-2.0",
       "url": "https://github.com/certifi/python-certifi",
       "delivery": "bundled",
@@ -207,7 +207,7 @@
     {
       "ecosystem": "python",
       "name": "click",
-      "version": "8.4.2",
+      "version": "8.3.3",
       "license": "BSD-3-Clause",
       "url": "https://click.palletsprojects.com/page/changes/",
       "delivery": "bundled",
@@ -251,12 +251,12 @@
     {
       "ecosystem": "python",
       "name": "decorator",
-      "version": "5.3.1",
+      "version": "5.2.1",
       "license": "BSD-2-Clause",
       "url": "",
       "delivery": "bundled",
       "licenseSections": [
-        "bd12cc51405c10872497c10ca21601f1d4abc50496595cc89e89ab5dad24fb62"
+        "914ee6ed78a5efc173bda698f2708444ca9d140fcc4080c60d0503d40db39da6"
       ]
     },
     {
@@ -295,7 +295,7 @@
     {
       "ecosystem": "python",
       "name": "fastapi",
-      "version": "0.138.0",
+      "version": "0.136.1",
       "license": "MIT",
       "url": "https://github.com/fastapi/fastapi",
       "delivery": "bundled",
@@ -306,7 +306,7 @@
     {
       "ecosystem": "python",
       "name": "filelock",
-      "version": "3.29.4",
+      "version": "3.29.0",
       "license": "MIT",
       "url": "https://py-filelock.readthedocs.io",
       "delivery": "bundled",
@@ -329,7 +329,7 @@
     {
       "ecosystem": "python",
       "name": "fsspec",
-      "version": "2026.6.0",
+      "version": "2026.3.0",
       "license": "BSD-3-Clause",
       "url": "https://filesystem-spec.readthedocs.io/en/latest/changelog.html",
       "delivery": "bundled",
@@ -351,20 +351,18 @@
     {
       "ecosystem": "python",
       "name": "httptools",
-      "version": "0.8.0",
+      "version": "0.7.1",
       "license": "MIT",
       "url": "https://github.com/MagicStack/httptools",
       "delivery": "bundled",
       "licenseSections": [
-        "2580ca6f428e469f8f6626f621ea867d5356638d97dc748b5790df8ae52b3926",
-        "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d",
         "f4573e7cb7676745fb5b8d36fa548aa93e391cfb6872ddacd65130c45ea6a92d"
       ]
     },
     {
       "ecosystem": "python",
       "name": "idna",
-      "version": "3.18",
+      "version": "3.20",
       "license": "BSD-3-Clause",
       "url": "https://github.com/kjd/idna/blob/master/HISTORY.md",
       "delivery": "bundled",
@@ -419,7 +417,7 @@
     {
       "ecosystem": "python",
       "name": "julius",
-      "version": "0.2.8",
+      "version": "0.2.7",
       "license": "MIT",
       "url": "https://github.com/adefossez/julius",
       "delivery": "bundled",
@@ -452,13 +450,13 @@
     {
       "ecosystem": "python",
       "name": "layerlab",
-      "version": "0.7.0a17",
+      "version": "0.7.0-alpha.17",
       "license": "Apache-2.0",
       "url": "",
       "delivery": "bundled",
       "licenseSections": [
-        "1d8e828e75e2f4a1a200998f8537442bba5ed9604d4bd542046a28da574410e0",
-        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+        "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+        "535d8922add40f283c3f73d28d698928bb81186775c8863fd7306a4d687f2745"
       ]
     },
     {
@@ -544,7 +542,7 @@
     {
       "ecosystem": "python",
       "name": "msgpack",
-      "version": "1.2.1",
+      "version": "1.2.3",
       "license": "Apache-2.0",
       "url": "https://msgpack.org/",
       "delivery": "bundled",
@@ -564,17 +562,6 @@
         "66bebe57f2b32a5a13948b10861f435efe23a94d609300ca41c968001db58d61",
         "9fdc902b727bce85d5445152a8f0f554632f9fe0ea2cc2b378f8e63d83324081",
         "ec4a91f8896fa87f74522a54107674c99568da6c025df884c78f966c5377db13"
-      ]
-    },
-    {
-      "ecosystem": "python",
-      "name": "narwhals",
-      "version": "2.22.1",
-      "license": "MIT",
-      "url": "https://github.com/narwhals-dev/narwhals",
-      "delivery": "bundled",
-      "licenseSections": [
-        "811445f30147b8f0c9d444c9025fd528f9532c54b7b83f6e2368473dc91cfdf0"
       ]
     },
     {
@@ -603,7 +590,7 @@
     {
       "ecosystem": "python",
       "name": "numpy",
-      "version": "2.4.6",
+      "version": "2.4.4",
       "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
       "url": "https://numpy.org",
       "delivery": "bundled",
@@ -630,7 +617,7 @@
     {
       "ecosystem": "python",
       "name": "omegaconf",
-      "version": "2.3.1",
+      "version": "2.3.0",
       "license": "BSD",
       "url": "https://github.com/omry/omegaconf",
       "delivery": "bundled",
@@ -665,12 +652,12 @@
     {
       "ecosystem": "python",
       "name": "pillow",
-      "version": "12.2.0",
+      "version": "12.3.0",
       "license": "MIT-CMU",
       "url": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
       "delivery": "bundled",
       "licenseSections": [
-        "13e1d5014de0064b4b1ca4d837111797673cc91a116616e3dde555009243aaf6"
+        "dda12a98c1979cf3d94df1cff45d27a4cb3f04a60c76f76902ac54cac03ec0ce"
       ]
     },
     {
@@ -707,7 +694,7 @@
     {
       "ecosystem": "python",
       "name": "platformdirs",
-      "version": "4.10.0",
+      "version": "4.9.6",
       "license": "MIT",
       "url": "https://platformdirs.readthedocs.io/en/latest/changelog.html",
       "delivery": "bundled",
@@ -741,7 +728,7 @@
     {
       "ecosystem": "python",
       "name": "pydantic",
-      "version": "2.13.4",
+      "version": "2.13.3",
       "license": "MIT",
       "url": "https://github.com/pydantic/pydantic",
       "delivery": "bundled",
@@ -752,7 +739,7 @@
     {
       "ecosystem": "python",
       "name": "pydantic_core",
-      "version": "2.46.4",
+      "version": "2.46.3",
       "license": "MIT",
       "url": "https://github.com/sponsors/samuelcolvin",
       "delivery": "bundled",
@@ -829,7 +816,7 @@
     {
       "ecosystem": "python",
       "name": "requests",
-      "version": "2.34.2",
+      "version": "2.33.1",
       "license": "Apache-2.0",
       "url": "https://requests.readthedocs.io",
       "delivery": "bundled",
@@ -853,9 +840,9 @@
     {
       "ecosystem": "python",
       "name": "rotary-embedding-torch",
-      "version": "0.9.1",
+      "version": "0.8.9",
       "license": "MIT",
-      "url": "https://codeberg.og/lucidrains/rotary-embedding-torch",
+      "url": "https://github.com/lucidrains/rotary-embedding-torch",
       "delivery": "bundled",
       "licenseSections": [
         "fe74654058fe2ba069808dbf36defd6e207baf8859f36366a6a3ceae5aa6ecc5"
@@ -864,26 +851,26 @@
     {
       "ecosystem": "python",
       "name": "scikit-learn",
-      "version": "1.9.0",
+      "version": "1.8.0",
       "license": "BSD-3-Clause",
       "url": "https://scikit-learn.org",
       "delivery": "bundled",
       "licenseSections": [
         "0f195136a4bcede62f084107911fc1e1770edd07774b19e2345bde6d83e1c211",
+        "35cbd755e60614a6a7b03fd29c3e95779ed3e991333f7e9e5947797916dd2e37",
         "4ffd978e3fa18d058d98c66771cfea7ed634aaf7023cf9612b8b55eee9a8f0fe",
-        "58494398fe147fdce76a68b2decd4c08ce3a1ea237b6d6785001c15f822c6ed6",
-        "fc8dc597df0e3f51da65e2a71021e7f92e0b481998ec572a53c03ac0441db040"
+        "58494398fe147fdce76a68b2decd4c08ce3a1ea237b6d6785001c15f822c6ed6"
       ]
     },
     {
       "ecosystem": "python",
       "name": "scipy",
-      "version": "1.18.0",
+      "version": "1.17.1",
       "license": "See included license text",
       "url": "https://scipy.org/",
       "delivery": "bundled",
       "licenseSections": [
-        "09a1b9e19573045b0784a181cc4bef677039d4f2111631c747bf72b7f19017d4",
+        "60a7d05d729ed5c763852a324a1cb4223d665d4ad3f4b8a0c130ae5c60c93e49",
         "c254b2b5fd30ae3c89d36ba061730563b9760fca04f1b746a1b2c3157da2c789",
         "c80c39b5fce06ba4897e14e0b0a88b54458334d951eb1361402ffad2cfb863b4",
         "dfb8f5cfa6cdfe9b617c6113274536952808eba2cae425275e41593da5d4e998",
@@ -893,7 +880,7 @@
     {
       "ecosystem": "python",
       "name": "setuptools",
-      "version": "82.0.1",
+      "version": "84.0.0",
       "license": "MIT",
       "url": "https://github.com/pypa/setuptools",
       "delivery": "bundled",
@@ -928,20 +915,19 @@
     {
       "ecosystem": "python",
       "name": "soundfile",
-      "version": "0.14.0",
+      "version": "0.13.1",
       "license": "BSD-3-Clause",
       "url": "https://github.com/bastibe/python-soundfile",
       "delivery": "bundled",
       "licenseSections": [
         "0dd2e411fed553ba891845077e5a32c5b726d1bbc46ff31a2118ae1ccf816752",
-        "35630e1f59b5c54b0bcbe2ec173bcf5a63b727a6e2f7834ca6d35a1af91a2b5f",
         "75ed0ee4cb95f36e0bc89f55da831551982acf51593a0e1099213748ed478fa9"
       ]
     },
     {
       "ecosystem": "python",
       "name": "soxr",
-      "version": "1.1.0",
+      "version": "1.0.0",
       "license": "LGPL-2.1-or-later",
       "url": "https://github.com/dofuuz/python-soxr",
       "delivery": "bundled",
@@ -988,7 +974,7 @@
     {
       "ecosystem": "python",
       "name": "starlette",
-      "version": "1.3.1",
+      "version": "1.7.0",
       "license": "BSD-3-Clause",
       "url": "https://github.com/Kludex/starlette",
       "delivery": "bundled",
@@ -1057,7 +1043,7 @@
     {
       "ecosystem": "python",
       "name": "tqdm",
-      "version": "4.68.3",
+      "version": "4.67.3",
       "license": "MPL-2.0 AND MIT",
       "url": "https://tqdm.github.io",
       "delivery": "bundled",
@@ -1090,7 +1076,7 @@
     {
       "ecosystem": "python",
       "name": "typing_extensions",
-      "version": "4.15.0",
+      "version": "4.16.0",
       "license": "PSF-2.0",
       "url": "https://github.com/python/typing_extensions/issues",
       "delivery": "bundled",
@@ -1101,7 +1087,7 @@
     {
       "ecosystem": "python",
       "name": "urllib3",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "license": "MIT",
       "url": "https://github.com/urllib3/urllib3/blob/main/CHANGES.rst",
       "delivery": "bundled",
@@ -1112,7 +1098,7 @@
     {
       "ecosystem": "python",
       "name": "uvicorn",
-      "version": "0.49.0",
+      "version": "0.46.0",
       "license": "BSD-3-Clause",
       "url": "https://uvicorn.dev/release-notes",
       "delivery": "bundled",
@@ -1135,9 +1121,9 @@
     {
       "ecosystem": "python",
       "name": "watchfiles",
-      "version": "1.2.0",
+      "version": "1.1.1",
       "license": "MIT",
-      "url": "https://github.com/samuelcolvin/watchfiles/releases",
+      "url": "https://github.com/samuelcolvin/watchfiles",
       "delivery": "bundled",
       "licenseSections": [
         "4fd78355b67ce2677ede9fb6f63a250f377bb7e22088136a5f4699adb4bc069f"
@@ -1168,7 +1154,7 @@
     {
       "ecosystem": "python",
       "name": "wheel",
-      "version": "0.47.0",
+      "version": "0.48.0",
       "license": "MIT",
       "url": "https://wheel.readthedocs.io/en/stable/news.html",
       "delivery": "bundled",
@@ -1179,7 +1165,7 @@
     {
       "ecosystem": "python",
       "name": "yt-dlp",
-      "version": "2026.6.9",
+      "version": "2026.8.19",
       "license": "Unlicense",
       "url": "https://github.com/yt-dlp/yt-dlp#readme",
       "delivery": "bundled",
@@ -2577,7 +2563,7 @@
     {
       "ecosystem": "rust",
       "name": "layerlab",
-      "version": "0.0.0",
+      "version": "0.7.0-alpha.17",
       "license": "Apache-2.0",
       "url": "https://github.com/bassmicrobe/stemdeck",
       "delivery": "bundled",
@@ -3979,6 +3965,18 @@
       "licenseSections": [
         "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
         "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec"
+      ]
+    },
+    {
+      "ecosystem": "rust",
+      "name": "tempfile",
+      "version": "3.27.0",
+      "license": "MIT OR Apache-2.0",
+      "url": "https://github.com/Stebalien/tempfile",
+      "delivery": "bundled",
+      "licenseSections": [
+        "143368af9701a24ebaf89fe5310ad8116ca71e8e99f17415c0dd893f6a256ae4",
+        "8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36"
       ]
     },
     {

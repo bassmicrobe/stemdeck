@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 def test_health_endpoints_report_ok():
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         for path in ("/health", "/api/health"):
             r = client.get(path)
             assert r.status_code == 200
@@ -27,7 +27,7 @@ def test_health_endpoints_report_ok():
 def test_license_and_notice_are_served():
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         license_response = client.get("/LICENSE")
         assert license_response.status_code == 200
         assert "Apache License" in license_response.text

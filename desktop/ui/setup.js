@@ -1,3 +1,5 @@
+import { runtimeNeedsUpdate } from "./runtime.js";
+
 const { invoke } = window.__TAURI__.core;
 
 let _runtimeUnlisten = null;
@@ -258,7 +260,7 @@ async function runSetup() {
       minDelay(350),
     ]);
 
-    // Compare the installed runtime against the version this app bundle expects.
+    // Compare both version and archive checksum so same-version rebuilds update.
     // On a DMG upgrade the old runtime is still fully "ready", so this MUST be
     // checked before the early-return below -- otherwise setup starts the stale
     // backend + frontend and the new release (e.g. new features, version) never
@@ -271,9 +273,9 @@ async function runSetup() {
     // An unknown installedVersion (a runtime from a build that never recorded
     // one) also counts, so an upgrade still refreshes it. Self-heals: after one
     // refresh the install records the version and subsequent launches match.
-    const versionMismatch = Boolean(expectedVersion) && installedVersion !== expectedVersion;
+    const runtimeMismatch = runtimeNeedsUpdate(runtimeStatus);
 
-    if (runtime.pythonReady && runtime.ffmpegReady && runtime.torchDevice && !versionMismatch) {
+    if (runtime.pythonReady && runtime.ffmpegReady && runtime.torchDevice && !runtimeMismatch) {
       for (const step of steps) {
         step.classList.remove("active", "error");
         if (step.dataset.step === "backend") {
@@ -291,8 +293,8 @@ async function runSetup() {
       return;
     }
 
-    if (!runtime.pythonReady || versionMismatch) {
-      if (versionMismatch) {
+    if (!runtime.pythonReady || runtimeMismatch) {
+      if (runtimeMismatch) {
         setStatus(`Updating runtime from ${installedVersion || "an older build"} to ${expectedVersion}...`);
       }
       await invoke("ensure_workspace");

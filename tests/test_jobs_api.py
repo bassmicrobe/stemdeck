@@ -30,15 +30,17 @@ def client():
     with patch("app.api.jobs.run_pipeline", _noop_pipeline):
         from app.main import app
 
-        with TestClient(app) as c:
+        with TestClient(app, base_url="http://127.0.0.1") as c:
             yield c
 
 
 @pytest.fixture
 def upload_client(tmp_path, monkeypatch):
+    import app.api.jobs as jobs_mod
     import app.core.config as cfg
 
     monkeypatch.setattr(cfg, "JOBS_DIR", tmp_path)
+    monkeypatch.setattr(jobs_mod, "JOBS_DIR", tmp_path)
 
     async def _noop_local(job, source_path, jobs_dir):
         return None
@@ -53,7 +55,7 @@ def upload_client(tmp_path, monkeypatch):
     ):
         from app.main import app
 
-        with TestClient(app) as c:
+        with TestClient(app, base_url="http://127.0.0.1") as c:
             yield c
 
 
@@ -136,7 +138,10 @@ def test_same_source_can_create_distinct_extraction_profiles(client):
     assert first.source_url == second.source_url == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     assert first.demucs_device == "cpu"
     assert first.demucs_device_resolved == "cpu"
-    assert first.profile_key() == "quality=standard|denoise=off|device=cpu:cpu|stems=vocals,drums,bass,other"
+    assert (
+        first.profile_key()
+        == "quality=standard|denoise=off|device=cpu:cpu|stems=vocals,drums,bass,other"
+    )
     assert second.profile_key() == "quality=max|denoise=strong|device=cpu:cpu|stems=vocals,bass"
 
 
@@ -304,9 +309,7 @@ def test_cancel_queued_job_opens_queue_slot(client):
 
 def test_audio_ready_background_analysis_does_not_hold_queue_capacity(client):
     created = [
-        client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).json()[
-            "job_id"
-        ]
+        client.post("/api/jobs", json={"url": "https://youtu.be/dQw4w9WgXcQ"}).json()["job_id"]
         for _ in range(MAX_PENDING_JOBS)
     ]
     for job_id in created:
@@ -381,6 +384,52 @@ def test_upload_mp3_returns_job_id(upload_client):
     assert r.status_code == 200
     assert "job_id" in r.json()
     assert len(r.json()["job_id"]) == 12
+
+
+def test_upload_ignores_audio_ready_background_jobs(upload_client):
+    for index in range(MAX_PENDING_JOBS):
+        job = Job(id=f"{index:012x}", status="processing", audio_ready=True)
+        _jobs[job.id] = job
+
+    response = upload_client.post(
+        "/api/jobs", files={"file": ("track.wav", b"RIFFdata", "audio/wav")}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["job_id"] in _jobs
+
+
+def test_busy_upload_is_rejected_before_reading_body(upload_client, monkeypatch, tmp_path):
+    from starlette.requests import Request
+
+    for index in range(MAX_PENDING_JOBS):
+        job = Job(id=f"{index:012x}", status="separating")
+        _jobs[job.id] = job
+
+    def forbidden_form(*args, **kwargs):
+        pytest.fail("busy upload parsed the body")
+
+    monkeypatch.setattr(Request, "form", forbidden_form)
+    response = upload_client.post(
+        "/api/jobs", files={"file": ("track.wav", b"RIFFdata", "audio/wav")}
+    )
+
+    assert response.status_code == 503
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("duration", [float("nan"), float("inf"), 0.0, -1.0])
+def test_upload_rejects_invalid_duration(upload_client, monkeypatch, tmp_path, duration):
+    import app.api.jobs as jobs_mod
+
+    monkeypatch.setattr(jobs_mod, "_probe_duration", lambda *_args: duration)
+    response = upload_client.post(
+        "/api/jobs", files={"file": ("track.wav", b"RIFFdata", "audio/wav")}
+    )
+
+    assert response.status_code == 422
+    assert _jobs == {}
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_upload_accepts_quality_preset(upload_client):
@@ -511,9 +560,7 @@ def test_sections_invalid_color_returns_422(client, done_job):
 
 def test_sections_reject_invalid_hex_color_length(client, done_job):
     payload = {
-        "sections": [
-            {"id": "sec1", "name": "Intro", "start": 0.0, "end": 10.0, "color": "#12345"}
-        ]
+        "sections": [{"id": "sec1", "name": "Intro", "start": 0.0, "end": 10.0, "color": "#12345"}]
     }
     response = client.patch(f"/api/jobs/{done_job.id}/sections", json=payload)
     assert response.status_code == 422
@@ -546,9 +593,7 @@ def test_sections_reject_duplicate_ids(client, done_job):
     assert response.status_code == 422
 
 
-def test_sections_write_failure_keeps_previous_in_memory_state(
-    client, done_job, monkeypatch
-):
+def test_sections_write_failure_keeps_previous_in_memory_state(client, done_job, monkeypatch):
     import app.api.jobs as jobs_mod
 
     done_job.sections = [{"id": "old"}]
@@ -579,9 +624,7 @@ def test_sections_accept_audio_ready_job(client, tmp_path):
     _jobs[job.id] = job
     (tmp_path / job.id).mkdir()
     payload = {
-        "sections": [
-            {"id": "intro", "name": "Intro", "start": 0.0, "end": 4.0, "color": "#fff"}
-        ]
+        "sections": [{"id": "intro", "name": "Intro", "start": 0.0, "end": 4.0, "color": "#fff"}]
     }
 
     response = client.patch(f"/api/jobs/{job.id}/sections", json=payload)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import re
 import subprocess
@@ -10,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, Response
 from starlette.background import BackgroundTask
 
 from app.core.config import (
@@ -22,6 +23,7 @@ from app.core.config import (
     output_limiter_filter,
     wav_codec_for_quality_preset,
 )
+from app.core.limits import export_slot
 from app.core.registry import get as registry_get
 from app.pipeline.chords import (
     chord_segments_from_metadata,
@@ -86,30 +88,18 @@ def _validate_stem_path(job_id: str, name: str):
     return path
 
 
-async def _stream_ffmpeg(cmd: list[str]):
-    """Yield ffmpeg stdout in 64 KB chunks; kill process on client disconnect."""
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL,
-    )
-    try:
-        while True:
-            chunk = await proc.stdout.read(65536)
-            if not chunk:
-                break
-            yield chunk
-    finally:
-        if proc.returncode is None:
-            proc.kill()
-        await proc.wait()
-
-
 async def _render_ffmpeg_temp(cmd: list[str], *, suffix: str) -> Path:
     """Render a seekable file so WAV headers contain a real frame count."""
+    with export_slot():
+        return await _render_ffmpeg_temp_in_slot(cmd, suffix=suffix)
+
+
+async def _render_ffmpeg_temp_in_slot(cmd: list[str], *, suffix: str) -> Path:
     fd, tmp = tempfile.mkstemp(prefix="layerlab_export_", suffix=suffix)
     os.close(fd)
     tmp_path = Path(tmp)
+    proc = None
+    completed = False
     try:
         proc = await asyncio.create_subprocess_exec(
             cmd[0],
@@ -122,17 +112,20 @@ async def _render_ffmpeg_temp(cmd: list[str], *, suffix: str) -> Path:
         try:
             _, stderr = await asyncio.wait_for(proc.communicate(), timeout=TIMEOUT_FFMPEG)
         except TimeoutError:
-            proc.kill()
-            await proc.wait()
             raise HTTPException(status_code=504, detail="audio export timed out") from None
         if proc.returncode != 0 or tmp_path.stat().st_size <= 44:
             detail = (stderr or b"").decode("utf-8", errors="replace").strip()
             logger.error("ffmpeg export failed: %s", detail or f"exit {proc.returncode}")
             raise HTTPException(status_code=500, detail="audio export failed")
+        completed = True
         return tmp_path
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    finally:
+        if proc is not None:
+            if proc.returncode is None:
+                proc.kill()
+            await proc.wait()
+        if not completed:
+            tmp_path.unlink(missing_ok=True)
 
 
 @router.get("/jobs/{job_id}/stems/peaks.json")
@@ -264,9 +257,13 @@ async def get_midi_analysis(job_id: str) -> FileResponse:
 async def get_stem(
     job_id: str,
     name: str,
-    start: float | None = Query(default=None, ge=0, description="Trim start in seconds"),
-    end: float | None = Query(default=None, gt=0, description="Trim end in seconds"),
-) -> FileResponse | StreamingResponse:
+    start: float | None = Query(
+        default=None, ge=0, allow_inf_nan=False, description="Trim start in seconds"
+    ),
+    end: float | None = Query(
+        default=None, gt=0, allow_inf_nan=False, description="Trim end in seconds"
+    ),
+) -> FileResponse:
     """Download a WAV stem. Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
     job = registry_get(job_id)
@@ -274,7 +271,9 @@ async def get_stem(
         raise HTTPException(status_code=404, detail="job not ready")
 
     if start is None and end is None:
-        return FileResponse(path, media_type="audio/wav", filename=_stem_download_filename(job, name, "wav"))
+        return FileResponse(
+            path, media_type="audio/wav", filename=_stem_download_filename(job, name, "wav")
+        )
 
     if start is None or end is None or start >= end:
         raise HTTPException(
@@ -311,10 +310,14 @@ async def get_stem(
 async def get_stem_mp3(
     job_id: str,
     name: str,
-    start: float | None = Query(default=None, ge=0, description="Trim start in seconds"),
-    end: float | None = Query(default=None, gt=0, description="Trim end in seconds"),
-) -> StreamingResponse:
-    """Stream a stem as MP3 (VBR ~190 kbps). Optional ?start=&end= trims to a time region."""
+    start: float | None = Query(
+        default=None, ge=0, allow_inf_nan=False, description="Trim start in seconds"
+    ),
+    end: float | None = Query(
+        default=None, gt=0, allow_inf_nan=False, description="Trim end in seconds"
+    ),
+) -> FileResponse:
+    """Render a stem as MP3 (VBR ~190 kbps). Optional ?start=&end= trims to a time region."""
     path = _validate_stem_path(job_id, name)
     job = registry_get(job_id)
     if not _audio_is_ready(job):
@@ -342,12 +345,13 @@ async def get_stem_mp3(
         "2",  # VBR ~190 kbps
         "-f",
         "mp3",
-        "pipe:1",
     ]
-    return StreamingResponse(
-        _stream_ffmpeg(cmd),
+    rendered = await _render_ffmpeg_temp(cmd, suffix=".mp3")
+    return FileResponse(
+        rendered,
         media_type="audio/mpeg",
-        headers={"Content-Disposition": f'attachment; filename="{_stem_download_filename(job, name, "mp3", region=start is not None)}"'},
+        filename=_stem_download_filename(job, name, "mp3", region=start is not None),
+        background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
     )
 
 
@@ -355,11 +359,17 @@ async def get_stem_mp3(
 async def get_mixdown(
     job_id: str,
     ext: str,
-    stems: str = Query(..., description="Comma-separated lane names to sum"),
-    gains: str = Query(..., description="Comma-separated linear gains, parallel to stems"),
-    start: float | None = Query(default=None, ge=0, description="Trim start in seconds"),
-    end: float | None = Query(default=None, gt=0, description="Trim end in seconds"),
-) -> FileResponse | StreamingResponse:
+    stems: str = Query(..., max_length=128, description="Comma-separated lane names to sum"),
+    gains: str = Query(
+        ..., max_length=256, description="Comma-separated linear gains, parallel to stems"
+    ),
+    start: float | None = Query(
+        default=None, ge=0, allow_inf_nan=False, description="Trim start in seconds"
+    ),
+    end: float | None = Query(
+        default=None, gt=0, allow_inf_nan=False, description="Trim end in seconds"
+    ),
+) -> FileResponse:
     """Render a fresh mixdown of the given lanes at the given gains. Mirrors
     the studio mixer (per-stem volume, mute, solo) so the
     exported file matches what is heard. The master fader is intentionally not
@@ -374,11 +384,13 @@ async def get_mixdown(
         raise HTTPException(
             status_code=422, detail="stems and gains must be non-empty and equal length"
         )
+    if len(names) > len(_MIXDOWN_NAMES) or len(set(names)) != len(names):
+        raise HTTPException(status_code=422, detail="each stem may be included only once")
     try:
         parsed_gains = [float(g) for g in raw_gains]
     except ValueError:
         raise HTTPException(status_code=422, detail="gains must be numbers") from None
-    if any(g < 0 or g > _MIXDOWN_MAX_GAIN for g in parsed_gains):
+    if any(not math.isfinite(g) or g < 0 or g > _MIXDOWN_MAX_GAIN for g in parsed_gains):
         raise HTTPException(status_code=422, detail="gain out of range")
     if not set(names) <= _MIXDOWN_NAMES:
         raise HTTPException(status_code=422, detail="unknown stem requested")
@@ -407,9 +419,7 @@ async def get_mixdown(
     n = len(paths)
     if n > 1:
         labels = "".join(f"[a{i}]" for i in range(n))
-        filters.append(
-            f"{labels}amix=inputs={n}:normalize=0,{output_limiter_filter()}[mix]"
-        )
+        filters.append(f"{labels}amix=inputs={n}:normalize=0,{output_limiter_filter()}[mix]")
     else:
         filters.append(f"[a0]{output_limiter_filter()}[mix]")
     out_label = "[mix]"
@@ -418,19 +428,12 @@ async def get_mixdown(
 
     media_type = MIXDOWN_MEDIA_TYPES[ext]
     filename = _mixdown_filename(job, ext, region=start is not None)
-    if ext == "wav":
-        rendered = await _render_ffmpeg_temp(cmd, suffix=".wav")
-        return FileResponse(
-            rendered,
-            media_type=media_type,
-            filename=filename,
-            background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
-        )
-    cmd.append("pipe:1")
-    return StreamingResponse(
-        _stream_ffmpeg(cmd),
+    rendered = await _render_ffmpeg_temp(cmd, suffix=f".{ext}")
+    return FileResponse(
+        rendered,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        filename=filename,
+        background=BackgroundTask(lambda: rendered.unlink(missing_ok=True)),
     )
 
 
@@ -575,7 +578,27 @@ async def get_all_stems_zip(
     tmp_path = Path(tmp)
     manifest = _profile_manifest(job, [name for name, _ in sources], fmt)
     try:
-        await asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path, manifest)
+        with export_slot():
+            build_task = asyncio.create_task(
+                asyncio.to_thread(_build_stems_zip, sources, fmt, tmp_path, manifest)
+            )
+            try:
+                await asyncio.shield(build_task)
+            except asyncio.CancelledError:
+                # A thread cannot be cancelled. Keep its slot and file until it exits.
+                try:
+                    await build_task
+                except Exception:
+                    logger.warning(
+                        "archive encoder failed after request cancellation", exc_info=True
+                    )
+                raise
+    except asyncio.CancelledError:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    except HTTPException:
+        tmp_path.unlink(missing_ok=True)
+        raise
     except Exception:
         tmp_path.unlink(missing_ok=True)
         logger.exception("failed to build stems zip for job %s", job_id)

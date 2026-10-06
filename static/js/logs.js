@@ -1,3 +1,5 @@
+import { createModalController } from "./dialog.js";
+
 const POLL_MS = 1500;
 
 let dialog = null;
@@ -9,7 +11,7 @@ let pollTimer = null;
 let requestedJobId = null;
 let requestGeneration = 0;
 let lastRenderKey = "";
-let previousFocus = null;
+let modalController = null;
 
 function formatTime(timestamp) {
   const date = new Date(Number(timestamp) * 1000);
@@ -128,23 +130,17 @@ function startPolling() {
   pollTimer = setInterval(refreshLogs, POLL_MS);
 }
 
-function closeLogViewer() {
+function handleLogViewerClosed() {
   stopPolling();
   requestGeneration += 1;
-  dialog?.classList.add("hidden");
-  previousFocus?.focus?.();
-  previousFocus = null;
 }
 
 export function openLogViewer(jobId = null) {
   if (!dialog) return;
-  previousFocus = document.activeElement;
   requestedJobId = jobId;
   jobSelect.value = jobId || "";
   lastRenderKey = "";
-  dialog.classList.remove("hidden");
-  document.getElementById("logsClose")?.focus();
-  startPolling();
+  modalController?.open();
 }
 
 export function initLogViewer() {
@@ -155,17 +151,21 @@ export function initLogViewer() {
   jobSelect = document.getElementById("logsJobSelect");
   if (!dialog || !listEl || !emptyEl || !statusEl || !jobSelect) return;
 
-  document.getElementById("logsBtn")?.addEventListener("click", () => openLogViewer());
-  document.getElementById("logsClose")?.addEventListener("click", closeLogViewer);
+  const trigger = document.getElementById("logsBtn");
+  const closeButton = document.getElementById("logsClose");
+  modalController = createModalController({
+    dialog,
+    trigger,
+    closeButton,
+    initialFocus: closeButton,
+    bindTrigger: false,
+    onOpen: startPolling,
+    onClose: handleLogViewerClosed,
+  });
+  trigger?.addEventListener("click", () => openLogViewer());
   document.getElementById("logsRefresh")?.addEventListener("click", refreshLogs);
   jobSelect.addEventListener("change", () => {
     requestedJobId = jobSelect.value || null;
     refreshLogs();
-  });
-  dialog.addEventListener("mousedown", (event) => {
-    if (event.target === dialog) closeLogViewer();
-  });
-  dialog.addEventListener("keydown", (event) => {
-    if (event.code === "Escape") closeLogViewer();
   });
 }

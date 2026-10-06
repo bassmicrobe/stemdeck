@@ -77,6 +77,18 @@ Apache License 2.0 は、ソフトウェアの商用利用、有償配布、社�
 
 起動後、ブラウザで `http://127.0.0.1:8765/` を開きます。`ffmpeg` がPATHにない場合でも、Python側で `imageio-ffmpeg` fallback を使えるようにしています。
 
+### セキュリティ・負荷制限
+
+このアプリは認証のないローカル・単一ユーザー向けです。標準の `127.0.0.1` で利用し、そのままインターネットへ公開しないでください。Host/Originの検証、リクエスト容量制限、書き出しの同時実行制限を追加していますが、ユーザー認証や利用者ごとのデータ分離を提供するものではありません。
+
+- `STEMDECK_MAX_EXPORTS`: 同時書き出し数。標準2、設定範囲1～4。超過時は503を返します。
+- `STEMDECK_ALLOWED_HOSTS`: 追加で許可する正確なホスト名/IPをカンマ区切りで指定。URL・ポート・ワイルドカードは指定できません。変更しても認証は追加されません。
+- JSON本文は1MiB、アップロードファイルは100MiBまで。容量超過や不正な値は登録前に拒否します。
+
+監査で修正した内容と未解決の依存ライブラリ問題は [AUDIT.ja.md](AUDIT.ja.md)、運用上の脅威モデルは [SECURITY.md](SECURITY.md) を参照してください。**PyTorchの既知の問題はまだ完全には解消していません。信頼できないモデル重みを読み込まないでください。**
+
+音源の保存期間は標準で処理完了後24時間です。`STEMDECK_JOB_TTL_SECONDS`で変更できます。永久保存ではないので、必要なstemやミックスは書き出してください。完了時刻を持たない古いジョブは受付時刻から計算します。
+
 ### 品質評価ベンチマーク
 
 品質プリセット、ノイズ除去、phase/bass repair の比較にはベンチマークスクリプトを使えます。左右チャンネルを保持してstem WAVを合計し、原音との差分、相関、実サンプルのクリップリスク、コード進行メタデータをJSONで出力します。
@@ -117,16 +129,22 @@ uv run python scripts/benchmark_audio.py \
 
 ### macOSデスクトップアプリ
 
-Apple Silicon の場合:
+Apple Silicon の場合（全工程で同じ有効なバージョンを指定）:
 
 ```sh
-rustup target add aarch64-apple-darwin
-ARCH=arm64 scripts/macos/make-runtime-pack.sh
-ARCH=arm64 scripts/macos/make-app.sh
-ARCH=arm64 scripts/macos/make-dmg.sh
+VERSION=0.7.0-alpha.17
+uv python install 3.13
+PYTHON_BIN="$(uv python find --managed-python 3.13)"
+ARCH=arm64 VERSION="$VERSION" PYTHON_BIN="$PYTHON_BIN" scripts/macos/make-runtime-pack.sh
+ARCH=arm64 VERSION="$VERSION" scripts/macos/make-app.sh
+ARCH=arm64 VERSION="$VERSION" scripts/macos/make-dmg.sh
 ```
 
 ビルド後の `.app` は `desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/LayerLab.app` に生成されます。DMG は `.build/macos-dist/LayerLab-macOS-arm64.dmg` に生成されます。
+
+依存関係は`uv.lock`に固定された内容から導入し、実際の同梱環境からライセンス一覧を再生成します。Rustは対象アーキテクチャの標準ライブラリが必要です。HomebrewのネイティブRustも利用できます。別アーキテクチャをビルドする場合は`rustup target add`等で準備してください。`APPLE_SIGNING_IDENTITY`未設定時はローカルテスト用のad-hoc署名であり、Appleの正式な配布署名・公証済みビルドではありません。
+
+同じバージョン番号の再ビルドでも、同梱ランタイムのチェックサムが変われば起動時に更新します。Pythonランタイムはアプリに同梱しますが、FFmpegやモデル重みの初回取得にはネット接続が必要です。
 
 ### Windows portable
 

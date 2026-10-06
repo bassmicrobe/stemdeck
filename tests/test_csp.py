@@ -7,7 +7,7 @@ from app.main import app
 
 def _csp_directive(name: str) -> str:
     """Return the named directive from the served Content-Security-Policy header."""
-    with TestClient(app) as c:
+    with TestClient(app, base_url="http://127.0.0.1") as c:
         resp = c.get("/")
     csp = resp.headers["content-security-policy"]
     return next(d.strip() for d in csp.split(";") if d.strip().startswith(name))

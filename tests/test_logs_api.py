@@ -22,7 +22,7 @@ def test_job_logs_endpoint_returns_structured_entries():
 
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         response = client.get(f"/api/logs?job_id={job.id}")
 
     assert response.status_code == 200
@@ -36,7 +36,7 @@ def test_job_logs_endpoint_returns_structured_entries():
 def test_job_logs_endpoint_rejects_unknown_job():
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         response = client.get("/api/logs?job_id=abcdefabcdef")
 
     assert response.status_code == 404

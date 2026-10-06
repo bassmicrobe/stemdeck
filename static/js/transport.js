@@ -116,7 +116,16 @@ export function updateFooterTimes(currentSec) {
   if (footerTimeTotal) footerTimeTotal.textContent = fmtTime(totalDuration);
   const pct = Math.max(0, Math.min(100, (currentSec / totalDuration) * 100));
   if (npScrubFill) npScrubFill.style.width = `${pct}%`;
+  const scrub = document.getElementById("footer-scrub");
+  if (scrub) {
+    scrub.setAttribute("aria-valuenow", String(Math.round(pct)));
+    scrub.setAttribute("aria-valuetext", `${fmtTime(currentSec)} of ${fmtTime(totalDuration)}`);
+  }
   footerWaveDrawFn?.(pct / 100);
+}
+
+export function seekToTime(seconds) {
+  setPlayheadTime(seconds);
 }
 
 // Build the presence-panel ruler labels from the actual track duration.

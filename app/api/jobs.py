@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import shutil
 import subprocess
@@ -38,8 +39,10 @@ from app.core.registry import persist as registry_persist
 from app.core.registry import refresh_queue_positions as registry_refresh_queue_positions
 from app.core.registry import register_if_capacity as registry_register_if_capacity
 from app.core.registry import remove as registry_remove
+from app.core.security import MAX_UPLOAD_BYTES
 from app.pipeline import run_local_pipeline, run_pipeline
 from app.pipeline.download import InvalidYouTubeURL, validate_youtube_url
+from app.pipeline.eta import configure_eta_history
 from app.pipeline.process import terminate_process
 
 router = APIRouter(tags=["jobs"])
@@ -47,7 +50,7 @@ logger = logging.getLogger("stemdeck.api")
 
 ACTIVE_JOB_STATUSES = frozenset(("queued", "downloading", "analyzing", "separating", "processing"))
 _ALLOWED_EXTS = frozenset((".mp3", ".wav", ".flac", ".m4a"))
-_MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES
 _WS_RE = re.compile(r"\s+")
 _FFMPEG_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)")
 _pipeline_tasks: dict[asyncio.Task, Job] = {}
@@ -196,6 +199,8 @@ async def create_job(request: Request) -> dict[str, str]:
 async def _create_youtube_job(request: Request) -> dict[str, str]:
     try:
         body = await request.json()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid JSON: {e}") from e
     try:
@@ -222,6 +227,7 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
         demucs_device_resolved=demucs_device_resolved,
         source_url=url,
     )
+    configure_eta_history(job, registry_all_jobs().values())
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
     add_job_log(job, "URL job accepted", stage="queued", progress=0.0)
@@ -231,27 +237,26 @@ async def _create_youtube_job(request: Request) -> dict[str, str]:
 
 
 async def _create_local_job(request: Request) -> dict[str, str]:
-    # Fast pre-check: if already at capacity, reject before touching disk.
-    # The real atomic check happens in register_if_capacity after the upload.
-    if sum(1 for j in registry_all_jobs().values() if j.status in ACTIVE_JOB_STATUSES) >= MAX_PENDING_JOBS:
+    # Reject a full queue before the multipart parser spools audio to disk.
+    pending = sum(
+        1
+        for job in registry_all_jobs().values()
+        if job.status in ACTIVE_JOB_STATUSES and not job.audio_ready
+    )
+    if pending >= MAX_PENDING_JOBS:
         raise HTTPException(status_code=503, detail="Server busy, please try again later")
+    async with request.form(max_files=1, max_fields=8) as form:
+        return await _create_local_job_from_form(form)
 
-    # Quick pre-check on Content-Length to fail fast for obviously oversized
-    # uploads without buffering the whole body first.
-    cl_header = request.headers.get("content-length")
-    if cl_header:
-        try:
-            if int(cl_header) > _MAX_UPLOAD_BYTES + 4096:
-                raise HTTPException(status_code=422, detail="File exceeds 100 MB limit")
-        except ValueError:
-            pass
 
-    form = await request.form()
+async def _create_local_job_from_form(form) -> dict[str, str]:
     upload = form.get("file")
     stems_raw = form.get("stems", "[]")
     quality_preset = normalize_quality_preset(str(form.get("quality_preset", QUALITY_PRESET)))
     stem_denoise_preset = normalize_stem_denoise_preset(str(form.get("stem_denoise", "off")))
-    demucs_device, demucs_device_resolved = _device_choice_or_422(str(form.get("demucs_device", "auto")))
+    demucs_device, demucs_device_resolved = _device_choice_or_422(
+        str(form.get("demucs_device", "auto"))
+    )
 
     if upload is None or not hasattr(upload, "filename"):
         raise HTTPException(status_code=422, detail="No file provided")
@@ -269,7 +274,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
         stems_list = json.loads(stems_raw)
         if not isinstance(stems_list, list):
             raise ValueError
-    except (json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError, TypeError):
         stems_list = []
     selected = _selected_stems_for_quality(stems_list, quality_preset)
 
@@ -295,8 +300,16 @@ async def _create_local_job(request: Request) -> dict[str, str]:
         try:
             duration = await asyncio.to_thread(_probe_duration, source_path)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=f"Could not read file duration: {e}") from e
+            logger.warning("could not probe uploaded audio", exc_info=True)
+            raise HTTPException(
+                status_code=422,
+                detail="Could not read audio duration. Check the file format and FFmpeg setup.",
+            ) from e
 
+        if not math.isfinite(duration) or duration <= 0:
+            raise HTTPException(
+                status_code=422, detail="Audio duration must be positive and finite"
+            )
         if duration > MAX_DURATION_SEC:
             raise HTTPException(
                 status_code=422,
@@ -325,6 +338,7 @@ async def _create_local_job(request: Request) -> dict[str, str]:
         duration_sec=duration,
         source_url=local_source_url,
     )
+    configure_eta_history(job, registry_all_jobs().values())
     if not registry_register_if_capacity(job, MAX_PENDING_JOBS):
         shutil.rmtree(job_dir, ignore_errors=True)
         raise HTTPException(status_code=503, detail="Server busy, please try again later")

@@ -53,13 +53,20 @@ fi
 rm -f "$DMG_PATH" "$DMG_RW_PATH"
 mkdir -p "$DIST_DIR"
 
-hdiutil create \
-  -size "$DMG_SIZE" \
-  -type UDIF \
-  -fs APFS \
-  -volname "LayerLab" \
-  -ov \
-  "$DMG_RW_PATH" >/dev/null
+# New macOS versions require diskutil for blank APFS images. Older releases
+# still use hdiutil; both produce an image that can be compressed as UDZO.
+if diskutil image create blank --help >/dev/null 2>&1; then
+  diskutil image create blank --format RAW --size "$DMG_SIZE" \
+    --volumeName "LayerLab" "$DMG_RW_PATH" >/dev/null
+else
+  hdiutil create \
+    -size "$DMG_SIZE" \
+    -type UDIF \
+    -fs APFS \
+    -volname "LayerLab" \
+    -ov \
+    "$DMG_RW_PATH" >/dev/null
+fi
 
 MOUNT_DIR="$(mktemp -d /tmp/stemdeck-dmg.XXXXXX)"
 cleanup_mount() {

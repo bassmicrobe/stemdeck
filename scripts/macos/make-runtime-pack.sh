@@ -34,7 +34,7 @@ if [[ -z "$PYTHON_BIN" ]]; then
   done
 fi
 
-for cmd in cargo ditto rustup shasum tar "$PYTHON_BIN"; do
+for cmd in cargo rustc ditto shasum tar uv "$PYTHON_BIN"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: required command not found on PATH: $cmd" >&2
     exit 1
@@ -86,7 +86,12 @@ else
 fi
 
 echo "==> Building Rust PCM sidecar (${RUST_TARGET})"
-rustup target add "$RUST_TARGET"
+if command -v rustup >/dev/null 2>&1; then
+  rustup target add "$RUST_TARGET"
+elif [[ ! -d "$(rustc --print target-libdir --target "$RUST_TARGET")" ]]; then
+  echo "ERROR: Rust target ${RUST_TARGET} is unavailable; install it with rustup." >&2
+  exit 1
+fi
 cargo build \
   --manifest-path "$REPO_ROOT/desktop/src-tauri/Cargo.toml" \
   --release \
@@ -143,10 +148,15 @@ find "$PYTHON_DIR/lib" -name "EXTERNALLY-MANAGED" -delete
 echo "==> Installing packages into bundled Python"
 # --system is required because $PYTHON_DIR is not a venv (it's a full Python install).
 uv pip install --system --python "$PYTHON_DIR/bin/python" pip setuptools wheel
+# Use the tested lockfile rather than resolving a different set for each build.
+uv export --project "$REPO_ROOT" --locked --no-dev --no-emit-project \
+  --output-file "$BUILD_DIR/runtime-requirements-${ARCH}.txt" >/dev/null
+uv pip install --system --python "$PYTHON_DIR/bin/python" \
+  --requirement "$BUILD_DIR/runtime-requirements-${ARCH}.txt"
 # The project version is git-derived (hatch-vcs). Pin it explicitly from $VERSION
 # so the install doesn't depend on git tags being present in the build checkout (#169).
 SETUPTOOLS_SCM_PRETEND_VERSION="${VERSION#v}" \
-  uv pip install --system --python "$PYTHON_DIR/bin/python" "$REPO_ROOT"
+  uv pip install --system --python "$PYTHON_DIR/bin/python" --no-deps "$REPO_ROOT"
 
 # imageio-ffmpeg wheels include a GPL-enabled FFmpeg executable. Desktop setup
 # downloads FFmpeg directly from the disclosed provider, so do not silently

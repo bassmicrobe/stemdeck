@@ -1,0 +1,230 @@
+/* Focus, empty-state, and compact-navigation fixes from the UI/UX audit. */
+.daw :where(button, a, input, select, [role="button"], [role="slider"]):focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(173, 114, 255, 0.2);
+}
+
+.daw :where(button, select):disabled,
+.daw [aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+#footer-scrub {
+  touch-action: none;
+}
+
+@media (min-width: 1641px) {
+  .daw-stem-section {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 1640px) {
+  .daw-topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .daw-sep, .daw-composer-sep { display: none; }
+  .daw-notif-wrap { margin-left: auto; }
+  .daw-composer {
+    order: 3;
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: auto;
+    gap: 8px;
+    padding: 8px;
+    overflow: visible;
+  }
+  .daw-url-zone { min-height: 38px; padding: 0 6px; }
+  .daw-stem-section { grid-column: 2 / -1; min-height: 38px; padding: 0; }
+  .daw-quality-section { min-height: 38px; padding: 0; }
+  .daw-quality-select { width: 100%; min-width: 0; height: 38px; }
+  .daw-process-btn { margin: 0; min-width: 0; min-height: 38px; border-radius: 8px; }
+}
+
+@media (max-width: 640px) {
+  .daw-composer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daw-url-zone, .daw-stem-section { grid-column: 1 / -1; }
+  .daw-quality-select, .daw-process-btn { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daw *, .about-overlay *, .friends-overlay *, .logs-overlay * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.daw .btn-transport:disabled,
+.daw #t-export-btn:disabled {
+  opacity: 0.34;
+  filter: saturate(0.35);
+  box-shadow: none;
+}
+
+.daw-wave-panel {
+  position: relative;
+}
+
+.daw-empty-state {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px;
+  text-align: center;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(173, 114, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(8, 5, 15, 0.08), rgba(8, 5, 15, 0.42));
+}
+
+.daw.no-track .daw-empty-state {
+  display: flex;
+}
+
+.job:not(.hidden) + .daw-empty-state {
+  display: none;
+}
+
+.daw-empty-orbit {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+  border: 1px solid rgba(190, 145, 255, 0.42);
+  border-radius: 50%;
+  background: rgba(25, 15, 42, 0.8);
+  box-shadow:
+    inset 0 0 22px rgba(173, 114, 255, 0.14),
+    0 0 32px rgba(173, 114, 255, 0.2);
+}
+
+.daw-empty-state h1 {
+  margin: 8px 0 0;
+  color: var(--fg);
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.daw-empty-state p {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+.daw-empty-action {
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 18px;
+  border: 1px solid rgba(190, 145, 255, 0.56);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(116, 132, 216, 0.96), rgba(164, 127, 211, 0.96));
+  color: #fffaff;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 10px 28px rgba(8, 4, 16, 0.34), 0 0 22px rgba(173, 114, 255, 0.18);
+}
+
+.daw-empty-action:hover {
+  border-color: var(--accent-2);
+  filter: brightness(1.08);
+}
+
+.daw.no-track .daw-content .mixer-column,
+.daw.no-track .daw-content .waves-column {
+  opacity: 0.24;
+}
+
+@media (max-width: 640px) {
+  .daw .sidebar {
+    height: clamp(132px, 18dvh, 152px);
+    min-height: 132px;
+    flex-direction: column;
+  }
+
+  .daw .sidebar-rail-mobile {
+    width: 100%;
+    height: 46px;
+    min-height: 46px;
+    padding: 4px 6px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+
+  .daw .sidebar-rail-mobile::-webkit-scrollbar {
+    display: none;
+  }
+
+  .daw .sidebar-rail-mobile .rail-collapse {
+    display: none;
+  }
+
+  .daw .sidebar-rail-mobile .rail-btn {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
+
+  .daw .sidebar-body {
+    padding: 6px 8px 8px;
+    gap: 6px;
+  }
+
+  .daw .daw-search {
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .daw.no-track .daw-footer {
+    display: none !important;
+  }
+
+  .daw-empty-state {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: clamp(22px, 7vh, 54px) 18px 18px;
+  }
+
+  .daw-empty-orbit {
+    width: 58px;
+    height: 58px;
+  }
+
+  .daw-empty-orbit svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .daw-empty-action {
+    min-height: 44px;
+    min-width: 148px;
+  }
+
+  .lane-icon-toggle.mx-btn,
+  .ms-btn.mx-btn,
+  .lane-dl.mx-btn {
+    width: 28px;
+    height: 28px;
+  }
+}

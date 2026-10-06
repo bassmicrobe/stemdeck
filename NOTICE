@@ -38,6 +38,9 @@ Modification notice:
   signing/notarization hooks. WAV/PCM gating, DC/peak stabilization, RMS, and
   waveform peak generation can run in a bundled Rust sidecar, while Demucs
   models can remain loaded in bounded persistent worker processes between jobs.
+  Further modifications add local API Host/Origin and body-size validation,
+  bounded exports, atomic desktop downloads, cancellable audio loading,
+  and keyboard/touch accessibility refinements.
   See the Git history for the complete change record.
 
 Third-party dependencies:

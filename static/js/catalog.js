@@ -5,6 +5,7 @@ import { initSections } from "./sections.js";
 import { bpmChip, keyChip, saveSelectedStems, selectedStems, titleEl } from "./state.js";
 import { showError, importFromUrl, showJobProgress } from "./job.js";
 import { fmtBeatGrid, fmtTime, storeGet, storeSet } from "./utils.js";
+import { createModalController } from "./dialog.js";
 
 // Escape user-supplied strings before inserting into innerHTML.
 function esc(s) {
@@ -1020,6 +1021,15 @@ function dropOnFolder(folderId, trackId) {
 }
 
 function wireTrackDragAndLoad(el, trackId) {
+  el.tabIndex = 0;
+  el.setAttribute("role", "button");
+  el.setAttribute("aria-label", `Open ${tracks[trackId]?.title || "track"}`);
+  el.setAttribute("aria-current", String(trackId === _currentTrackId));
+  el.addEventListener("keydown", (event) => {
+    if (event.target !== el || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    loadTrackIntoStudio(trackId);
+  });
   el.draggable = true;
   el.addEventListener("dragstart", (e) => {
     startDrag(trackId, el, e);
@@ -1823,17 +1833,7 @@ function wireAboutDialog() {
 
   if (version) version.textContent = `v${currentVersion}`;
 
-  const open = () => dialog.classList.remove("hidden");
-  const hide = () => dialog.classList.add("hidden");
-
-  btn.addEventListener("click", open);
-  close?.addEventListener("click", hide);
-  dialog.addEventListener("mousedown", (e) => {
-    if (e.target === dialog) hide();
-  });
-  dialog.addEventListener("keydown", (e) => {
-    if (e.code === "Escape") hide();
-  });
+  createModalController({ dialog, trigger: btn, closeButton: close, initialFocus: close });
 }
 
 // Supporters dialog: a TV rail button opens a centered modal (like About) with
@@ -1901,12 +1901,7 @@ function wireSupportersDialog() {
     });
   }
 
-  const open = () => dialog.classList.remove("hidden");
-  const hide = () => dialog.classList.add("hidden");
-  btn.addEventListener("click", open);
-  close?.addEventListener("click", hide);
-  dialog.addEventListener("mousedown", (e) => { if (e.target === dialog) hide(); });
-  dialog.addEventListener("keydown", (e) => { if (e.code === "Escape") hide(); });
+  createModalController({ dialog, trigger: btn, closeButton: close, initialFocus: close });
 }
 
 async function syncWithServer() {

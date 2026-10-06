@@ -1321,16 +1321,21 @@ def _write_peaks_json(stems_dir: Path, peaks: dict[str, list[list[float]]]) -> N
         logger.warning("could not write peaks.json for %s", stems_dir.name, exc_info=True)
 
 
+def _retention_started_at(job: Job) -> float:
+    return job.completed_at if job.completed_at is not None else job.created_at
+
+
 def sweep_old_jobs(jobs_dir: Path) -> None:
     """Delete job directories older than JOB_TTL_SECONDS and remove them from
     the in-memory registry. Called hourly from the background sweep loop
     started at app startup.
 
-    Prefers Job.created_at over directory mtime (which can be touched by
-    unrelated filesystem events), and never deletes the directory of an
+    Retains terminal jobs from completion, not submission, so a long-running
+    job cannot expire immediately. Legacy records without completed_at use
+    created_at. Never deletes the directory of an
     active (non-terminal) registered job even if its timestamp looks old.
-    Falls back to mtime for orphan directories left over from a previous
-    server run, since the registry is in-memory only."""
+    Falls back to mtime for orphan directories without a restored registry
+    entry."""
     cutoff = time.time() - JOB_TTL_SECONDS
     if not jobs_dir.is_dir():
         return
@@ -1343,7 +1348,7 @@ def sweep_old_jobs(jobs_dir: Path) -> None:
         if job is not None:
             if job.status not in _TERMINAL:
                 continue  # never delete an active job's working dir
-            if job.created_at >= cutoff:
+            if _retention_started_at(job) >= cutoff:
                 continue
         elif d.stat().st_mtime >= cutoff:
             continue
@@ -1351,7 +1356,11 @@ def sweep_old_jobs(jobs_dir: Path) -> None:
         registry_remove(d.name)
         removed = True
     for job_id, job in jobs.items():
-        if job.status in _TERMINAL and job.created_at < cutoff and not (jobs_dir / job_id).exists():
+        if (
+            job.status in _TERMINAL
+            and _retention_started_at(job) < cutoff
+            and not (jobs_dir / job_id).exists()
+        ):
             registry_remove(job_id)
             removed = True
     if removed:

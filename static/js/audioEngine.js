@@ -14,6 +14,7 @@
 // streaming path before cutover.
 
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const MAX_PARALLEL_DECODES = 2;
 
 /**
  * @param {{name:string,url:string}[]} stems  Active stems only (caller filters).
@@ -25,7 +26,8 @@ export function createAudioEngine(stems, { onTime, onEnded } = {}) {
   master.connect(ctx.destination);
 
   /** @type {Map<string,{buffer:AudioBuffer,gain:GainNode,analyser:AnalyserNode,source:AudioBufferSourceNode|null}>} */
-  const tracks = new Map();
+  let tracks = new Map();
+  const loadController = new AbortController();
   let duration = 0;
   let playing = false;
   let startCtxTime = 0; // ctx.currentTime at playback start
@@ -34,28 +36,40 @@ export function createAudioEngine(stems, { onTime, onEnded } = {}) {
   let destroyed = false;
   let loop = { enabled: false, start: 0, end: 0 };
 
-  // Decode all stems up front. Resolves true once at least one stem is ready.
+  // Limit transient WAV buffers and abandon downloads immediately on track changes.
   const ready = (async () => {
-    await Promise.all(
-      stems.map(async (s) => {
-        if (!s?.url) return;
+    const activeStems = stems.filter((stem) => stem?.url);
+    let decoded = [];
+    for (let index = 0; index < activeStems.length; index += MAX_PARALLEL_DECODES) {
+      if (destroyed) return false;
+      const batch = await Promise.all(activeStems.slice(index, index + MAX_PARALLEL_DECODES).map(async (s) => {
         try {
-          const res = await fetch(s.url);
+          const res = await fetch(s.url, { signal: loadController.signal });
           if (!res.ok) throw new Error(`fetch ${res.status}`);
-          const buffer = await ctx.decodeAudioData(await res.arrayBuffer());
-          if (destroyed) return;
+          const bytes = await res.arrayBuffer();
+          if (destroyed) return null;
+          const buffer = await ctx.decodeAudioData(bytes);
+          if (destroyed) return null;
           const gain = ctx.createGain();
           const analyser = ctx.createAnalyser();
           analyser.fftSize = 1024;
           gain.connect(analyser);
           analyser.connect(master);
-          tracks.set(s.name, { buffer, gain, analyser, source: null });
-          duration = Math.max(duration, buffer.duration);
+          return [s.name, { buffer, gain, analyser, source: null }];
         } catch (e) {
-          console.warn(`[audioEngine] decode failed for ${s.name}:`, e);
+          if (!loadController.signal.aborted) console.warn(`[audioEngine] decode failed for ${s.name}:`, e);
+          return null;
         }
-      }),
-    );
+      }));
+      if (destroyed || batch.some((entry) => entry === null)) {
+        loadController.abort();
+        return false;
+      }
+      decoded = [...decoded, ...batch];
+    }
+    if (destroyed) return false;
+    tracks = new Map(decoded);
+    duration = Math.max(0, ...decoded.map(([, track]) => track.buffer.duration));
     return tracks.size > 0;
   })();
 
@@ -142,10 +156,15 @@ export function createAudioEngine(stems, { onTime, onEnded } = {}) {
   }
 
   function destroy() {
+    if (destroyed) return;
     destroyed = true;
+    loadController.abort();
     stopSources();
+    playing = false;
+    startOffset = 0;
+    duration = 0;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    tracks.clear();
+    tracks = new Map();
     ctx.close().catch(() => {});
   }
 

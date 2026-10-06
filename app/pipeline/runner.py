@@ -33,6 +33,7 @@ from app.pipeline.collect import (
     stabilize_stem_outputs,
 )
 from app.pipeline.download import download
+from app.pipeline.eta import finalize_job_eta
 from app.pipeline.process import run_tracked_process
 from app.pipeline.progress import set_stage_progress
 from app.pipeline.separate import separate
@@ -395,6 +396,7 @@ def _write_metadata(job: Job, job_dir: Path) -> None:
         "processing_started_at": job.processing_started_at,
         "completed_at": job.completed_at,
         "processing_elapsed_seconds": job.processing_elapsed_seconds,
+        "stage_timings": job.stage_timings,
         "tags": job.tags,
         "logs": job.logs,
     }
@@ -429,6 +431,7 @@ async def _run_async(
                 if isinstance(e, JobCancelled) or job.cancel_requested
                 else "Background analysis failed; stem audio was preserved"
             )
+            finalize_job_eta(job)
             _set(
                 job,
                 status="done",
@@ -444,6 +447,7 @@ async def _run_async(
         if not isinstance(e, JobCancelled) and not job.cancel_requested:
             logger.exception("pipeline failed for job %s: %s", job.id, e)
             add_job_log(job, e, level="error", stage="error", progress=job.progress)
+            finalize_job_eta(job)
             _set(job, status="error", stage="Error: Processing failed", error=error_msg)
             persist_registry(jobs_dir)
             _rmtree(job_dir)
@@ -454,10 +458,12 @@ async def _run_async(
             job.id,
         )
         add_job_log(job, "Job cancelled", level="warning", stage="cancelled", progress=job.progress)
+        finalize_job_eta(job)
         _set(job, status="cancelled", stage="Cancelled")
         persist_registry(jobs_dir)
         _rmtree(job_dir)
         return
+    finalize_job_eta(job)
     _set(job, status="done", progress=1.0, stage="Done")
     add_job_log(job, "Processing completed successfully", stage="done", progress=1.0)
     _write_metadata(job, job_dir)

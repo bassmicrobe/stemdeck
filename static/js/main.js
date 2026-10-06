@@ -1,5 +1,5 @@
 import {
-  playBtn, loopBtn, multitrack, totalDuration, loopEnabled, loopStart, loopEnd,
+  playBtn, loopBtn, multitrack, audioEngine, totalDuration, loopEnabled, loopStart, loopEnd,
   setLoopStart, setLoopEnd, selectedStems, saveSelectedStems, stemSelectionReady,
   qualityPreset, qualityPresetReady, qualitySelect, setQualityPreset,
   stemDenoisePreset, stemDenoiseReady, denoiseSelect, setStemDenoisePreset,
@@ -17,11 +17,12 @@ import {
 } from "./player.js";
 import { wireJobForm, showError } from "./job.js";
 import { wireTransportButtons } from "./transport.js";
-import { togglePlayPause, updateLoopRegionVisual } from "./transport.js";
+import { seekToTime, togglePlayPause, updateLoopRegionVisual } from "./transport.js";
 import { wireStemListControls, wireMixerToolbar } from "./mixer.js";
 import { initCatalog } from "./catalog.js";
 import { runStoreMigrationIfNeeded } from "./utils.js";
 import { initLogViewer } from "./logs.js";
+import { playbackShortcutAllowed, wireSeekSlider } from "./interaction.js";
 
 // ─── Stem choice toggles on the import page ───
 //
@@ -353,22 +354,11 @@ function wireFooterControls() {
   });
 
   // ── Scrub bar seek ──
-  const scrub = document.getElementById("footer-scrub");
-  if (scrub) {
-    function seekToX(clientX) {
-      if (!multitrack || !totalDuration) return;
-      const rect = scrub.getBoundingClientRect();
-      const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      multitrack.setTime(frac * totalDuration);
-    }
-    let _scrubbing = false;
-    scrub.addEventListener("mousedown", (e) => {
-      _scrubbing = true;
-      seekToX(e.clientX);
-    });
-    document.addEventListener("mousemove", (e) => { if (_scrubbing) seekToX(e.clientX); });
-    document.addEventListener("mouseup",   () => { _scrubbing = false; });
-  }
+  wireSeekSlider(document.getElementById("footer-scrub"), {
+    getDuration: () => totalDuration,
+    getTime: () => (audioEngine ?? multitrack)?.getCurrentTime?.() ?? 0,
+    seek: seekToTime,
+  });
 
   // ── Close panels on outside click ──
   document.addEventListener("click", closeAllChipPanels);
@@ -477,29 +467,29 @@ function wireAppShellControls() {
 // ─── Keyboard shortcuts ───
 
 document.addEventListener("keydown", (e) => {
-  if (!multitrack) return;
-  if (e.target instanceof HTMLInputElement) return;
+  const transport = audioEngine ?? multitrack;
+  const modalOpen = Boolean(document.querySelector('[role="dialog"]:not(.hidden)'));
+  if (!transport || !playbackShortcutAllowed(e, modalOpen)) return;
+  const currentTime = transport.getCurrentTime();
   if (e.code === "Space") {
     e.preventDefault();
     togglePlayPause();
   } else if (e.code === "BracketLeft") {
     e.preventDefault();
-    multitrack.setTime(Math.max(0, multitrack.getCurrentTime() - 5));
+    seekToTime(currentTime - 5);
   } else if (e.code === "BracketRight") {
     e.preventDefault();
-    multitrack.setTime(
-      Math.min(multitrack.getDuration(), multitrack.getCurrentTime() + 5),
-    );
+    seekToTime(currentTime + 5);
   } else if (e.code === "KeyL") {
     e.preventDefault();
     loopBtn.click();
   } else if (e.code === "KeyI" && loopEnabled && multitrack) {
     e.preventDefault();
-    setLoopStart(Math.min(multitrack.getCurrentTime(), loopEnd - 0.5));
+    setLoopStart(Math.min(currentTime, loopEnd - 0.5));
     updateLoopRegionVisual();
   } else if (e.code === "KeyO" && loopEnabled && multitrack) {
     e.preventDefault();
-    setLoopEnd(Math.max(multitrack.getCurrentTime(), loopStart + 0.5));
+    setLoopEnd(Math.max(currentTime, loopStart + 0.5));
     updateLoopRegionVisual();
   }
 });

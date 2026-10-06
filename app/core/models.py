@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -139,6 +140,18 @@ class Job:
     processing_started_at: float | None = None
     completed_at: float | None = None
     processing_elapsed_seconds: float | None = None
+    stage_timings: dict[str, float] = field(default_factory=dict)
+    eta_completion_at: float | None = None
+    eta_confidence: str = "low"
+    eta_method: str = "baseline"
+    eta_stage_key: str | None = None
+    eta_stage_started_at: float | None = None
+    eta_stage_fraction: float = 0.0
+    eta_stage_samples: list[tuple[float, float]] = field(default_factory=list)
+    eta_stage_estimates: dict[str, float] = field(default_factory=dict)
+    eta_estimate_duration_sec: float | None = None
+    eta_history_stage_rates: dict[str, float] = field(default_factory=dict)
+    eta_history_samples: int = 0
 
     def elapsed_seconds(self) -> float:
         return max(0.0, time.time() - self.status_started_at)
@@ -160,6 +173,9 @@ class Job:
     def eta_seconds(self) -> float | None:
         if self.status in ("done", "error", "cancelled"):
             return None
+        if self.eta_completion_at is not None:
+            remaining = self.eta_completion_at - time.time()
+            return remaining if remaining > 0.5 else None
         progress = max(0.0, min(1.0, float(self.progress or 0.0)))
         if progress < 0.01 or progress >= 0.995:
             return None
@@ -169,6 +185,17 @@ class Job:
         if elapsed < 2.0:
             return None
         return max(0.0, (elapsed / progress) - elapsed)
+
+    def eta_status(self) -> str | None:
+        if self.status in ("done", "error", "cancelled"):
+            return None
+        if self.status == "queued":
+            return "waiting"
+        if self.eta_completion_at is not None and self.eta_completion_at <= time.time() + 0.5:
+            return "recalibrating"
+        if self.eta_completion_at is None:
+            return "estimating"
+        return "stable" if self.eta_confidence in {"medium", "high"} else "estimating"
 
     def profile_stems(self) -> tuple[str, ...]:
         selected = set(self.selected_stems or [])
@@ -231,6 +258,11 @@ class Job:
             "completed_at": self.completed_at,
             "server_time": time.time(),
             "eta_seconds": None if eta is None else round(eta, 1),
+            "eta_completion_at": self.eta_completion_at,
+            "eta_status": self.eta_status(),
+            "eta_confidence": self.eta_confidence,
+            "eta_method": self.eta_method,
+            "eta_stage": self.eta_stage_key,
             "title": self.title,
             "duration": self.duration_sec,
             "thumbnail": self.thumbnail,
@@ -295,9 +327,38 @@ class Job:
             job.logs = []
         else:
             job.logs = [entry for entry in job.logs[-300:] if isinstance(entry, dict)]
+        if not isinstance(job.stage_timings, dict):
+            job.stage_timings = {}
+        else:
+            clean_timings: dict[str, float] = {}
+            for key, value in job.stage_timings.items():
+                try:
+                    seconds = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(key, str) and math.isfinite(seconds) and 0.0 < seconds <= 86400.0:
+                    clean_timings[key] = seconds
+            job.stage_timings = clean_timings
         job.cancel_requested = False
         return job
 
 
-_TRANSIENT_FIELDS = frozenset(("cancel_requested", "queue_position", "queue_size"))
+_TRANSIENT_FIELDS = frozenset(
+    (
+        "cancel_requested",
+        "queue_position",
+        "queue_size",
+        "eta_completion_at",
+        "eta_confidence",
+        "eta_method",
+        "eta_stage_key",
+        "eta_stage_started_at",
+        "eta_stage_fraction",
+        "eta_stage_samples",
+        "eta_stage_estimates",
+        "eta_estimate_duration_sec",
+        "eta_history_stage_rates",
+        "eta_history_samples",
+    )
+)
 _JOB_FIELDS = frozenset(f.name for f in dataclasses.fields(Job) if f.name not in _TRANSIENT_FIELDS)

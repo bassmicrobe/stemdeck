@@ -230,6 +230,9 @@ def _recover_done_job(job_dir: Path) -> Job | None:
         processing_started_at=meta.get("processing_started_at"),
         completed_at=meta.get("completed_at"),
         processing_elapsed_seconds=meta.get("processing_elapsed_seconds"),
+        stage_timings=meta.get("stage_timings")
+        if isinstance(meta.get("stage_timings"), dict)
+        else {},
         logs=meta.get("logs") if isinstance(meta.get("logs"), list) else [],
     )
 

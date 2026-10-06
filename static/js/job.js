@@ -126,6 +126,9 @@ function timerFromState(state, pct = null) {
     serverOffsetMs: serverNow - localNow,
     etaSeconds: state.eta_seconds,
     etaSampledAtMs: serverNow,
+    etaCompletionAtMs: epochMs(state.eta_completion_at),
+    etaStatus: state.eta_status,
+    etaConfidence: state.eta_confidence,
     queuePosition: state.queue_position,
     queueSize: state.queue_size,
   };
@@ -142,6 +145,11 @@ function elapsedFrom(timer, startedAtMs) {
 }
 
 function etaFrom(timer) {
+  if (timer.etaStatus === "recalibrating") return null;
+  if (timer.etaCompletionAtMs != null) {
+    const remaining = (timer.etaCompletionAtMs - serverNowMs(timer)) / 1000;
+    return remaining > 0.5 ? remaining : null;
+  }
   if (timer.etaSeconds == null) return null;
   const elapsedSinceSample = Math.max(0, (serverNowMs(timer) - timer.etaSampledAtMs) / 1000);
   return Math.max(0, Number(timer.etaSeconds) - elapsedSinceSample);
@@ -164,9 +172,13 @@ function timerLabel(timer) {
   const elapsedLabel = elapsed != null ? `Elapsed ${formatClock(elapsed)}` : "";
   const eta = etaFrom(timer);
   if (eta != null) {
-    return [elapsedLabel, `ETA ${formatClock(eta)}`].filter(Boolean).join(" · ");
+    const etaPrefix = timer.etaConfidence === "low" ? "ETA ~" : "ETA ";
+    return [elapsedLabel, `${etaPrefix}${formatClock(eta)}`].filter(Boolean).join(" · ");
   }
-  if (timer.status === "separating" && timer.progressPercent > 0 && timer.progressPercent < 100) {
+  if (timer.etaStatus === "recalibrating") {
+    return [elapsedLabel, "ETA recalibrating..."].filter(Boolean).join(" · ");
+  }
+  if (timer.progressPercent > 0 && timer.progressPercent < 100) {
     return [elapsedLabel, "ETA estimating..."].filter(Boolean).join(" · ");
   }
   return elapsedLabel;

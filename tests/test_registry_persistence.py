@@ -201,7 +201,7 @@ def test_restored_job_serves_stems(tmp_path: Path, monkeypatch):
 
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         state = client.get("/api/jobs/abcdefabcded")
         assert state.status_code == 200
         assert state.json()["status"] == "done"
@@ -221,7 +221,7 @@ def test_delete_updates_persisted_registry(tmp_path: Path, monkeypatch):
 
     from app.main import app
 
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         response = client.delete(f"/api/jobs/{job.id}")
 
     assert response.status_code == 200

@@ -60,6 +60,30 @@ function audioEngineEnabled() {
 // memory. ~1.2 GB ≈ 6 stems × ~10 min (or 4 stems × ~15 min) at 44.1 kHz/Float32.
 const MAX_ENGINE_DECODED_BYTES = 1.2e9;
 
+function setPlaybackControlsEnabled(enabled) {
+  for (const control of [playBtn, stopBtn, loopBtn]) {
+    if (!control) continue;
+    control.disabled = !enabled;
+    control.setAttribute("aria-disabled", String(!enabled));
+  }
+
+  const exportButton = document.getElementById("t-export-btn");
+  if (exportButton instanceof HTMLButtonElement) {
+    exportButton.disabled = !enabled;
+    exportButton.setAttribute("aria-disabled", String(!enabled));
+  }
+
+  const scrub = document.getElementById("footer-scrub");
+  if (scrub) {
+    scrub.setAttribute("aria-disabled", String(!enabled));
+    scrub.tabIndex = enabled ? 0 : -1;
+    if (!enabled) {
+      scrub.setAttribute("aria-valuenow", "0");
+      scrub.setAttribute("aria-valuetext", "0:00 of 0:00");
+    }
+  }
+}
+
 // Stem-selection filter: the import-page stem-choice toggles set
 // selectedStems (state.js). Backend always processes all 6 -- we
 // hide the rows for unselected stems in the studio dashboard so the
@@ -580,6 +604,7 @@ export function destroyPlayer() {
   document.querySelector(".app")?.classList.remove("is-import");
   document.querySelector(".app")?.classList.remove("engine-waveforms");
   document.querySelector(".app")?.classList.add("no-track");
+  setPlaybackControlsEnabled(false);
   destroySections();
   stopVuLoop();
   stopStemVuLoop();
@@ -666,6 +691,7 @@ export function destroyPlayer() {
 export function renderEmptyShell() {
   document.querySelector(".app")?.classList.remove("is-import");
   document.querySelector(".app")?.classList.add("no-track");
+  setPlaybackControlsEnabled(false);
   stopStemVuLoop();
   ensureMixerStateDefaults();
   mixerEl.innerHTML = "";
@@ -819,6 +845,7 @@ export function wireUpAudio(
   beatTimes = [],
   chordMidiUrl = null,
   midiAnalysisUrl = null,
+  forceStreaming = false,
 ) {
   const app = document.querySelector(".app");
   app?.classList.remove("is-import");
@@ -826,6 +853,11 @@ export function wireUpAudio(
   setWaveformLoading(true);
   stopVuLoop();
   stopStemVuLoop();
+  setPlaybackControlsEnabled(false);
+  if (audioEngine) {
+    audioEngine.destroy();
+    setAudioEngine(null);
+  }
   if (multitrack) {
     multitrack.destroy();
     setMultitrack(null);
@@ -943,7 +975,7 @@ export function wireUpAudio(
   const engineStemCount = stems.filter((s) => s.url).length;
   const engineTooLarge =
     estimateDecodedBytes(totalDuration, engineStemCount) > MAX_ENGINE_DECODED_BYTES;
-  const useEngine = audioEngineEnabled() && !engineTooLarge;
+  const useEngine = !forceStreaming && audioEngineEnabled() && !engineTooLarge;
   // The null-URL multitrack (engine path) has no WaveSurfer canvas, so reveal the
   // SVG overview layer as the visible waveform (CSS hides it on the streaming path).
   document.querySelector(".app")?.classList.toggle("engine-waveforms", useEngine);
@@ -1030,6 +1062,8 @@ export function wireUpAudio(
   };
 
   mt.once("canplay", () => {
+    if (token !== visualRenderToken || multitrack !== mt) return;
+    if (!useEngine) setPlaybackControlsEnabled(true);
     setWaveformLoading(false);
     const ctx = mt.audioContext;
     console.debug(
@@ -1149,6 +1183,14 @@ export function wireUpAudio(
         onEnded: () => { playBtn.classList.remove("playing"); updateStopVisual(); },
       });
       setAudioEngine(eng);
+      const fallbackToStreaming = () => {
+        eng.destroy();
+        if (token !== visualRenderToken || multitrack !== mt) return;
+        setAudioEngine(null);
+        wireUpAudio(jobId, stems, duration, thumbnail, mixUrl, title,
+          Promise.resolve(precomputedPeaks), profileLabel, profileKey, beatTimes,
+          chordMidiUrl, midiAnalysisUrl, true);
+      };
       eng.ready.then((ok) => {
         // Bail if the user switched tracks while we were decoding.
         if (token !== visualRenderToken || multitrack !== mt) {
@@ -1157,12 +1199,11 @@ export function wireUpAudio(
           return;
         }
         if (!ok) {
-          // No decodable stems — fall back to the streaming path transparently.
-          console.warn("[player] audio engine had no decodable stems; using streaming path");
-          eng.destroy();
-          setAudioEngine(null);
+          console.warn("[player] audio engine could not load every stem; using streaming path");
+          fallbackToStreaming();
           return;
         }
+        setPlaybackControlsEnabled(true);
         eng.setLoop(loopEnabled, loopStart, loopEnd);
         applyMix(); // push per-stem gains (incl. >1.0 boost) into the engine
         // Drive the decode-dependent visuals from the engine's own decoded
@@ -1183,8 +1224,7 @@ export function wireUpAudio(
         }
       }).catch((e) => {
         console.warn("[player] audio engine init failed; using streaming path:", e);
-        eng.destroy();
-        if (audioEngine === eng) setAudioEngine(null);
+        fallbackToStreaming();
       });
     }
   });

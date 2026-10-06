@@ -2,10 +2,12 @@
 // attributes so the Content-Security-Policy can forbid inline script (#171).
 // Loaded as a module (deferred), so the DOM is parsed before this runs.
 
-// Upload button → trigger the hidden file input.
-document.getElementById("uploadFileBtn")?.addEventListener("click", () => {
-  document.getElementById("fileInput")?.click();
-});
+// Upload buttons share the same hidden file input.
+for (const id of ["uploadFileBtn", "emptyUploadBtn"]) {
+  document.getElementById(id)?.addEventListener("click", () => {
+    document.getElementById("fileInput")?.click();
+  });
+}
 
 // Notification panel: toggle / close / close-on-outside-click.
 const notifBtn = document.getElementById("notifBtn");
@@ -20,12 +22,19 @@ notifBtn?.addEventListener("click", () => {
   setNotifOpen(!notifWrap?.classList.contains("open"));
 });
 
-document
-  .querySelector(".daw-notif-close")
-  ?.addEventListener("click", () => setNotifOpen(false));
+document.querySelector(".daw-notif-close")?.addEventListener("click", () => {
+  setNotifOpen(false);
+  notifBtn?.focus();
+});
 
 document.addEventListener("click", (e) => {
   if (notifWrap?.classList.contains("open") && !notifWrap.contains(e.target)) {
     setNotifOpen(false);
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !notifWrap?.classList.contains("open")) return;
+  setNotifOpen(false);
+  notifBtn?.focus();
 });
